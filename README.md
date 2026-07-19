@@ -1,36 +1,161 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# football4 — 가상 축구 리그 시뮬레이션 & 배팅 플랫폼
 
-## Getting Started
+> **"플레이하지 않고, 지켜보고 예측한다."**
+> 컴퓨터가 24/7 자동으로 진행하는 3티어(24/20/16팀) 가상 축구 리그 세계를 구축한다.
+> 사용자는 팀을 조작하지 않고 **관전**하며(1차 릴리스), 이후 **배팅**한다(2차 릴리스).
 
-First, run the development server:
+기술 스택: Next.js 16 (App Router) / React 19 / TypeScript / TailwindCSS v4 / Supabase
+현재 상태: **문서 설계 완료, 구현 착수 전** — `src/app/`에는 아직 create-next-app 기본 파일만 있습니다.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev     # 개발 서버 (http://localhost:3000)
+npm run build   # 프로덕션 빌드
+npm run lint    # ESLint
+npx tsc --noEmit  # 타입체크 (별도 스크립트 없음)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 이 문서의 목적
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+이 저장소는 **코드보다 문서가 먼저 쌓인 프로젝트**입니다. 구현을 시작하기 전에 기획 → 요구사항 → 로드맵 → 팀 편성 → 일정 순서로 문서를 확정했고, 그 결과 30여 개의 마크다운 문서가 존재합니다.
 
-## Learn More
+이 README는 **어떤 문서가 왜 만들어졌고 무엇을 담당하는지**를 정리한 지도입니다. 새로 합류했다면 여기서 시작하세요.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 문서 계보 — 무엇이 무엇을 낳았는가
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+각 문서는 앞 문서의 산출물을 입력으로 받아 만들어졌습니다. 화살표는 "근거로 삼았다"는 뜻입니다.
 
-## Deploy on Vercel
+```mermaid
+graph TD
+    A["docs/devStep/01.초기기획.md<br/>사용자의 최초 아이디어"] --> B["docs/require/00~06<br/>요구사항 명세 (PRD)"]
+    B --> C["ROADMAP.md<br/>Task 001~045"]
+    B --> I["docs/ISSUES.md<br/>미결·개선사항"]
+    C --> D["docs/TEAM.md<br/>10명 역할 분담"]
+    D --> E["docs/business/01~03<br/>시장·경쟁·예산"]
+    E --> I
+    C --> F["docs/team-schedule/<br/>6명 기준 일차별 일정"]
+    D --> F
+    G["CLAUDE.md / AGENTS.md<br/>개발 원칙·제약"] -.-> B
+    G -.-> C
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**흐름 요약**: 거친 아이디어 한 장(`01.초기기획.md`)에서 출발해 → 측정 가능한 요구사항 253건으로 정제하고(`docs/require/`) → 실행 단위 Task 45개로 분해한 뒤(`ROADMAP.md`) → 사람에게 배분하고(`docs/TEAM.md`) → 실제 인원에 맞춰 날짜를 붙였습니다(`docs/team-schedule/`).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## 문서 목록
+
+### 루트 — 프로젝트 규약과 전체 계획
+
+| 문서 | 역할 | 만든 이유 |
+|---|---|---|
+| **`README.md`** | 문서 지도 (이 파일) | 문서가 30개를 넘어가면서 "어디부터 봐야 하는지"가 불명확해졌기 때문 |
+| **`CLAUDE.md`** | AI 에이전트용 프로젝트 가이드 — 실제 디렉터리 구조, 도입된 것과 **아직 도입 안 된 것**, Mock First 개발 원칙, 테스트 계정 | 에이전트가 존재하지도 않는 라이브러리(shadcn/ui, Supabase 클라이언트 등)를 있다고 가정하고 코드를 쓰는 것을 막기 위해 |
+| **`AGENTS.md`** | Next.js 16 경고 — 코드 작성 전 `node_modules/next/dist/docs/`를 먼저 읽으라는 규칙 | Next.js 16이 학습 데이터와 다를 수 있어, 기억에 의존한 코드 작성을 차단하기 위해 |
+| **`ROADMAP.md`** | **개발 로드맵 본체** — Phase 1~4, Task 001~045. Task마다 담당·의존·구현 체크리스트·수락 기준·테스트 | 요구사항 253건은 그대로는 실행할 수 없어, 독립적으로 완료 가능한 Task 단위로 분해하기 위해 |
+
+### `docs/devStep/` — 개발 단계 기록 (원본 보존)
+
+| 문서 | 역할 | 만든 이유 |
+|---|---|---|
+| `00.agent팀터미널실행 및 기본 설치 파일들.md` | WSL·tmux 등 개발 환경 설치/실행 절차 | 여러 에이전트를 터미널에서 병렬로 띄우는 환경을 재현 가능하게 만들기 위해 |
+| `01.초기기획.md` | **사용자의 최초 아이디어 원문** — 리그 구성, 능력치 1~30, 승강제, 컨디션, 플레이오프 등 | 모든 요구사항의 뿌리. 나중에 "원래 뭘 원했더라"를 확인할 수 있게 **가공하지 않고 보존**. 이후 정정된 수치(팀 수 등)는 상단 주석으로만 표시 |
+
+> 이 폴더는 `NN.제목.md` 형식으로 **누적**합니다. 기존 문서를 고치지 않고 새 단계를 추가합니다.
+
+### `docs/require/` — 요구사항 명세 (PRD)
+
+초기 기획서의 모호한 문장("적절히 보정된다")을 **검증 가능한 요구사항**으로 바꾸기 위해 작성한 7개 문서입니다. 모든 항목에 ID가 붙어 있어 ROADMAP의 Task가 이 ID를 근거로 참조합니다.
+
+| 문서 | 역할 | 만든 이유 |
+|---|---|---|
+| `00-requirements-summary.md` | **요약 및 문서 인덱스** — 한 줄 요약, 전체 통계, 결정 기록 | 6개 문서를 매번 다 읽지 않고도 전체를 파악하는 진입점 |
+| `01-project-overview.md` | 비즈니스 목적, 핵심 명제, 범위 경계 | "무엇을 만들지"보다 **무엇을 안 만들지**를 못 박기 위해 |
+| `02-actors-and-usecases.md` | 액터 A-1~A-3(게스트/배터/운영자)와 유스케이스 | 권한 경계(RLS)와 화면 접근 범위를 나중에 설계하려면 액터가 먼저 확정돼야 해서 |
+| `03-functional-requirements.md` | **기능 요구사항 163건** — `FR-LG`(리그) `FR-MT`(경기 엔진) `FR-PL`(선수) `FR-BT`(배팅) 등 그룹별. MoSCoW 우선순위 표기 | 최대 문서(1,600줄). 시뮬레이션 규칙을 구현자가 해석할 여지 없이 적기 위해 |
+| `04-non-functional-requirements.md` | **비기능 요구사항 90건** — 성능/결정론/테스트/설정 외부화 등. **모든 항목이 측정 가능한 수치** | "빠르게", "적절히" 같은 표현은 검수가 불가능하므로 정성 표현을 금지하고 전부 수치화 |
+| `05-data-requirements.md` | **엔티티 47종(E-01~E-47) 논리 설계**와 데이터 제약(DC) | 물리 스키마(DDL)를 짜기 전에 엔티티 관계를 확정해, Mock 데이터와 실제 DB가 **같은 타입**을 쓰게 하려고 |
+| `06-prioritization-and-risks.md` | MoSCoW 집계, 릴리스 범위, 리스크, **결정 기록(D-15~D-26)** | 결정이 여러 곳에 흩어지면 충돌하므로, 확정 결정의 **단일 소스**로 지정 |
+
+### `docs/` — 운영 문서
+
+| 문서 | 역할 | 만든 이유 |
+|---|---|---|
+| **`ISSUES.md`** | **미해결 질문(Q-\*) · 개선사항(I-\*) · 가정(AS-\*) · 검증 항목(V-\*)** | 확정 사양과 미확정 사항이 섞이면 위험하므로 분리. 확정된 것은 `docs/require/`, **아직 결정 안 된 것은 여기**. 현재 미결 4건은 전부 2차 릴리스 이후 사항이라 1차 개발을 막지 않음 |
+| **`TEAM.md`** | **팀원 10명의 역할·책임·산출물 경로·담당 요구사항 ID·매핑 에이전트**, Phase별 분담 매트릭스 | 각 팀원을 서브에이전트로 실행하기 위해, 누가 어떤 파일을 소유하는지 사전에 갈라 충돌을 막으려고 |
+
+### `docs/business/` — 사업성 검토 (팀원 1~3 산출물)
+
+개발과 **병행 트랙**으로 진행됐습니다. 순수 사업 문서가 아니라, 결과가 개발 파라미터로 되돌아오도록 설계됐습니다.
+
+| 문서 | 역할 | 만든 이유 |
+|---|---|---|
+| `01-market-research.md` | 시장 규모(TAM/SAM/SOM), 타겟 세그먼트, 페르소나 | 페르소나 검증 결과가 **UX 우선순위**(Task 015·039)와 다국어 대상 시장 결정으로 연결 |
+| `02-competitor-analysis.md` | 직접/간접 경쟁 분석, 차별화 전략 | 배팅 마켓 범위(FR-BT)와 3차 기능 우선순위를 정하는 근거 |
+| `03-budget-plan.md` | 초기 투자, 운영비, 손익분기점, 인프라 비용 모델 | **Supabase 요금제·크론 실행 주기·몬테카를로 N값**이 곧 비용이라, Task 033·035의 파라미터를 비용에서 역산하기 위해 |
+
+### `docs/team-schedule/` — 실행 일정 (6명 기준)
+
+ROADMAP은 10명 전제로 작성됐지만 실제 가용 인원은 6명이라, **역할을 병합해 일차(1일차, 2일차 …) 단위로 재배치**한 문서 묶음입니다. 팀별로 파일이 나뉘며, 각 팀이 자기 파일만 보고도 그날 할 일을 알 수 있게 구성했습니다.
+
+핵심 설계 원칙은 **팀 간 간섭 최소화** — 팀마다 소유 경로를 갈라 같은 날 같은 모듈을 동시에 건드리지 않게 하고, 팀 간 의존은 일차 경계의 **인계(handoff)** 로만 발생시킵니다. 공유 계약(타입·어댑터 IF·공통코드·i18n 키·디자인 토큰)을 전부 1~27일차에 몰아 확정해서, **28일차 이후로는 팀 간 동시 편집이 필요한 파일이 없습니다.**
+
+| 문서 | 역할 |
+|---|---|
+| `README.md` | **전체 개요** — 팀 구성, 크리티컬 패스, Phase 마일스톤(M-1~M-6), 인계 지점, 동기화 포인트, 리스크, 10명 대비 비교 |
+| `01-코어품질팀.md` | 타입·계약·테스트·CI·리뷰 게이트 (원 팀원 4 일부 + 10) |
+| `02-시뮬레이션엔진팀.md` | 경기 엔진·대진표·시즌 정산 (원 팀원 5) |
+| `03-데이터밸런싱배당팀.md` | 공통코드·Mock·경제·배당 산출 (원 팀원 6 + 7 일부) |
+| `04-UI기반i18n팀.md` | 라우트 골격·디자인 시스템·i18n (원 팀원 8 일부 + 4 일부) |
+| `05-화면배팅UX팀.md` | 화면 조립·운영 콘솔·배팅 UX (원 팀원 8 일부 + 7 일부) |
+| `06-DB인프라팀.md` | 스키마·RLS·크론·어댑터 실구현 (원 팀원 9 + 3) |
+
+산출 요약: 총 잔여 공수 **211.5인일** / 크리티컬 패스 **74영업일** / 버퍼 18% 포함 **94영업일**(~2026-11-27) / 1차 MVP는 74일차(2026-10-30) / 동기화 포인트 **6개**(전원 참여는 2개뿐).
+
+### `.claude/agents/` — 서브에이전트 정의
+
+문서가 아니라 **실행 주체의 정의**입니다. `docs/TEAM.md`의 각 팀원 역할이 여기 정의된 에이전트에 매핑됩니다.
+
+| 경로 | 역할 |
+|---|---|
+| `dev/nextjs-app-developer.md` | App Router 구조·라우팅·레이아웃 설계 (팀원 4 아키텍트) |
+| `dev/ui-markup-specialist.md` | 컴포넌트 마크업·Tailwind 스타일링 (팀원 8 UI) |
+| `dev/code-reviewer.md` | 코드 리뷰 (팀원 10 QA) |
+| `dev/development-planner.md` | **ROADMAP.md 생성·갱신** — 이 저장소의 `ROADMAP.md`를 만든 주체 |
+| `dev/starter-cleaner.md` | create-next-app 보일러플레이트 정리 |
+| `docs/prd-generator.md` · `docs/prd-validator.md` | PRD 생성 / 기술적 타당성 검증 |
+| `requirements-analysis-expert.md` | **요구사항 분석** — `docs/require/` 7종을 만든 주체 |
+| `nextjs-supabase-expert.md` | 스키마·RLS·Server Action (팀원 9 DB) |
+| `notion-api-database-expert.md` | Notion API 연동 (현재 프로젝트 범위 밖) |
+| `plan-specialist/schedule-planner.md` | **일정 수립** — 팀원 수와 ROADMAP을 받아 `docs/team-schedule/`를 만드는 주체 |
+
+---
+
+## 읽는 순서
+
+**처음 합류했다면** — 아래 4개면 전체 그림이 잡힙니다.
+
+1. `docs/require/00-requirements-summary.md` — 무엇을 만드는가
+2. `ROADMAP.md` 개요 절 — 어떻게 쪼갰는가
+3. `docs/TEAM.md` — 누가 무엇을 맡는가
+4. `CLAUDE.md` — 어떤 규칙으로 코드를 쓰는가
+
+**구현을 시작한다면** — 자기 팀의 `docs/team-schedule/<팀명>.md`에서 오늘 일차를 확인하고, 해당 Task 번호로 `ROADMAP.md`를 펴서 체크리스트와 수락 기준을 봅니다. 요구사항 ID(FR-\*, NFR-\*, E-\*)가 나오면 `docs/require/`에서 원문을 확인합니다.
+
+---
+
+## 문서 갱신 규칙
+
+| 상황 | 갱신할 문서 |
+|---|---|
+| 새 결정이 내려짐 | `docs/require/06-prioritization-and-risks.md` 결정 기록 (**단일 소스**) + `docs/ISSUES.md`에서 해당 미결 항목 제거 |
+| 결정되지 않은 논점·개선 아이디어 발생 | `docs/ISSUES.md` |
+| Task 완료 / 새 Task 추가 | `ROADMAP.md` (체크박스 `[x]`) — `development-planner` 에이전트 |
+| 인원 변경 / 일정 지연 | `docs/team-schedule/` 재산출 — `schedule-planner` 에이전트 |
+| 설치·실행 절차 변경 | `docs/devStep/00.*.md` |
+| 새 개발 단계 시작 | `docs/devStep/NN.제목.md` **추가** (기존 문서 수정하지 않음) |
+
+**원칙**: 확정 사양은 `docs/require/`, 미확정은 `docs/ISSUES.md`, 실행 계획은 `ROADMAP.md`, 날짜는 `docs/team-schedule/`. 같은 정보를 두 곳에 쓰지 않습니다.
