@@ -27,6 +27,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 일정·팀 배정·소유 경로 | `docs/team-schedule/` (README + 팀별 6종) — ROADMAP의 일정 줄과 어긋나면 **이쪽이 옳음** |
 | 확정된 결정(D-\*) | `docs/require/06-prioritization-and-risks.md` 6.3절 |
 | 미결·개선 제안(I-\*) | `docs/ISSUES.md` |
+| 엔티티 필드·타입 | `src/types/**` (8일차 동결). `docs/require/05-data-requirements.md`는 **동기화하지 않는 초기 초안**이며 이미 뒤처져 있습니다 — 충돌 시 **TS가 옳고, 05문서는 갱신하지 않습니다**(9일차 결정, I-58) |
 
 ### 일차(Day) 운영
 
