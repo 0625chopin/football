@@ -96,7 +96,16 @@ export interface PlayerStatCoreValues {
   readonly errorsLeadingToShot: number;
   readonly errorsLeadingToGoal: number;
   // 규율
+  /**
+   * **파생 규칙(I-60, 9일차, 2팀 판정 + 1팀 SSOT 승인, I-43 준용)**: `MatchEventType`
+   * `'FOUL'` **과** `'PENALTY_AWARDED'` **양쪽을 폴드 합산**한다 — 박스 안 파울은 엔진이
+   * `PENALTY_AWARDED` 하나만 생성하고 별도 `FOUL`을 내보내지 않으므로(I-60 (A) 확정,
+   * `GOAL`/`OWN_GOAL`/`PENALTY_SCORED` 득점 3계열 fold와 동일 메커니즘), 이 필드 쪽에서
+   * `PENALTY_AWARDED`를 빼면 박스 파울이 규율 통계에서 누락되는 언더카운트가 발생한다.
+   * 생성·집계 로직 구현은 2팀 11일차(`stats.ts`) 소관 — 여기서는 파생 규칙만 명시.
+   */
   readonly foulsCommitted: number;
+  /** 위 `foulsCommitted`와 동일한 폴드 규칙(I-60) — 상대 팀 기준으로 귀속 방향만 반대 */
   readonly foulsDrawn: number;
   readonly yellowCards: number;
   readonly secondYellows: number;

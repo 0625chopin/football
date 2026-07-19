@@ -184,7 +184,7 @@
 - **일정**: 9일차 ~ 12일차 (2026-07-31 ~ 2026-08-05) / 추정 3.5인일 / 담당 3팀 데이터·밸런싱·배당팀
 - **근거**: FR-AD-011~016, E-41~E-44, NFR-CFG-001~007, 05문서 5.12.1
 - **구현 사항**
-  - [ ] `src/lib/config/` 에 그룹 카탈로그 36종을 타입 안전한 상수 정의로 작성 (group_code, 타입, min/max, `apply_policy`, description)
+  - [x] `src/lib/config/` 에 그룹 카탈로그 36종을 타입 안전한 상수 정의로 작성 (group_code, 타입, min/max, `apply_policy`, description) — **9일차 완료** (`src/lib/config/catalog.ts`, 05문서 5.12.1 표 36개 그룹 전량 등록. `src/types` E-41 `CommonCodeGroup`을 `Pick`으로 파생해 재사용, 신규 타입 미선언). `npx tsc --noEmit`·`npm run lint` 오류 0
   - [ ] 상수 로더 인터페이스 정의 — 해석 우선순위(전역 기본값 → 하드코딩 폴백), 그룹 단위 캐시, 무효화 훅
   - [ ] 하드코딩 안전 기본값 테이블 작성 (NFR-CFG-005, DC-13) + 폴백 시 WARN 로그 규약
   - [ ] 발효 정책 3종(`NEXT_SEASON` / `IMMEDIATE` / `NEXT_MARKET`) 해석 함수 시그니처 확정
@@ -198,8 +198,8 @@
 - **일정**: 9일차 ~ 11일차 (2026-07-31 ~ 2026-08-04) / 추정 2.5인일 / 담당 1팀 코어·품질팀
 - **근거**: FR-UI-023, FR-UI-022, NFR-MT-002, DC-01, R-16
 - **구현 사항**
-  - [ ] `src/lib/data/` 에 `DataSource` 인터페이스 정의 — 화면별 조회 메서드(리그 순위, 일정, 경기 상세, 선수, 클럽, 통계, 뉴스, 브래킷, 어드민)
-  - [ ] 반환 타입은 `src/types/` 도메인 타입만 사용 (DB 생성 타입 노출 금지)
+  - [x] `src/lib/data/` 에 `DataSource` 인터페이스 정의 — 화면별 조회 메서드(리그 순위, 일정, 경기 상세, 선수, 클럽, 통계, 뉴스, 브래킷, 어드민) — **9일차 완료** (`src/lib/data/DataSource.ts`)
+  - [x] 반환 타입은 `src/types/` 도메인 타입만 사용 (DB 생성 타입 노출 금지) — **9일차 완료**: 배럴(`@/types`)만 import, 비영속 조회 DTO(`PublicPlayerProfile`·`MatchTeamStatComparison` 등)도 도메인 타입 필드로만 합성(I-38·W-38 판정)
   - [ ] 환경변수·플래그 기반 어댑터 선택 팩토리 (`NEXT_PUBLIC_DATA_SOURCE=mock|supabase`)
   - [ ] 폴링 추상화 훅 계약 정의 (기본 5초 / 라이브 3초, 주기는 공통코드, 탭 비활성 시 중단)
   - [ ] 로딩/에러/빈 상태를 타입으로 표현하는 결과 래퍼 정의 (FR-UI-000)
@@ -211,7 +211,7 @@
 - **일정**: 9일차 ~ 13일차 (2026-07-31 ~ 2026-08-06) / 추정 4.0인일 / 담당 4팀 UI기반·i18n팀 / **크리티컬 패스**
 - **근거**: FR-UI-001~020, FR-UI-025, FR-UI-026, D-18, NFR-MT-006, DC-02
 - **구현 사항**
-  - [ ] `node_modules/next/dist/docs/`의 App Router·layout·`params`·i18n 라우팅 가이드를 먼저 확인하고 참조 경로 기록
+  - [x] `node_modules/next/dist/docs/`의 App Router·layout·`params`·i18n 라우팅 가이드를 먼저 확인하고 참조 경로 기록 — 9일차 완료, 문서 경로 전량과 발견 사항은 `docs/team-schedule/04-UI기반i18n팀.md` §7 참조
   - [ ] 라우트 생성: `/`, `/sample`, `/leagues/[leagueId]`, `/leagues/[leagueId]/fixtures`, `/matches/[matchId]`, `/players/[playerId]`, `/teams/[teamId]`, `/stats`, `/playoffs/[leagueId]`, `/cup`, `/transfers`, `/awards`, `/archive`, `/sponsors`, `/admin`, `/admin/config`, `/admin/scheduler`
   - [ ] **Task 011에서 확정한 로케일 라우팅 전략과 정합**하도록 세그먼트 구조를 결정 (경로 세그먼트 방식 채택 시 전 라우트가 로케일 하위에 배치)
   - [ ] 2차 대비 라우트 자리만 예약: `/bet`, `/my/bets`, `/my/wallet` (플래그로 비활성)
@@ -269,7 +269,7 @@
 - **일정**: 9일차 ~ 12일차 (2026-07-31 ~ 2026-08-05) / 추정 3.0인일 / 담당 6팀 DB·인프라팀
 - **근거**: E-01~E-47, D-15, 05문서 5.14~5.17, DC-05~DC-08, NFR-SC-001
 - **구현 사항**
-  - [ ] `docs/db/schema-design.md` 작성 — 47 엔티티의 테이블·컬럼·타입·제약 매핑 (단일 월드 전제)
+  - [x] `docs/db/schema-design.md` 작성 — 47 엔티티의 테이블·컬럼·타입·제약 매핑 (단일 월드 전제)
   - [ ] 관계 R-01~R-13 반영 (`TeamSeason` 소속 관리, `Contract/Loan` 기반 선수-팀, `fixture.snapshot_id` NOT NULL)
   - [ ] 인덱스 설계 — 5.16절 13개 인덱스 + `fixture(status, kickoff_at)` 부분 인덱스
   - [ ] 수치 정밀도 규약 (포인트 bigint / 배당 numeric(8,2) / 확률 numeric(9,8) / 컨디션 numeric(3,1))
@@ -496,7 +496,7 @@
 - **일정**: 9일차 ~ 16일차 (2026-07-31 ~ 2026-08-11) / 추정 6.5인일 / 담당 2팀 시뮬레이션엔진팀
 - **근거**: FR-MT-001·002·003·012·013·016, **D-19**, NFR-MT-001, NFR-PF-001, I-02
 - **구현 사항**
-  - [ ] `src/lib/sim/match/` — 90틱(+30 연장) 순회 엔진, 추가시간(전반 0~5 / 후반 1~8) 표현
+  - [x] `src/lib/sim/match/` — 90틱(+30 연장) 순회 엔진, 추가시간(전반 0~5 / 후반 1~8) 표현 (9일차, `tick.ts`)
   - [ ] 이벤트 23종 생성 및 시간순 정렬, `detail(JSON)` 최소화. **이벤트는 타입 코드만 저장하고 문구는 UI 카탈로그가 담당**(D-18)
   - [ ] 스탯 자연 누적 — 이벤트 로그가 SSOT, 사후 임의 배분 금지
   - [ ] 교체 로직(최대 5명·3창), 부상 발생 시 즉시 교체 판단
