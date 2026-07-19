@@ -24,8 +24,21 @@ export type TeamId = string;
 export type ManagerId = string;
 /** E-07 Player PK (uuid) */
 export type PlayerId = string;
-/** E-45 SimConstantSnapshot PK (uuid) — 상수 스냅샷 타입 본체는 7일차 `config.ts` */
+/** E-44 SimConstantSnapshot PK (uuid) — 상수 스냅샷 타입 본체는 7일차 `config.ts` */
 export type SnapshotId = string;
+
+/** E-15 Fixture PK (uuid) — 4일차 추가 */
+export type FixtureId = string;
+/** E-16 MatchEvent PK (uuid) — 4일차 추가 */
+export type MatchEventId = string;
+/** E-24 Injury PK (uuid) — 엔티티 본체는 5일차 `ops.ts`. `PlayerState.activeInjuryId`가 선참조한다(4일차 추가) */
+export type InjuryId = string;
+/** E-12 Contract PK (uuid) — 4일차 추가 */
+export type ContractId = string;
+/** E-13 Transfer PK (uuid) — 4일차 추가 */
+export type TransferId = string;
+/** E-14 Loan PK (uuid) — 4일차 추가 */
+export type LoanId = string;
 
 /**
  * 시드 값 — 32비트 안전 정수(T2-a 확정).

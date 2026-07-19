@@ -76,7 +76,7 @@ export interface Season {
   readonly regularEndsAt: Timestamp | null;
   readonly startedAt: Timestamp | null;
   readonly endedAt: Timestamp | null;
-  /** 이 시즌 처리에 적용된 상수 스냅샷 (E-45, 타입 본체는 7일차 `config.ts`) */
+  /** 이 시즌 처리에 적용된 상수 스냅샷 (E-44, 타입 본체는 7일차 `config.ts`) */
   readonly snapshotId: SnapshotId | null;
 }
 
@@ -104,7 +104,7 @@ export interface Team {
   readonly fanBase: number;
   /** 1~5 */
   readonly academyLevel: number;
-  /** 포인트 잔고 — 원장(E-33 PointTransaction)의 파생 캐시 */
+  /** 포인트 잔고 — 원장(E-30 PointTransaction)의 파생 캐시 */
   readonly balance: Points;
   readonly financialCrisis: boolean;
   readonly crisisConsecutiveSeasons: number;

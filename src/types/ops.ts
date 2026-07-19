@@ -2,7 +2,7 @@
  * 운영 도메인 타입 — **골격만** (3일차 2026-07-23)
  *
  * 채울 범위: **E-24 Injury / E-25 YouthProspect / E-26 NewsFeedItem / E-27 Sanction**(사건) 및
- * **E-46 CronRun / E-47 CronGap / AuditLog**(운영) — 배치는 **5일차** 확정,
+ * **E-45 CronRun / E-46 CronGap / E-47 AuditLog**(운영) — 배치는 **5일차** 확정,
  * 잔여 E-41~E-47은 5~7일차에 걸쳐 정의한다.
  *
  * 착수 전 확인할 원칙:

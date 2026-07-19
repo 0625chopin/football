@@ -49,3 +49,64 @@ export type NationalityCode = string;
 
 /** 선수 성향 태그 (E-07 `taste_tags`) — 값 목록은 6일차 확정 */
 export type TasteTag = string;
+
+/**
+ * 대회 구분 (E-15 `competition_type` / E-20 `competition_type` 복합 PK 축).
+ * 4일차 확정 — 6일차 확정 목록(이벤트 23종·포지션 11군·부상 4등급·전술 6종·페이즈 6종·
+ * 마켓 상태·국적 코드)에 포함되지 않으며 값이 요구사항(05:234)에 이미 확정돼 있어 오늘 전량 선언한다.
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(재선언 금지, 이 항목은 6일차 대상 목록 밖)
+ */
+export type CompetitionType = 'LEAGUE' | 'PLAYOFF' | 'CUP' | 'TIEBREAK';
+
+/**
+ * 경기 상태 (E-15 `status`) — 값 확정(05:241)
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
+ */
+export type FixtureStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'VOID';
+
+/**
+ * 이벤트 타입 (E-16 `type`, FR-MT-002 전 23종) — **6일차 소관**이라 값을 선점하지 않는다.
+ * FR-MT-002 원문에 23종이 이미 열거돼 있지만, 팀 스케줄이 "이벤트 23종" 전량 확정을
+ * 6일차 항목으로 명시했으므로 오늘은 자리표시자만 둔다(day-6 선점 금지).
+ *
+ * `string`이 아니라 **브랜드 처리**했다 — plain string 리터럴은 대입 시 `as MatchEventType`
+ * 캐스팅을 강제로 요구해, 어떤 구현체도 이 자리표시자에 조용히 의존할 수 없다
+ * (3일차 `PlayerAttributeValues.__unfilled34Attributes?: never` 선례와 동일한 취지).
+ * 6일차에 실제 23종 리터럴 유니온으로 교체되며 이 브랜드는 사라진다.
+ */
+export type MatchEventType = string & {
+  readonly __unconfirmedMatchEventType: true;
+};
+
+/**
+ * 날씨 타입 (E-18 `type`, FR-MT-006 9종) — 값 확정(FR-MT-006)
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
+ */
+export type WeatherType =
+  | 'CLEAR'
+  | 'CLOUDY'
+  | 'RAIN'
+  | 'HEAVY_RAIN'
+  | 'SNOW'
+  | 'WINDY'
+  | 'HOT'
+  | 'COLD'
+  | 'FOG';
+
+/**
+ * 계약 상태 (E-12 `status`) — 값 확정(05:201)
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
+ */
+export type ContractStatus = 'ACTIVE' | 'EXPIRED' | 'TERMINATED';
+
+/**
+ * 이적 유형 (E-13 `type`) — 값 확정(05:211)
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
+ */
+export type TransferType = 'TRANSFER' | 'FREE' | 'TRADE' | 'RELEASE';
+
+/**
+ * 임대 상태 (E-14 `status`) — 값 확정(05:222)
+ * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
+ */
+export type LoanStatus = 'ACTIVE' | 'RETURNED';
