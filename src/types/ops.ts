@@ -5,13 +5,14 @@
  * 잔여 **E-45 CronRun / E-46 CronGap / E-47 AuditLog**(운영)는 여전히 6~7일차 대상이다.
  *
  * 착수 전 확인한 원칙:
- * - 부상 **등급(severity 1~4)**은 6일차 "부상 4등급" 확정 대상이라 `number`로 남긴다
- *   (범위 강제는 7일차 브랜드/런타임 검증 소관). 반면 `status`(ACTIVE/RECOVERED)는 이미
- *   요구사항에 값이 고정돼 있어 오늘 `enums.ts`에 확정했다(6일차 목록 밖, 4일차 전례와 동일).
+ * - 부상 **등급(severity 1~4)**은 6일차 "부상 4등급" 확정 대상이었으며, `enums.ts`의
+ *   `InjurySeverity`(`KNOCK`/`MINOR`/`MODERATE`/`SEVERE`) 확정에 맞춰 오늘 교체 완료했다.
+ *   `status`(ACTIVE/RECOVERED)는 이미 요구사항에 값이 고정돼 있어 5일차에 `enums.ts`에
+ *   확정했다(6일차 목록 밖, 4일차 전례와 동일).
  * - **T6 (D-16)**: 타입에 `Date`·난수 기반 암묵 기본값을 두지 않는다. 시각은 명시 필드로.
  */
 
-import type { InjuryStatus, NewsFeedItemType, SanctionType } from './enums';
+import type { InjuryStatus, InjurySeverity, NewsFeedItemType, SanctionType } from './enums';
 import type {
   FixtureId,
   InjuryId,
@@ -34,8 +35,8 @@ export interface Injury {
   /** 경기 중 발생이 아니면(훈련 등) null */
   readonly matchId: FixtureId | null;
   readonly seasonId: SeasonId;
-  /** 1~4. 등급 라벨(6일차 "부상 4등급" 확정) 이전까지는 원시 정수만 둔다 */
-  readonly severity: number;
+  /** 부상 강도 등급 — 6일차 `InjurySeverity` 확정에 따라 라벨 유니온으로 교체 */
+  readonly severity: InjurySeverity;
   /** 표시용 원시 라벨("햄스트링 염좌" 등, 번역 비대상, T13) */
   readonly typeLabel: string;
   readonly occurredRound: number;

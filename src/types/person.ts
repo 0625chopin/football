@@ -155,7 +155,7 @@ export interface PlayerAttributeHistory extends PlayerAttributeValues {
  */
 export interface PlayerPosition {
   readonly playerId: PlayerId;
-  /** 11군 중 1 (Position은 6일차 유니온 확정 전까지 `string`) */
+  /** 11군 중 1 (`Position`은 6일차 `enums.ts`에서 11개 리터럴 유니온으로 확정) */
   readonly position: Position;
   /** 1~5. 5 = Natural(선호 포지션과 동일) — FR-PL-006 5단계 숙련도 */
   readonly proficiency: number;

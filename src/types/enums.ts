@@ -12,17 +12,31 @@
  */
 
 /**
- * 시즌 페이즈 (E-01 `current_phase` / E-03 `phase`).
- * 작업표상 "페이즈 6종"이며 6일차에 최종 확정한다. 현재는 요구사항 05 E-01 기재분 5종.
+ * 시즌 페이즈 (E-01 `current_phase` / E-03 `phase`) — **6종 전량 확정(6일차)**.
+ * 요구사항 05:46 원문(`REGULAR / CUP_SLOT / PLAYOFF / SETTLEMENT / PRESEASON`)의 5종에
+ * `TIEBREAK`를 추가했다.
+ *
+ * **`TIEBREAK` 근거 (I-33 → D-27 승격, 팀장 승인, 2026-07-23)**:
+ * 상태머신은 `… → PLAYOFF → (TIEBREAK?) → SETTLEMENT → PRESEASON …`이며,
+ * `TIEBREAK`는 **승강 경계 동률이 발생했을 때만 진입하는 조건부 페이즈**다(항상 거치지 않음).
+ * 승인 근거: ① SETTLEMENT 예산 50분은 동률 해소 경기 1회(75~115분)를 담을 수 없음
+ * ② PLAYOFF에 흡수하면 "승강 동률 해소가 플레이오프 진입 전에 끝나야 한다"는 순서를 위반
+ * ③ `CompetitionType`(E-15)에는 `TIEBREAK`가 이미 있어 대회 축은 정합이었고 페이즈 축만
+ * 공백이었음. 전이 반영은 2팀 025(28일차)·기간 신설은 3팀 `PHASE_DURATION_MIN`(팀장 전달 소관).
  */
 export type SeasonPhase =
   | 'REGULAR'
   | 'CUP_SLOT'
   | 'PLAYOFF'
+  | 'TIEBREAK'
   | 'SETTLEMENT'
   | 'PRESEASON';
 
-/** 감독 스타일 (E-06 `style`) — 전술 6종(D-20 · T21 폴백 = `BALANCED`) */
+/**
+ * 감독 스타일 (E-06 `style`) — 전술 6종(D-20 · T21 폴백 = `BALANCED`).
+ * FR-MT-009 원문(`ATTACKING, BALANCED, DEFENSIVE, COUNTER, POSSESSION, HIGH_PRESS`)과
+ * 대조해 6일차에 재확인 완료 — 3일차에 이미 6종 전량이 정확히 선언돼 있어 값 변경 없음.
+ */
 export type ManagerStyle =
   | 'ATTACKING'
   | 'BALANCED'
@@ -31,21 +45,40 @@ export type ManagerStyle =
   | 'POSSESSION'
   | 'HIGH_PRESS';
 
-/** 포메이션 7종 (E-06 `preferred_formation`) — 값 목록은 6일차 확정 */
+/** 포메이션 7종 (E-06 `preferred_formation`) — 6일차 대상 목록 밖(값 목록은 추후 확정) */
 export type Formation = string;
 
-/** 포지션 11군 (E-07 `preferred_position`) — 6일차에 유니온으로 확정 */
-export type Position = string;
+/**
+ * 포지션 11군 (E-07 `preferred_position`) — **6일차 확정**.
+ * 값 근거: FR-PL-005 원문("`GK, CB, LB, RB, DM, CM, AM, LW, RW, ST, SS` 11군") 그대로.
+ */
+export type Position =
+  | 'GK'
+  | 'CB'
+  | 'LB'
+  | 'RB'
+  | 'DM'
+  | 'CM'
+  | 'AM'
+  | 'LW'
+  | 'RW'
+  | 'ST'
+  | 'SS';
 
 /** 주발 (E-07 `preferred_foot`) */
 export type PreferredFoot = 'LEFT' | 'RIGHT' | 'BOTH';
 
 /**
- * 국적 코드 (E-07 `nationality`) — D-17.
- * 국가 목록을 타입에 하드코딩한 유니온으로 고정하지 않는다(T9). 공통코드 조회 결과와
- * 정합하는 형태로 두며, 6일차에 코드 체계(ISO 3166-1 alpha-2 등)를 확정한다.
+ * 국적 코드 (E-07 `nationality`) — D-17, **6일차 코드 체계 확정**.
+ *
+ * **T9 (`docs/devStep/02.타입스키마설계원칙.md`)**: 이름 풀·국가별 비중은 공통코드 대상이므로
+ * 국가 목록을 타입에 하드코딩한 유니온으로 고정하지 않는다. 따라서 6일차 확정의 내용은
+ * "리터럴 값 목록"이 아니라 **코드 체계(포맷) 계약**이다 — **ISO 3166-1 alpha-2**(대문자 2글자,
+ * 예: `KR`, `BR`, `ES`) 형식을 단일 계약으로 확정하고, plain string 오사용을 막기 위해
+ * 브랜드 타입으로 감쌌다. 실제 국가 목록·이름 풀·비중은 공통코드(3팀 소관, `docs/require/
+ * 05-data-requirements.md` 공통코드 카탈로그)에서 런타임에 조회한다.
  */
-export type NationalityCode = string;
+export type NationalityCode = string & { readonly __nationalityCode: true };
 
 /** 선수 성향 태그 (E-07 `taste_tags`) — 값 목록은 6일차 확정 */
 export type TasteTag = string;
@@ -65,18 +98,33 @@ export type CompetitionType = 'LEAGUE' | 'PLAYOFF' | 'CUP' | 'TIEBREAK';
 export type FixtureStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'VOID';
 
 /**
- * 이벤트 타입 (E-16 `type`, FR-MT-002 전 23종) — **6일차 소관**이라 값을 선점하지 않는다.
- * FR-MT-002 원문에 23종이 이미 열거돼 있지만, 팀 스케줄이 "이벤트 23종" 전량 확정을
- * 6일차 항목으로 명시했으므로 오늘은 자리표시자만 둔다(day-6 선점 금지).
- *
- * `string`이 아니라 **브랜드 처리**했다 — plain string 리터럴은 대입 시 `as MatchEventType`
- * 캐스팅을 강제로 요구해, 어떤 구현체도 이 자리표시자에 조용히 의존할 수 없다
- * (3일차 `PlayerAttributeValues.__unfilled34Attributes?: never` 선례와 동일한 취지).
- * 6일차에 실제 23종 리터럴 유니온으로 교체되며 이 브랜드는 사라진다.
+ * 이벤트 타입 (E-16 `type`, FR-MT-002 전 23종) — **6일차 확정**.
+ * 값 근거: FR-MT-002 원문 그대로, 총 23종.
  */
-export type MatchEventType = string & {
-  readonly __unconfirmedMatchEventType: true;
-};
+export type MatchEventType =
+  | 'KICKOFF'
+  | 'SHOT_ON'
+  | 'SHOT_OFF'
+  | 'SHOT_BLOCKED'
+  | 'GOAL'
+  | 'ASSIST'
+  | 'OWN_GOAL'
+  | 'PENALTY_AWARDED'
+  | 'PENALTY_SCORED'
+  | 'PENALTY_MISSED'
+  | 'YELLOW_CARD'
+  | 'SECOND_YELLOW'
+  | 'RED_CARD'
+  | 'FOUL'
+  | 'OFFSIDE'
+  | 'CORNER'
+  | 'SAVE'
+  | 'INJURY'
+  | 'SUBSTITUTION'
+  | 'HALF_TIME'
+  | 'FULL_TIME'
+  | 'EXTRA_TIME_START'
+  | 'PENALTY_SHOOTOUT';
 
 /**
  * 날씨 타입 (E-18 `type`, FR-MT-006 9종) — 값 확정(FR-MT-006)
@@ -190,12 +238,10 @@ export type TrophyType = 'LEAGUE_TITLE' | 'PLAYOFF_TITLE' | 'CUP_TITLE' | 'PROMO
 export type BetMarketScope = 'MATCH' | 'SEASON' | 'TOURNAMENT';
 
 /**
- * 배팅 마켓 상태 (E-33 `status`) — **"마켓 상태"는 6일차 목록에 명시적으로 포함**돼 있어
- * 오늘은 값을 선점하지 않는다. `MatchEventType`(day-6 이벤트 23종)과 동일한 브랜드
- * placeholder 패턴 — plain string 대입 시 `as BetMarketStatus` 캐스팅을 강제해 조용한
- * 오용을 차단한다.
+ * 배팅 마켓 상태 (E-33 `status`) — **6일차 확정**.
+ * 값 근거: `docs/require/05-data-requirements.md:463` (`OPEN / CLOSED / SETTLED / VOIDED`).
  */
-export type BetMarketStatus = string & { readonly __unconfirmedBetMarketStatus: true };
+export type BetMarketStatus = 'OPEN' | 'CLOSED' | 'SETTLED' | 'VOIDED';
 
 /** 배팅 셀렉션 결과 (E-34 `result`) — 값 확정(05:475). 2차 릴리스 선정의 */
 export type BetSelectionResult =
@@ -220,3 +266,17 @@ export type WalletCurrency = 'POINT';
 
 /** 지갑 거래 사유 (E-40 `reason`) — 값 확정(05:523). 2·3차 릴리스 선정의 */
 export type WalletTransactionReason = 'BET_PLACE' | 'BET_WIN' | 'BET_VOID' | 'TOPUP';
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 6일차(2026-07-28) 추가 확정 — 작업표 "enum성 값 단일 선언" 목록의 나머지 항목
+ * (이벤트 23종·포지션 11군·부상 4등급·전술 6종·페이즈 6종·마켓 상태·국적 코드) 전량이
+ * 위에서 확정됐다. 이 블록은 그중 신규 타입만 담는다.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 부상 강도 4등급 (E-24 `severity`, FR-PL-009) — **신규, 6일차 확정**.
+ * 물리 스키마(05:351)의 `severity int(1~4)`에 대응하는 라벨 — 1=`KNOCK`, 2=`MINOR`,
+ * 3=`MODERATE`, 4=`SEVERE`(FR-PL-009 표). 결장 라운드·`M_injury` 배율은 공통코드
+ * `INJURY_*` 소관이라 여기 담지 않는다(T13 — 원시값만, 표시/파라미터는 별도 계층).
+ */
+export type InjurySeverity = 'KNOCK' | 'MINOR' | 'MODERATE' | 'SEVERE';

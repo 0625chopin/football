@@ -139,11 +139,51 @@ describe('derive — 네임스페이스 분리(NFR-DT-006)', () => {
 
   it('잘못된 인자에는 RangeError를 던진다', () => {
     expect(() => deriveSeasonSeed(-1, 0)).toThrow(RangeError);
-    expect(() => deriveSeasonSeed(0xffffffff + 1, 0)).toThrow(RangeError);
+    // 6일차 I-39: worldSeed 상한은 32비트(0xffffffff)가 아니라 53비트
+    // 안전 정수(Number.MAX_SAFE_INTEGER, D-28)다. 0x100000000(2^32)은 더 이상
+    // 상한을 넘지 않으므로 던지지 않아야 하고, MAX_SAFE_INTEGER + 1만 던진다.
+    expect(() => deriveSeasonSeed(0xffffffff + 1, 0)).not.toThrow();
+    expect(() => deriveSeasonSeed(Number.MAX_SAFE_INTEGER + 1, 0)).toThrow(RangeError);
     expect(() => deriveSeasonSeed(1, -1)).toThrow(RangeError);
     expect(() => deriveSeasonSeed(1, 1.5)).toThrow(RangeError);
     // @ts-expect-error 런타임 방어 확인용으로 타입을 우회한다.
     expect(() => deriveSeasonSeed(1, 0, 9)).toThrow(RangeError);
     expect(() => namespaceOf(-1)).toThrow(RangeError);
+  });
+});
+
+describe('derive — 53비트 시드 폭 (I-39 / D-28 회귀 방지)', () => {
+  it('deriveSeasonSeed(Number.MAX_SAFE_INTEGER, n)은 예외 없이 안전 정수를 반환한다 (issue A 재현 방지)', () => {
+    const seed = deriveSeasonSeed(Number.MAX_SAFE_INTEGER, 1);
+    expect(Number.isSafeInteger(seed)).toBe(true);
+  });
+
+  it('deriveMatchSeed/deriveEventSeed도 53비트에 가까운 부모 시드에서 예외 없이 안전 정수를 반환한다', () => {
+    const seasonSeed = deriveSeasonSeed(Number.MAX_SAFE_INTEGER, 0);
+    const matchSeed = deriveMatchSeed(seasonSeed, 1);
+    const eventSeed = deriveEventSeed(matchSeed, 1, 0);
+    expect(Number.isSafeInteger(matchSeed)).toBe(true);
+    expect(Number.isSafeInteger(eventSeed)).toBe(true);
+  });
+
+  it('큰 worldSeed(2^40 이상)에서도 namespaceOf가 MAIN/ODDS_PRESIM을 정확히 분리한다 (issue B 재현 방지)', () => {
+    const bigWorldSeed = 2 ** 45 + 123456789;
+    const main = deriveSeasonSeed(bigWorldSeed, 3, SEED_NAMESPACE.MAIN);
+    const presim = deriveSeasonSeed(bigWorldSeed, 3, SEED_NAMESPACE.ODDS_PRESIM);
+    expect(namespaceOf(main)).toBe(SEED_NAMESPACE.MAIN);
+    expect(namespaceOf(presim)).toBe(SEED_NAMESPACE.ODDS_PRESIM);
+    expect(main).not.toBe(presim);
+  });
+
+  it('worldSeed가 2^32만큼 차이 나도(구현이 하위 32비트만 쓰면 충돌) 시즌 시드가 달라진다 (issue B 재현 방지)', () => {
+    const worldSeedA = 123456789;
+    const worldSeedB = worldSeedA + 2 ** 32;
+    expect(deriveSeasonSeed(worldSeedA, 0)).not.toBe(deriveSeasonSeed(worldSeedB, 0));
+  });
+
+  it('worldSeed 상한 부근(2^51, 2^52)에서도 대량 시즌 시드 생성에 중복이 없다', () => {
+    const worldSeed = Number.MAX_SAFE_INTEGER;
+    const seeds = Array.from({ length: 500 }, (_, seasonNumber) => deriveSeasonSeed(worldSeed, seasonNumber));
+    expect(new Set(seeds).size).toBe(seeds.length);
   });
 });

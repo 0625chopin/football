@@ -9,9 +9,9 @@
  *
  * 착수 전 확인한 원칙:
  * - **T13**: 배당은 숫자, 포인트는 정수(`Points`)로 두고 서식은 UI 책임.
- * - **마켓 상태(`BetMarket.status`)는 6일차 목록에 명시된 enum성 값**이라 오늘 값을
- *   선점하지 않는다 — `enums.ts`의 `BetMarketStatus`가 `MatchEventType`과 동일한 브랜드
- *   placeholder다. `scope`/`market_type`처럼 6일차 목록 밖인 값은 오늘 확정했다.
+ * - **마켓 상태(`BetMarket.status`)는 6일차 목록에 명시된 enum성 값**이며, 6일차에
+ *   `enums.ts`의 `BetMarketStatus`가 `OPEN/CLOSED/SETTLED/VOIDED` 4종으로 확정됐다.
+ *   `scope`/`market_type`처럼 6일차 목록 밖인 값은 5일차에 이미 확정했다.
  *   `market_type`(FR-BT-002~004 마켓 전체, 17종 이상)은 2차 배팅 엔진 설계 시점(5팀 소관)에
  *   구체화하는 편이 안전해 오늘은 `string`으로 둔다(선정의 단계이므로 소비자가 없다).
  * - **C-23 / 041**: 마감·정산 시각 판정은 서버 권한이며 클라이언트 시계를 신뢰하지 않는다.

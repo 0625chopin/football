@@ -9,17 +9,25 @@
  * 바뀌었는지 추적할 수 없게 됩니다. 1팀 7일차 시드 계층 타입(브랜드)은
  * 이 함수들의 시그니처를 **감싸기만** 하며 계산을 복제하지 않습니다(팀장 확정 ②).
  *
- * ## 실행 제약 (1일차 확정)
+ * ## 실행 제약 (1일차 확정, 6일차 D-28로 시드 폭 개정)
  * - 도메인 명칭(`WorldSeed`/`SeasonSeed`/`MatchSeed`/`EventSeed`)을 **export하지 않습니다.**
- *   전부 원시 `number`(부호 없는 32비트)로 다루고, 7일차 `brand.ts` 확정 후
- *   import로 교체합니다.
- * - `World.worldSeed`는 32비트 안전 정수로 확정되었으므로 변환 계층이 없습니다.
+ *   전부 원시 `number`로 다루고, 7일차 `brand.ts` 확정 후 import로 교체합니다.
+ * - `World.worldSeed`는 **53비트 안전 정수**(`Number.MAX_SAFE_INTEGER`, D-28 / 구 I-32,
+ *   3일차 승인·6일차 구현 반영)로 확정되었습니다. 이 파일이 파생 시드 전체의
+ *   유일한 소유자이므로 변환 계층 없이 이 폭을 그대로 씁니다.
  * - 도메인 타입(H-01, 9일차) 무의존. `Math.random()`/`Date.now()`/`react`/
- *   `@supabase/*` 사용 0건.
+ *   `@supabase/*` 사용 0건. **`BigInt`도 사용하지 않습니다** — D-28이 PRNG의
+ *   32비트 워드 연산 유지·JSON 직렬화·틱 핫패스 성능을 근거로 `bigint` 도입을
+ *   명시적으로 기각했습니다. 대신 32비트 레인 2개(hi/lo)를 각각 `Math.imul`
+ *   기반 32비트 연산으로 독립 믹싱한 뒤, 안전 정수 곱셈(`hi * 2**32 + lo` 꼴)
+ *   으로만 51비트로 결합합니다. 비트시프트(`<<`/`>>>`)는 32비트를 넘는 값에는
+ *   쓸 수 없으므로(피연산자가 ToInt32/ToUint32로 32비트로 잘림), 51비트 폭
+ *   경계를 다루는 자리(`stamp`/`namespaceOf`/레인 결합)는 전부 안전 정수
+ *   곱셈·나눗셈으로 구현합니다.
  *
  * ## 계층 구조
  * ```
- *   worldSeed (입력, 32비트)
+ *   worldSeed (입력, 53비트 안전 정수)
  *     └ deriveSeasonSeed(worldSeed, seasonNumber, namespace)
  *         └ deriveMatchSeed(seasonSeed, matchKey)
  *             └ deriveEventSeed(matchSeed, tick, eventIndex)
@@ -32,20 +40,32 @@
  *
  * 1. 파생 시드의 **상위 2비트는 네임스페이스 태그**로 예약합니다.
  *    `MAIN = 0b00`, `ODDS_PRESIM = 0b01` (나머지 2개는 예약).
- *    해시 결과는 하위 30비트에만 들어갑니다.
+ *    해시 결과(payload)는 하위 51비트에만 들어갑니다(`PAYLOAD_SPAN = 2**51`이
+ *    정확히 2의 거듭제곱이므로, `namespace * PAYLOAD_SPAN + payload`는
+ *    이진수로도 "상위 2비트 = 네임스페이스, 하위 51비트 = payload"와 정확히
+ *    일치합니다 — 구현만 비트시프트 대신 안전 정수 곱셈을 씁니다).
  *    → 두 네임스페이스의 시드 **값 집합이 서로소(disjoint)** 입니다.
  *      `namespaceOf(seed)`만 봐도 어느 쪽 시드인지 판별됩니다.
  * 2. 자식 시드는 **부모의 네임스페이스 태그를 그대로 상속**합니다.
  *    → 한번 프리시뮬 네임스페이스로 들어간 스트림은 어떤 깊이에서도
  *      본경기 네임스페이스로 넘어올 수 없습니다.
- * 3. 시드가 다르면 PRNG 초기 상태도 반드시 다릅니다.
- *    `createState(seed)`의 첫 워드는 `splitmix32(seed + φ)`이고,
- *    splitmix32는 XOR-shift와 홀수 상수 곱만으로 구성된 **32비트 전단사**입니다.
- *    따라서 `seed₁ ≠ seed₂ ⇒ state₁ ≠ state₂`.
+ * 3. 시드가 다르면 PRNG 초기 상태도 반드시 다릅니다(`createState`가 53비트
+ *    시드 전량을 소비하도록 6일차에 개정됨 — `prng.ts` 참조).
  *    → 값 집합이 서로소이므로 **초기 상태 집합도 서로소**입니다.
  *
  * 결론: 35일차 3팀 배당 산출(035)의 수락 기준 "프리시뮬 시드 ≠ 본경기 시드"는
  * 확률이 아니라 **비트 레이아웃으로 보장**됩니다.
+ *
+ * ## 51비트 payload — 생일 충돌 완화 (D-28 근거)
+ * 32비트 시절에는 실효 payload가 30비트뿐이라 시즌당 이벤트 시드 ~6×10⁵
+ * 기준으로 생일 충돌이 수백 건 발생했습니다(재현성 영향은 없었으나 통계적
+ * 상관이 미세하게 남았습니다). payload를 51비트로 넓히면 생일 한계가
+ * 2^25.5 안팎이 되어 이 규모의 충돌이 사실상 소멸합니다. 다만 이 이득은
+ * **레인 내부 믹싱 자체가 51비트만큼 넓어야** 성립합니다 — 단순히 32비트
+ * 해시 결과를 51비트 자리에 끼워 넣기만 하면 입력 충돌 도메인이 여전히
+ * 32비트에 머무릅니다. 그래서 hi/lo 두 레인을 parentSeed·layerTag·indices
+ * 전체에 대해 **각각 독립적으로** 처음부터 끝까지 믹싱한 뒤에만 51비트로
+ * 결합합니다(레인 결합은 마지막 한 번만).
  *
  * ## 범위 밖 (후속 일차)
  * 고정 정밀도 비교(3일차 `precision.ts`), 안정 정렬·상태 해시(4일차),
@@ -57,12 +77,26 @@
 
 import { createState, type PrngState } from './prng';
 
-/** 시드 폭(32비트) 중 네임스페이스 태그가 차지하는 상위 비트 수. */
-const NAMESPACE_BITS = 2;
-/** 해시 결과가 들어가는 하위 비트 수. */
-const PAYLOAD_BITS = 32 - NAMESPACE_BITS;
-/** 하위 30비트 마스크. */
-const PAYLOAD_MASK = (1 << PAYLOAD_BITS) - 1;
+/** 네임스페이스 값의 최대 개수(2비트 → 4개)와 무관하게, payload 폭은 51비트로 고정합니다(D-28). */
+const PAYLOAD_BITS = 51;
+/**
+ * payload 슬롯의 폭(2**51). `namespace * PAYLOAD_SPAN + payload`로 시드를
+ * 조립·분해합니다 — 32비트를 넘는 폭이라 `<<`/`>>>` 대신 안전 정수 곱셈·
+ * 나눗셈을 씁니다(연산자 피연산자가 32비트로 잘리는 문제 회피).
+ */
+const PAYLOAD_SPAN = 2 ** PAYLOAD_BITS;
+/** hi 레인에서 payload에 반영하는 상위 비트 폭(51 − 32 = 19비트). */
+const HI_PAYLOAD_BITS = PAYLOAD_BITS - 32;
+/** hi 레인 값에서 하위 19비트만 남기는 마스크. hi 레인 자체는 32비트 값이라 안전. */
+const HI_PAYLOAD_MASK = (1 << HI_PAYLOAD_BITS) - 1;
+/** 32비트 폭(2**32). lo/hi 레인 분리와 결합에 공통으로 쓰는 안전 정수 상수. */
+const TWO_POW_32 = 0x100000000;
+/**
+ * hi 레인만 도는 별도 소금(salt). lo 레인과 완전히 같은 절차를 타면 두 레인이
+ * 상관관계를 가지므로, hi 레인의 모든 입력에 이 상수를 XOR해 전개 경로를
+ * 갈라놓습니다. 소금 자체는 임의의 홀수 32비트 상수입니다.
+ */
+const LANE_SALT_HI = 0xc2b2ae3d;
 
 /**
  * 시드 네임스페이스. 상위 2비트에 그대로 기록됩니다.
@@ -121,6 +155,20 @@ function assertUint32(value: number, label: string): void {
   }
 }
 
+/**
+ * 시드가 0 이상 `Number.MAX_SAFE_INTEGER`(2^53−1, D-28) 이하의 안전 정수인지
+ * 검증합니다. 이 파일이 조립·상속하는 "시드"(`worldSeed`/`seasonSeed`/
+ * `matchSeed`/파생 결과) 전용이며, `matchKey`처럼 32비트 폭을 유지하는
+ * 합성 인덱스에는 기존 `assertUint32`를 그대로 씁니다.
+ */
+function assertSafeSeed(value: number, label: string): void {
+  if (!Number.isInteger(value) || value < 0 || value > Number.MAX_SAFE_INTEGER) {
+    throw new RangeError(
+      `${label}: 0 이상 ${Number.MAX_SAFE_INTEGER} 이하의 정수여야 합니다 (받은 값: ${value})`,
+    );
+  }
+}
+
 function assertIndex(value: number, label: string): void {
   if (!Number.isInteger(value) || value < 0) {
     throw new RangeError(`${label}: 0 이상의 정수여야 합니다 (받은 값: ${value})`);
@@ -133,18 +181,38 @@ function assertNamespaceValue(value: number): void {
   }
 }
 
-/** 시드에 네임스페이스 태그를 찍습니다. 상위 2비트 = 태그, 하위 30비트 = 해시. */
+/**
+ * 안전 정수(최대 53비트)를 32비트 lo/hi 두 워드로 정확히 쪼갭니다.
+ *
+ * 음이 아닌 안전 정수에 대해 `value % 2**32`는 하위 32비트와,
+ * `Math.floor(value / 2**32)`는 상위 나머지 비트(최대 21비트,
+ * `Number.MAX_SAFE_INTEGER` 기준)와 수학적으로 정확히 일치합니다 — 비트
+ * 연산이 아니라 정수 나눗셈·나머지이므로 32비트 한계에 걸리지 않습니다.
+ */
+function splitWide(value: number): { readonly lo: number; readonly hi: number } {
+  return { lo: value % TWO_POW_32, hi: Math.floor(value / TWO_POW_32) };
+}
+
+/**
+ * hi/lo 두 32비트 레인을 안전 정수 곱셈으로 결합해 51비트 payload를 만듭니다.
+ * hi 레인은 하위 19비트만, lo 레인은 32비트 전부를 씁니다(19 + 32 = 51).
+ */
+function combineLanesToPayload(hi: number, lo: number): number {
+  return (hi & HI_PAYLOAD_MASK) * TWO_POW_32 + (lo >>> 0);
+}
+
+/** 시드에 네임스페이스 태그를 찍습니다. 상위 2비트 = 태그, 하위 51비트 = payload. */
 function stamp(namespace: SeedNamespace, payload: number): number {
-  return toUint32((namespace << PAYLOAD_BITS) | (payload & PAYLOAD_MASK));
+  return namespace * PAYLOAD_SPAN + payload;
 }
 
 /**
  * 시드가 어느 네임스페이스에 속하는지 판별합니다.
- * 상위 2비트를 읽기만 하므로 오분류가 불가능합니다.
+ * 상위 2비트(= `PAYLOAD_SPAN` 몫)만 읽으므로 오분류가 불가능합니다.
  */
 export function namespaceOf(seed: number): SeedNamespace {
-  assertUint32(seed, 'seed');
-  return ((seed >>> PAYLOAD_BITS) & 0b11) as SeedNamespace;
+  assertSafeSeed(seed, 'seed');
+  return Math.floor(seed / PAYLOAD_SPAN) as SeedNamespace;
 }
 
 /** 두 시드가 같은 네임스페이스인지 확인합니다. */
@@ -178,16 +246,41 @@ export function hashKey(text: string): number {
 }
 
 /**
+ * parentSeed(최대 53비트)·layerTag·indices 전체를 hi/lo 두 레인에서 각각
+ * 독립적으로 처음부터 끝까지 믹싱합니다 — 레인 결합(`combineLanesToPayload`)은
+ * 맨 마지막에 한 번만 일어납니다("51비트 payload — 생일 충돌 완화" 절 참조).
+ * parentSeed는 `splitWide`로 lo/hi를 모두 뽑아 둘 다 초기 믹싱에 넣으므로,
+ * 상위 비트가 조용히 버려지는 문제(I-39 근거 B)가 재발하지 않습니다.
+ */
+function foldLanes(
+  seed: number,
+  layerTag: number,
+  indices: readonly number[],
+): { readonly hi: number; readonly lo: number } {
+  const { lo: seedLo, hi: seedHi } = splitWide(seed);
+
+  let lo = mix32(mix32(avalanche(seedLo), seedHi), layerTag);
+  let hi = mix32(
+    mix32(avalanche(seedLo ^ LANE_SALT_HI), seedHi ^ LANE_SALT_HI),
+    layerTag ^ LANE_SALT_HI,
+  );
+
+  for (const index of indices) {
+    lo = mix32(lo, index);
+    hi = mix32(hi, index ^ LANE_SALT_HI);
+  }
+
+  return { hi, lo };
+}
+
+/**
  * 임의 개수의 인덱스를 계층 태그와 함께 부모 시드에 섞어 자식 시드를 만듭니다.
  * 네임스페이스는 **부모에서 상속**합니다.
  */
 function derive(parentSeed: number, layerTag: number, indices: readonly number[]): number {
   const namespace = namespaceOf(parentSeed);
-  let accumulator = mix32(avalanche(parentSeed), layerTag);
-  for (const index of indices) {
-    accumulator = mix32(accumulator, index);
-  }
-  return stamp(namespace, accumulator);
+  const { hi, lo } = foldLanes(parentSeed, layerTag, indices);
+  return stamp(namespace, combineLanesToPayload(hi, lo));
 }
 
 /**
@@ -196,7 +289,7 @@ function derive(parentSeed: number, layerTag: number, indices: readonly number[]
  * 계층 진입점이므로 네임스페이스를 **여기서 지정**합니다. 이후 단계는 상속만 합니다.
  * 같은 `worldSeed`·`seasonNumber`라도 네임스페이스가 다르면 값 집합이 서로소입니다.
  *
- * @param worldSeed `World.worldSeed` (32비트 안전 정수)
+ * @param worldSeed `World.worldSeed` (53비트 안전 정수, D-28)
  * @param seasonNumber 시즌 번호(0 이상 정수)
  * @param namespace 기본 `MAIN`. 배당 프리시뮬은 `ODDS_PRESIM`을 명시
  */
@@ -205,15 +298,13 @@ export function deriveSeasonSeed(
   seasonNumber: number,
   namespace: SeedNamespace = SEED_NAMESPACE.MAIN,
 ): number {
-  assertUint32(worldSeed, 'worldSeed');
+  assertSafeSeed(worldSeed, 'worldSeed');
   assertIndex(seasonNumber, 'seasonNumber');
   assertNamespaceValue(namespace);
 
-  let accumulator = mix32(avalanche(worldSeed), LAYER_TAG.SEASON);
-  accumulator = mix32(accumulator, seasonNumber);
-  // 네임스페이스를 해시 입력에도 넣어, 상위 비트뿐 아니라 하위 30비트도 갈라지게 합니다.
-  accumulator = mix32(accumulator, namespace);
-  return stamp(namespace, accumulator);
+  // 네임스페이스를 해시 입력에도 넣어, 상위 비트뿐 아니라 payload도 갈라지게 합니다.
+  const { hi, lo } = foldLanes(worldSeed, LAYER_TAG.SEASON, [seasonNumber, namespace]);
+  return stamp(namespace, combineLanesToPayload(hi, lo));
 }
 
 /**
@@ -230,7 +321,7 @@ export function deriveMatchSeed(
   matchKey: number,
   ...extraIndices: readonly number[]
 ): number {
-  assertUint32(seasonSeed, 'seasonSeed');
+  assertSafeSeed(seasonSeed, 'seasonSeed');
   assertUint32(matchKey, 'matchKey');
   extraIndices.forEach((value, i) => assertIndex(value, `extraIndices[${i}]`));
 
@@ -248,7 +339,7 @@ export function deriveMatchSeed(
  * @param eventIndex 같은 틱 내 판정 순번(기본 0)
  */
 export function deriveEventSeed(matchSeed: number, tick: number, eventIndex = 0): number {
-  assertUint32(matchSeed, 'matchSeed');
+  assertSafeSeed(matchSeed, 'matchSeed');
   assertIndex(tick, 'tick');
   assertIndex(eventIndex, 'eventIndex');
 
@@ -258,11 +349,12 @@ export function deriveEventSeed(matchSeed: number, tick: number, eventIndex = 0)
 /**
  * 파생 시드를 곧바로 PRNG 상태로 바꿉니다.
  *
- * `createState`가 32비트 전단사(splitmix32)를 거치므로, 서로 다른 시드는
- * **반드시** 서로 다른 초기 상태를 만듭니다. 따라서 네임스페이스 간
- * 상태 충돌도 구조적으로 불가능합니다.
+ * `createState`가 6일차 개정으로 53비트 시드 전 구간을 소비하도록
+ * 확장되었으므로(`prng.ts`의 `foldSeed` 참조), 서로 다른 시드는 (해시
+ * 충돌이 없는 한) 서로 다른 초기 상태를 만듭니다. 네임스페이스별 시드
+ * 값 집합이 서로소이므로, 초기 상태 집합도 실질적으로 서로소입니다.
  */
 export function stateForSeed(seed: number): PrngState {
-  assertUint32(seed, 'seed');
+  assertSafeSeed(seed, 'seed');
   return createState(seed);
 }

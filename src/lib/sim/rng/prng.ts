@@ -80,15 +80,38 @@ function splitmix32(counter: number): { counter: number; value: number } {
 }
 
 /**
- * 32비트 정수 시드로부터 초기 상태를 만듭니다.
+ * 안전 정수 시드의 상위/하위 32비트를 분리해 초기 counter로 접습니다.
+ *
+ * D-28(구 I-39)로 `World.worldSeed`가 53비트 안전 정수로 완화되면서, 기존에
+ * `seed | 0`(ToInt32)만 쓰던 방식은 상위 21비트를 조용히 버려
+ * `createState(x) === createState(x + 2**32)`가 성립하는 결함이 있었습니다.
+ *
+ * `seed >>> 0`(ToUint32)은 음이 아닌 안전 정수에 대해 `seed mod 2^32`와
+ * 수학적으로 동일해 하위 32비트를 정확히 뽑아내고, `Math.floor(seed / 2**32)`는
+ * 나머지 상위 비트(최대 21비트, `Number.MAX_SAFE_INTEGER` 기준)를 뽑아냅니다.
+ * 상위 워드는 `splitmix32`로 한 번 아발란치한 뒤 하위 워드와 XOR로 섞어
+ * 두 절반 모두가 최종 counter에 반영되게 합니다.
+ */
+function foldSeed(seed: number): number {
+  const lo = seed >>> 0;
+  const hi = Math.floor(seed / 0x100000000) >>> 0;
+  const hiMixed = splitmix32(hi).value;
+  return (lo ^ hiMixed) >>> 0;
+}
+
+/**
+ * 시드로부터 초기 상태를 만듭니다.
  *
  * 동일 시드는 언제나 동일 상태를 만듭니다(결정론). 전 워드가 0이 되는
  * 퇴화 상태는 xoshiro가 영구히 0만 출력하므로 명시적으로 배제합니다.
  *
- * @param seed 임의의 정수. 내부적으로 32비트로 절단됩니다.
+ * @param seed 임의의 정수. **53비트 안전 정수 전 구간(D-28,
+ *   `Number.MAX_SAFE_INTEGER`까지)을 전량 소비합니다** — 32비트로 절단하지
+ *   않습니다. 이 함수는 범용 저수준 프리미티브이므로 값 범위를 강제하지
+ *   않습니다(도메인 시드의 범위 검증은 `derive.ts`가 담당).
  */
 export function createState(seed: number): PrngState {
-  let counter = seed | 0;
+  let counter = foldSeed(seed);
 
   const a = splitmix32(counter);
   counter = a.counter;

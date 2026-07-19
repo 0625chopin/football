@@ -95,16 +95,44 @@ export interface MatchEvent {
   readonly sequence: number;
   readonly minute: number;
   readonly addedTime: number;
-  /** FR-MT-002 전 23종 — 값 목록은 6일차 확정(enums.ts 소관), 오늘은 `string` */
+  /** FR-MT-002 전 23종 — `enums.ts`의 `MatchEventType`으로 6일차 확정 완료 */
   readonly type: MatchEventType;
   readonly teamId: TeamId | null;
   readonly primaryPlayerId: PlayerId | null;
+  /**
+   * 이벤트 타입별로 의미가 달라지는 범용 보조 참조(예: `SUBSTITUTION`의 교체 아웃 선수).
+   * 해당 타입에 보조 선수 개념이 없으면 null.
+   *
+   * **`GOAL`에서는 사용하지 않는다(6일차 팀장 지시로 확정, `relatedEventSequence`와의
+   * 역할 경계)** — 어시스트 제공 선수는 이 필드에 중복 표기하지 않는다. 근거:
+   * ① `PlayerStatCoreValues.assists` 집계가 **`ASSIST` 이벤트의 `primaryPlayerId` 단일
+   * 출처**로 정확히 계산되는 것이 이미 I-37 판정의 전제였다 — `GOAL.secondaryPlayerId`에도
+   * 같은 값을 중복 기입하면 두 출처가 어긋날 경우(생성기 버그·수동 보정) 스탯 SSOT
+   * 원칙(FR-MT-003, AS-10)이 깨진다. ② `ASSIST`가 FR-MT-002에서 `GOAL`과 **별개의
+   * 23종 이벤트 타입**으로 이미 존재하므로, 어시스트 제공자는 그 `ASSIST` 이벤트 자신의
+   * `primaryPlayerId`가 유일한 출처다. `GOAL` 쪽에서 "이 골의 어시스트가 누구인지"는
+   * `relatedEventSequence`로 연결된 `ASSIST` 이벤트를 조회해서 얻는다(중계 타임라인
+   * 표시 전용, 통계 재계산 입력 아님) — 이중 표기가 아니라 **단일 링크**다.
+   */
   readonly secondaryPlayerId: PlayerId | null;
   /**
    * 기대 득점(Expected Goals) — **F: 정규 숫자 필드로 승격**(jsonb 파싱 의존 제거).
    * 슛 이벤트가 아니면 null.
    */
   readonly xg: number | null;
+  /**
+   * **I-37 (6일차 반영)** — 이 이벤트가 참조하는 같은 경기(`matchId`) 내 다른 `MatchEvent`의
+   * `sequence`. 확정된 참조 방향은 **ASSIST → GOAL**(04 문서 D3 · 2팀 W-24) — `ASSIST` 이벤트가
+   * 자신이 만들어낸 `GOAL` 이벤트의 `sequence`를 가리킨다. 해당 없는 이벤트(대부분)는 null.
+   * 별도 브랜드 타입을 두지 않은 이유는 I-19(PSO 스코어) 판정과 동일 — 값이 같은 배열
+   * 내부에서만 소비되는 단일 지점 참조라 브랜드가 필요할 만큼의 오용 리스크가 없다.
+   * `PlayerStatCoreValues.assists` 집계는 이 필드 없이도 `primaryPlayerId`만으로 정확하므로,
+   * 이 필드는 통계 재계산의 입력이 아니라 **중계 타임라인 표시 전용**이다(FR-MT-002 수용기준③).
+   * `secondaryPlayerId`와의 역할 경계: 어시스트 제공자를 `GOAL.secondaryPlayerId`에
+   * 중복 기입하지 않고, 오직 이 필드를 통해 `ASSIST` 이벤트(그 자신의 `primaryPlayerId`가
+   * 어시스트 제공자)로 링크한다 — 자세한 근거는 `secondaryPlayerId` 필드 주석 참조.
+   */
+  readonly relatedEventSequence: number | null;
   /** xG를 제외한 나머지 상세(슛 위치, 부상 등급, 카드 사유 등). 구체 스키마는 소비 시점 확정 */
   readonly detail: Readonly<Record<string, unknown>>;
 }

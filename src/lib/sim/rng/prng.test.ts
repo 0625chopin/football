@@ -78,6 +78,36 @@ describe('prng — 시드 재현성', () => {
   });
 });
 
+describe('prng — 53비트 시드 폭 (I-39 / D-28 회귀 방지)', () => {
+  it('createState(Number.MAX_SAFE_INTEGER)는 예외 없이 정상 state를 만든다', () => {
+    const state = createState(Number.MAX_SAFE_INTEGER);
+    expect(state).toHaveLength(4);
+    expect(state.some((word) => word !== 0)).toBe(true);
+  });
+
+  it('seed와 seed + 2**32는 서로 다른 state를 만든다 (issue C 재현 방지: 과거 seed|0 절단으로 동일했음)', () => {
+    const seed = 123456789;
+    const stateA = createState(seed);
+    const stateB = createState(seed + 2 ** 32);
+    expect(stateA).not.toEqual(stateB);
+  });
+
+  it('53비트 폭 전역에 걸친 여러 seed가 서로 다른 state를 만든다(하위 32비트만 같고 상위가 다른 표본)', () => {
+    const bases = [0, 1, 999983, 0xffffffff];
+    const highWords = [0, 1, 2, 1021, 2 ** 20];
+    const states = new Set<string>();
+    for (const base of bases) {
+      for (const high of highWords) {
+        const seed = base + high * 2 ** 32;
+        if (seed > Number.MAX_SAFE_INTEGER) continue;
+        states.add(createState(seed).join(','));
+      }
+    }
+    // 완전한 충돌 없음을 요구하진 않지만(비암호화 해시), 절대 다수가 갈라져야 한다.
+    expect(states.size).toBeGreaterThan(bases.length * highWords.length * 0.9);
+  });
+});
+
 describe('prng — 값 범위', () => {
   it('nextUint32는 항상 [0, 2^32) 범위의 정수를 낸다', () => {
     let cursor: PrngState = createState(9001);

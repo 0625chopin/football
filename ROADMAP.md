@@ -170,7 +170,7 @@
 - **구현 사항**
   - [x] `src/types/` 하위를 도메인별로 분할 (`world.ts`, `person.ts`, `match.ts`, `stat.ts`, `economy.ts`, `betting.ts`, `config.ts`, `ops.ts`, `index.ts`) — **3일차 완료** (+ `brand.ts`·`enums.ts` 참조 기반 2종 추가)
   - [x] E-01~E-32 (1차 범위) 전량 정의 + E-33~E-40(배팅·사용자)은 2차 대비 타입만 선정의. **E-01 World는 단일 레코드 전제**(D-15) — **5일차 완료**(E-21~E-23·E-31·E-32는 `stat.ts`, E-24~E-27은 `ops.ts`, E-28~E-30은 `economy.ts`, E-33~E-40은 `betting.ts`). 부수로 `docs/ISSUES.md` I-19·I-31·I-32 5일차 반영 완료
-  - [ ] enum성 값 단일 선언: 이벤트 타입 23종(FR-MT-002), 포지션 11군(FR-PL-005), 부상 4등급(FR-PL-009), 전술 성향 6종(FR-MT-009), 페이즈 6종(FR-LG-010), 마켓 상태, 국적 코드(D-17)
+  - [x] enum성 값 단일 선언: 이벤트 타입 23종(FR-MT-002), 포지션 11군(FR-PL-005), 부상 4등급(FR-PL-009), 전술 성향 6종(FR-MT-009, 3일차 선반영 재확인), 페이즈 6종(FR-LG-010 5종 + `TIEBREAK`, I-33/D-27), 마켓 상태, 국적 코드(D-17, T9에 따라 ISO 3166-1 alpha-2 브랜드 계약) — **6일차 완료**. 부수로 `docs/ISSUES.md` I-33·I-37 6일차 반영 완료(`MatchEvent.relatedEventSequence` 추가)
   - [ ] 34속성(FR-PL-002) 타입, 시드 계층 타입(world/season/match), 상수 스냅샷 타입(E-44) — *34속성 **4일차 완료**(기술10·정신10·신체8·GK6). 시드 계층·상수 스냅샷 타입은 7일차*
   - [ ] 브랜드 타입으로 ID 혼용 방지(`TeamId`, `PlayerId` 등), 포인트는 정수 타입으로 고정(DC-08)
   - [ ] 각 enum에 **번역 키를 매핑하는 타입 규약** 정의 — 표시명은 타입이 아닌 메시지 카탈로그가 소유 (Task 011과 정합)
@@ -231,8 +231,9 @@
   - [x] 고정 정밀도(소수 6자리 반올림) 확률 비교 헬퍼 (NFR-DT-005) — **3일차 완료** (`precision.ts`)
   - [x] 안정 정렬 헬퍼 — 명시적 tiebreak 키 필수 (NFR-DT-008) — **4일차 완료** (`sort.ts`, 튜플 타입으로 키 0개 시 컴파일 오류 강제 + `findTiedRuns()`)
   - [x] 상태 해시(정렬 직렬화 + SHA-256) 유틸 (NFR-DT-003) — **4일차 완료** (`hash.ts`, 외부 의존 0의 순수 TS SHA-256 + `canonicalize()`)
-- **수락 기준**: 동일 시드 100만 회 추출 결과가 재실행 시 바이트 단위 동일. 단일 경기 재현 ≤ 100ms를 가능케 하는 시드 파생 구조.
+- **수락 기준**: 동일 시드 100만 회 추출 결과가 재실행 시 바이트 단위 동일. 단일 경기 재현 ≤ 100ms를 가능케 하는 시드 파생 구조. — **6일차 완료(실측)**: 100만 회 2회 추출 값·최종 state 완전 일치(1회차 49.33ms, 2회차 43.95ms), 경기 1건 분량(5만 회) 추출 3.02ms(≤100ms 여유 충족). `bench.test.ts`, `npx vitest run src/lib/sim/rng/bench.test.ts --reporter=verbose`로 실행
 - **테스트**: Vitest — 시드 재현성, 분포 균등성, 입력 순서 셔플 불변성. — **5일차 완료** (`prng.test.ts`, `derive.test.ts`, `precision.test.ts`, `sort.test.ts`, `hash.test.ts`, 총 107 케이스 통과. `npm run test`로 실행)
+- **6일차 추가**: I-39(D-28 worldSeed 32→53비트 완화가 `rng/**` 구현에 미반영) 수정 — `prng.ts`의 `createState`가 `seed\|0`으로 상위 비트를 절단하던 문제와 `derive.ts`의 `NAMESPACE_BITS=2`/`PAYLOAD_BITS=30` 32비트 고정 구조를 51비트 payload로 재설계(`bigint` 미사용, 두 32비트 레인을 안전정수 곱셈으로 결합). 100만 회 바이트 동일성 벤치(`bench.test.ts`) 포함, 총 **118 케이스 통과**(`npm run test`), `npx tsc --noEmit` 오류 0건. 근거는 `docs/ISSUES.md` I-39(1팀 소관, 해소 보고는 2팀 6일차 팀장 보고)
 
 ### Task 007: 시드 기반 결정론적 Mock 팩토리를 구축한다
 
@@ -530,7 +531,7 @@
   - [ ] 원형 로테이션(Berger) 더블 라운드로빈 — 552/380/240경기, 46/38/30라운드
   - [ ] 홈·원정 균형(각 N−1), 3연속 동일 장소 방지(불가피 시 경고 로그), 후반기 홈/원정 반전
   - [ ] 리그별 라운드 간격 75/90/115분(공통코드) 기반 킥오프 시각 산출, 최종 라운드 T+3,450분 강제 정렬
-  - [ ] 시즌 페이즈 상태머신 `REGULAR ⇄ CUP_SLOT → PLAYOFF → SETTLEMENT → PRESEASON → REGULAR` (멱등 전이)
+  - [ ] 시즌 페이즈 상태머신 `REGULAR ⇄ CUP_SLOT → PLAYOFF → (TIEBREAK) → SETTLEMENT → PRESEASON → REGULAR` (멱등 전이). **`TIEBREAK`는 승강 경계 동률 시에만 진입하는 조건부 페이즈**(D-27 / I-33, 6일차 `SeasonPhase`에 반영 완료) — 동률 판정 자체는 Task 026 소관이고 025가 026보다 먼저 끝나므로, **025는 동률 여부를 인자로 주입받는 순수 함수 인터페이스로 먼저 확정**한다
   - [ ] 배속(0.25×~20×) 비례 재계산 및 정지/재개 오프셋 처리 — 동시 종료 정렬 유지
 - **수락 기준**: 세 리그 최종 라운드 킥오프 차이 ≤ 30분. 동일 시드 재생성 시 대진표 100% 동일. 리터럴 `24/20/16` 0건(NFR-SC-003).
 - **테스트**: Vitest — 대진 완전성(모든 팀 쌍 홈·원정 각 1), 배속 변경 시 정렬 유지, 4리그 확장 설정 성공.
