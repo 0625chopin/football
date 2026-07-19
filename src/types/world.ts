@@ -18,10 +18,12 @@ import type {
   Points,
   Seed,
   SeasonId,
+  SeasonSeed,
   SnapshotId,
   TeamId,
   Timestamp,
   WorldId,
+  WorldSeed,
 } from './brand';
 
 /**
@@ -34,10 +36,14 @@ export interface World {
    * 최상위 시드 — 전 파생의 뿌리. **53비트 안전 정수**(`Number.MAX_SAFE_INTEGER`, T2-a
    * 5일차 개정 / D-28, 구 `docs/ISSUES.md` I-32). 2026-07-21 최초 확정치인 32비트에서
    * 5일차(07-27)에 완화됐다 — 근거는 `Seed`(`brand.ts`) 및 `docs/devStep/02.타입스키마설계원칙.md`
-   * T2-a 참조. **주의(I-39)**: 이 완화는 타입 레벨에만 반영됐고 `src/lib/sim/rng/**`
-   * 구현(`derive.ts`/`prng.ts`)은 아직 32비트 규약을 강제한다 — 2팀 6일차 반영 예정.
+   * T2-a 참조. **6일차(07-28) I-39 해소로 구현도 반영 완료**: `src/lib/sim/rng/**`의
+   * `prng.ts`(`createState`가 53비트 전 구간을 hi/lo 두 레인으로 소비)·`derive.ts`
+   * (`PAYLOAD_BITS=51`, `assertUint32`→`assertSafeSeed`로 교체)가 더 이상 32비트 규약을
+   * 강제하지 않는다(`docs/ISSUES.md` I-39 참조).
+   * **7일차**: 시드 계층 브랜드 `WorldSeed`로 승격(`brand.ts`) — `SeasonSeed`/`MatchSeed`와
+   * 뒤바뀌어 쓰이면 `tsc`가 잡는다.
    */
-  readonly worldSeed: Seed;
+  readonly worldSeed: WorldSeed;
   /** 현재 시즌 번호 (1부터 무한 누적) */
   readonly currentSeasonNumber: number;
   readonly currentPhase: SeasonPhase;
@@ -94,8 +100,9 @@ export interface Season {
   /**
    * 시즌 시드 — `hash(worldSeed, seasonNumber)`.
    * **파생 규칙의 단일 소유는 2팀 `src/lib/sim/rng/derive.ts`** 이며 여기서 재구현하지 않는다(T2-b).
+   * **7일차**: 시드 계층 브랜드 `SeasonSeed`로 승격(`brand.ts`).
    */
-  readonly seasonSeed: Seed;
+  readonly seasonSeed: SeasonSeed;
   readonly phase: SeasonPhase;
   readonly regularStartedAt: Timestamp | null;
   readonly regularEndsAt: Timestamp | null;

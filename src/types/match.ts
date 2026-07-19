@@ -29,9 +29,9 @@ import type {
   FixtureId,
   LeagueId,
   MatchEventId,
+  MatchSeed,
   PlayerId,
   SeasonId,
-  Seed,
   SnapshotId,
   TeamId,
   Timestamp,
@@ -73,8 +73,11 @@ export interface Fixture {
   readonly pkHome: number | null;
   readonly pkAway: number | null;
   readonly attendance: number | null;
-  /** `hash(seasonSeed, fixtureId)` — 파생 로직은 2팀 `derive.ts` 단일 소유(T2-b) */
-  readonly matchSeed: Seed;
+  /**
+   * `hash(seasonSeed, fixtureId)` — 파생 로직은 2팀 `derive.ts` 단일 소유(T2-b).
+   * **7일차**: 시드 계층 브랜드 `MatchSeed`로 승격(`brand.ts`).
+   */
+  readonly matchSeed: MatchSeed;
   /** NOT NULL — 결정론의 필수 축(FR-AD-014, DC-14) */
   readonly snapshotId: SnapshotId;
   /** 실제 계산 시각. 미계산이면 null */

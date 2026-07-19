@@ -100,6 +100,15 @@ export type FixtureStatus = 'SCHEDULED' | 'LIVE' | 'FINISHED' | 'VOID';
 /**
  * 이벤트 타입 (E-16 `type`, FR-MT-002 전 23종) — **6일차 확정**.
  * 값 근거: FR-MT-002 원문 그대로, 총 23종.
+ *
+ * **7일차 팀장 확정 규약 2건(`docs/ISSUES.md` I-43·I-44)** — 값 목록 변경은 아니며 발생
+ * 규칙 명문화:
+ * - **`PENALTY_SCORED`는 정규·연장 PK 득점 시 단독 발생한다. 같은 골에 `GOAL`을
+ *   추가로 발생시키지 않는다**(중복 시 D1 스코어보드의 `GOAL`/`OWN_GOAL`/
+ *   `PENALTY_SCORED` fold 집계가 1골을 2골로 셈, I-43).
+ * - **`PENALTY_SHOOTOUT`은 승부차기 킥마다 별도 `MatchEvent` 레코드로 반복 발생한다**
+ *   (같은 `type` 리터럴, 서로 다른 `sequence`/`detail`) — 리터럴 값이 1종인 것과 실제
+ *   인스턴스가 1건인 것은 별개다(I-44).
  */
 export type MatchEventType =
   | 'KICKOFF'
@@ -280,3 +289,23 @@ export type WalletTransactionReason = 'BET_PLACE' | 'BET_WIN' | 'BET_VOID' | 'TO
  * `INJURY_*` 소관이라 여기 담지 않는다(T13 — 원시값만, 표시/파라미터는 별도 계층).
  */
 export type InjurySeverity = 'KNOCK' | 'MINOR' | 'MODERATE' | 'SEVERE';
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 7일차(2026-07-29) 추가 확정 — E-41~E-43 공통코드 도메인(`config.ts`)이 참조하는
+ * enum성 값 3종. 원문 근거는 `docs/require/05-data-requirements.md` 5.12절
+ * (E-41 `value_type`/`apply_policy`, E-43 `action`)이며, 이 세 값을 여기 외의
+ * 파일(예: `config.ts`)에 재선언하지 않는다(단일 선언 원칙, 체크리스트 C-6).
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** 공통코드 그룹의 값 타입 (E-41 `value_type`) — 값 확정(05:540) */
+export type CommonCodeValueType = 'INT' | 'DECIMAL' | 'STRING' | 'BOOL' | 'JSON';
+
+/**
+ * 공통코드 발효 정책 (E-41 `apply_policy`, FR-AD-013) — 값 확정(05:541).
+ * `NEXT_SEASON`=다음 시즌부터, `IMMEDIATE`=즉시, `NEXT_MARKET`=다음 배팅 마켓부터
+ * (2차 릴리스 대상, `ODDS_PARAM`/`BET_LIMIT` 그룹 전용).
+ */
+export type CommonCodeApplyPolicy = 'NEXT_SEASON' | 'IMMEDIATE' | 'NEXT_MARKET';
+
+/** 공통코드 변경 이력 액션 (E-43 `action`) — 값 확정(05:583). append-only(NFR-SEC-010) */
+export type CommonCodeHistoryAction = 'CREATE' | 'UPDATE' | 'DEACTIVATE' | 'REACTIVATE';

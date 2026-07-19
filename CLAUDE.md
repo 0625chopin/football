@@ -40,9 +40,10 @@ npm run dev     # 개발 서버 (http://localhost:3000)
 npm run build   # 프로덕션 빌드
 npm run start   # 프로덕션 서버
 npm run lint    # ESLint (eslint.config.mjs, flat config)
+npm run test    # Vitest 1회 실행 (vitest run)
 ```
 
-- **테스트 러너 없습니다.**
+- **Vitest는 5일차에 선도입됐습니다** (2팀이 PRNG 결정론 검증에 필요해 devDependency로 추가). 다만 **`vitest.config.ts`·coverage 임계·`test:watch`/`test:coverage` 스크립트는 아직 없습니다** — 정식 정비는 1팀 Task 008(12~15일차)입니다. 그때까지 `@/*` 별칭은 테스트에서 해석되지 않으므로 테스트 코드는 상대경로 import를 쓰세요.
 - **Prettier / typecheck 스크립트 / pre-commit 훅 없습니다.** (Husky, lint-staged 미설치)
   - 타입체크가 필요하면 `npx tsc --noEmit`을 직접 실행하세요.
 

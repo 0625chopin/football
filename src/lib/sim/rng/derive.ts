@@ -15,7 +15,7 @@
  * - `World.worldSeed`는 **53비트 안전 정수**(`Number.MAX_SAFE_INTEGER`, D-28 / 구 I-32,
  *   3일차 승인·6일차 구현 반영)로 확정되었습니다. 이 파일이 파생 시드 전체의
  *   유일한 소유자이므로 변환 계층 없이 이 폭을 그대로 씁니다.
- * - 도메인 타입(H-01, 9일차) 무의존. `Math.random()`/`Date.now()`/`react`/
+ * - 도메인 타입(H-01, 8일차) 무의존. `Math.random()`/`Date.now()`/`react`/
  *   `@supabase/*` 사용 0건. **`BigInt`도 사용하지 않습니다** — D-28이 PRNG의
  *   32비트 워드 연산 유지·JSON 직렬화·틱 핫패스 성능을 근거로 `bigint` 도입을
  *   명시적으로 기각했습니다. 대신 32비트 레인 2개(hi/lo)를 각각 `Math.imul`

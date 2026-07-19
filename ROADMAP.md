@@ -171,9 +171,9 @@
   - [x] `src/types/` 하위를 도메인별로 분할 (`world.ts`, `person.ts`, `match.ts`, `stat.ts`, `economy.ts`, `betting.ts`, `config.ts`, `ops.ts`, `index.ts`) — **3일차 완료** (+ `brand.ts`·`enums.ts` 참조 기반 2종 추가)
   - [x] E-01~E-32 (1차 범위) 전량 정의 + E-33~E-40(배팅·사용자)은 2차 대비 타입만 선정의. **E-01 World는 단일 레코드 전제**(D-15) — **5일차 완료**(E-21~E-23·E-31·E-32는 `stat.ts`, E-24~E-27은 `ops.ts`, E-28~E-30은 `economy.ts`, E-33~E-40은 `betting.ts`). 부수로 `docs/ISSUES.md` I-19·I-31·I-32 5일차 반영 완료
   - [x] enum성 값 단일 선언: 이벤트 타입 23종(FR-MT-002), 포지션 11군(FR-PL-005), 부상 4등급(FR-PL-009), 전술 성향 6종(FR-MT-009, 3일차 선반영 재확인), 페이즈 6종(FR-LG-010 5종 + `TIEBREAK`, I-33/D-27), 마켓 상태, 국적 코드(D-17, T9에 따라 ISO 3166-1 alpha-2 브랜드 계약) — **6일차 완료**. 부수로 `docs/ISSUES.md` I-33·I-37 6일차 반영 완료(`MatchEvent.relatedEventSequence` 추가)
-  - [ ] 34속성(FR-PL-002) 타입, 시드 계층 타입(world/season/match), 상수 스냅샷 타입(E-44) — *34속성 **4일차 완료**(기술10·정신10·신체8·GK6). 시드 계층·상수 스냅샷 타입은 7일차*
-  - [ ] 브랜드 타입으로 ID 혼용 방지(`TeamId`, `PlayerId` 등), 포인트는 정수 타입으로 고정(DC-08)
-  - [ ] 각 enum에 **번역 키를 매핑하는 타입 규약** 정의 — 표시명은 타입이 아닌 메시지 카탈로그가 소유 (Task 011과 정합)
+  - [x] 34속성(FR-PL-002) 타입, 시드 계층 타입(world/season/match), 상수 스냅샷 타입(E-44) — *34속성 **4일차 완료**(기술10·정신10·신체8·GK6). 시드 계층(`WorldSeed`/`SeasonSeed`/`MatchSeed`/`EventSeed`)·상수 스냅샷 타입(E-44 `SimConstantSnapshot`) **7일차 완료**(`src/types/brand.ts`, `config.ts`). 부수로 E-41~43(`CommonCodeGroup`/`CommonCode`/`CommonCodeHistory`)도 7일차에 함께 정의*
+  - [x] 브랜드 타입으로 ID 혼용 방지(`TeamId`, `PlayerId` 등), 포인트는 정수 타입으로 고정(DC-08) — **7일차 완료**. ID 27종(+ E-42/43용 2종) 전량을 `Brand<T,TName>` 명목 타입으로 승격, `Points`도 브랜드화. `npx tsc --noEmit` 오류 0 + 서로 다른 브랜드 간 대입이 오류로 검출됨을 확인
+  - [x] 각 enum에 **번역 키를 매핑하는 타입 규약** 정의 — 표시명은 타입이 아닌 메시지 카탈로그가 소유 (Task 011과 정합) — **7일차 완료**(`src/types/config.ts` `EnumTranslationCatalog<T>`, 키 문자열은 4팀 H-09 소유이므로 미포함)
   - [ ] 타입 ↔ 엔티티 매핑표를 `src/types/README.md`로 남겨 추적성 유지
 - **수락 기준**: `npx tsc --noEmit` 오류 0. E-01~E-47 중 1차 범위 전 엔티티가 타입으로 존재하며 중복 enum 선언 0건.
 - **테스트**: 타입 레벨 테스트(`expectTypeOf`)로 필수 필드 누락 검출.
