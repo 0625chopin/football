@@ -153,9 +153,22 @@ ROADMAP은 10명 전제로 작성됐지만 실제 가용 인원은 6명이라, *
 |---|---|
 | 새 결정이 내려짐 | `docs/require/06-prioritization-and-risks.md` 결정 기록 (**단일 소스**) + `docs/ISSUES.md`에서 해당 미결 항목 제거 |
 | 결정되지 않은 논점·개선 아이디어 발생 | `docs/ISSUES.md` |
-| Task 완료 / 새 Task 추가 | `ROADMAP.md` (체크박스 `[x]`) — `development-planner` 에이전트 |
-| 인원 변경 / 일정 지연 | `docs/team-schedule/` 재산출 — `schedule-planner` 에이전트 |
+| Task 완료 / 새 Task 추가 | `ROADMAP.md` (체크박스 `[x]`) — `development-planner` 에이전트. **스코프가 바뀌었으면 이어서 `schedule-planner`로 일정 재산출** |
+| 인원 변경 / 일정 지연 | `schedule-planner` 에이전트 — `docs/team-schedule/` 재산출 **+ `ROADMAP.md` 동기화를 한 번에 수행** |
 | 설치·실행 절차 변경 | `docs/devStep/00.*.md` |
 | 새 개발 단계 시작 | `docs/devStep/NN.제목.md` **추가** (기존 문서 수정하지 않음) |
 
 **원칙**: 확정 사양은 `docs/require/`, 미확정은 `docs/ISSUES.md`, 실행 계획은 `ROADMAP.md`, 날짜는 `docs/team-schedule/`. 같은 정보를 두 곳에 쓰지 않습니다.
+
+### ROADMAP ↔ team-schedule 동기화
+
+두 문서는 **항상 같은 계획을 말해야 합니다.** 정보가 흐르는 방향이 정해져 있습니다.
+
+| 정보 | 단일 소스 | 반영 방향 |
+|---|---|---|
+| **스코프** — Task 존재·제목·구현 사항·수락 기준 | `ROADMAP.md` | ROADMAP → team-schedule (일정 재산출) |
+| **일정·배정** — 누가, 언제, 며칠 | `docs/team-schedule/` | team-schedule → ROADMAP (`**담당**`·`**일정**` 줄 갱신) |
+
+`schedule-planner` 에이전트가 이 동기화를 **한 작업 안에서 양쪽 다** 수행합니다. 일정만 고치고 ROADMAP을 방치하면, 로드맵을 보고 일하는 사람과 일정을 보고 일하는 사람이 서로 다른 계획을 실행하게 됩니다.
+
+동기화 시 ROADMAP에서 건드리는 영역은 **담당·일정·팀 구성 절·마일스톤 요약뿐**이며, 구현 사항 체크박스·수락 기준·테스트·요구사항 ID는 수정하지 않습니다 (편집 전후 개수를 기계적으로 대조해 검증).
