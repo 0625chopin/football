@@ -203,7 +203,8 @@ export interface MatchTeamStatComparison {
   readonly teamId: TeamId;
   /**
    * 점유율(%) — 대체 원시 소스가 없어(터치 수 기반 추정) 서버 파생값. **이벤트 미근거
-   * 필드**(I-34 9일차 2차 판정) — `LIVE` 중에는 0(자리표시자), `FINISHED` 이후 정확한 값.
+   * 필드(Tier B, I-34 9일차 3차 판정)** — `LIVE` 중에는 `matchSeed` 재시뮬레이션 값,
+   * `FINISHED` 이후 정확한 최종값.
    */
   readonly possessionAvg: number;
   readonly shots: number;
@@ -326,23 +327,26 @@ export interface DataSource {
   getMatchLineups(fixtureId: FixtureId): Promise<readonly MatchLineup[]>;
 
   /**
-   * 선수별 경기 평점·스탯(E-19). ⚠️ **I-34 계약(9일차 2차 판정)** — 구현체는 저장된 최종
-   * 집계 로우를 그대로 반환하면 안 된다. `status='LIVE'`인 동안: ① `MatchEventType`에
-   * 대응 이벤트가 있는 필드(goals/assists/shots/shotsOnTarget/saves/카드류/offsides/xg 등)는
-   * `getMatchEvents`와 **동일 컷오프**로 노출된 이벤트에서 재계산한 값 ② 대응 이벤트가
-   * 없는 필드(패스·드리블·수비 세부 지표 등, 위 파일 헤더 I-34 절 참조)는 **0**(실제 0이
-   * 아니라 "안전하게 계산 불가"의 자리표시자) ③ `matchRating`은 중립 고정값(예: 6.0) —
-   * 파생 지표라 가장 민감하다(S-4, 최종 평점이 새면 경기 결과가 역산됨). `status='FINISHED'`
-   * 이후에는 전 필드가 정확한 최종값이다.
+   * 선수별 경기 평점·스탯(E-19). ⚠️ **I-34 계약(9일차 3차 판정, 2팀 메커니즘)** — 구현체는
+   * 저장된 최종 집계 로우를 그대로 반환하면 안 된다. `status='LIVE'`인 동안: ① **Tier
+   * A**(`MatchEventType`에 대응 이벤트가 있는 필드 — goals/assists/shots/shotsOnTarget/
+   * saves/카드류/offsides/xg 등)는 `getMatchEvents`와 **동일 컷오프**로 노출된 이벤트에서
+   * 재계산한 값 ② **Tier B**(대응 이벤트가 없는 필드 — 패스·드리블·수비 세부 지표 등, 위
+   * 파일 헤더 I-34 절 참조)는 **같은 `matchSeed`로 컷오프 틱까지 재시뮬레이션**한 값(결정론
+   * SSOT가 이벤트가 아니라 시드이므로 안전 — 0 자리표시자가 아니다) ③ `matchRating`은
+   * 중립 고정값(예: 6.0) — 파생 지표라 가장 민감하다(S-4, 최종 평점이 새면 경기 결과가
+   * 역산됨). `status='FINISHED'` 이후에는 전 필드가 정확한 최종값이다. 11일차 `stats.ts`가
+   * Tier A/B 56필드 전량 매핑표를 확정한다(2·5팀 동의).
    */
   getMatchPlayerRatings(fixtureId: FixtureId): Promise<readonly PlayerMatchStat[]>;
 
   /**
    * 팀 스탯 비교바(D5) — 홈/원정 2건. `MatchTeamStatComparison` 자체가 비영속 파생
    * DTO이므로(W-38) 항상 재계산 응답이며, `getMatchPlayerRatings`와 동일한 I-34 9일차
-   * 2차 판정 컷오프 계약을 따른다 — `possessionAvg`는 이벤트 미근거 필드라 `LIVE` 중 0,
-   * 나머지(`shots`/`shotsOnTarget`/`corners`/`fouls`/카드류/`xg`)는 전부 대응 `MatchEventType`이
-   * 있는 이벤트 근거 필드라 `LIVE` 중에도 경과분 컷오프로 정확히 채워진다.
+   * 3차 판정 컷오프 계약을 따른다 — `possessionAvg`는 Tier B(이벤트 미근거)라 `LIVE` 중
+   * `matchSeed` 재시뮬레이션 값, 나머지(`shots`/`shotsOnTarget`/`corners`/`fouls`/카드류/
+   * `xg`)는 전부 Tier A(대응 `MatchEventType` 있음)라 `LIVE` 중에도 경과분 컷오프 재계산으로
+   * 정확히 채워진다.
    */
   getMatchTeamStats(fixtureId: FixtureId): Promise<readonly MatchTeamStatComparison[]>;
 
