@@ -30,7 +30,13 @@ import type {
  */
 export interface World {
   readonly id: WorldId;
-  /** 최상위 시드 — 전 파생의 뿌리. 32비트 안전 정수(T2-a) */
+  /**
+   * 최상위 시드 — 전 파생의 뿌리. **53비트 안전 정수**(`Number.MAX_SAFE_INTEGER`, T2-a
+   * 5일차 개정 / D-28, 구 `docs/ISSUES.md` I-32). 2026-07-21 최초 확정치인 32비트에서
+   * 5일차(07-27)에 완화됐다 — 근거는 `Seed`(`brand.ts`) 및 `docs/devStep/02.타입스키마설계원칙.md`
+   * T2-a 참조. **주의(I-39)**: 이 완화는 타입 레벨에만 반영됐고 `src/lib/sim/rng/**`
+   * 구현(`derive.ts`/`prng.ts`)은 아직 32비트 규약을 강제한다 — 2팀 6일차 반영 예정.
+   */
   readonly worldSeed: Seed;
   /** 현재 시즌 번호 (1부터 무한 누적) */
   readonly currentSeasonNumber: number;
@@ -40,6 +46,25 @@ export interface World {
   readonly isPaused: boolean;
   /** 누적 정지 시간(분) — 스케줄 오프셋 */
   readonly pausedTotalMinutes: number;
+  /**
+   * **I-31 해소(5일차)** — 월드시간↔실시간 환산 앵커.
+   * 기존 `speedMultiplier`/`isPaused`/`pausedTotalMinutes`만으로는 경과분 적분이 수학적으로
+   * 불가능했다(앵커 부재). `speedChangedAt` + `worldMinutesAtSpeedChange` 쌍이 "이 시각부터
+   * 이 배속으로 이만큼의 월드 분(分)이 흘렀다"의 기준점이 되어, 이후 경과분은
+   * `worldMinutesAtSpeedChange + (실시간경과분 × speedMultiplier)`로 적분 가능해진다.
+   * 파생식 자체의 단일 소유는 2팀 H-24(30일차 인계) — 여기서는 입력 필드만 정의한다.
+   */
+  readonly speedChangedAt: Timestamp;
+  /** 위 앵커 시각 시점의 누적 월드 분(分). I-31 쌍 필드 */
+  readonly worldMinutesAtSpeedChange: number;
+  /**
+   * 진행 중인 정지 구간의 시작 시각. `isPaused`가 true일 때만 값을 가지며, 정지 해제 시
+   * `pausedTotalMinutes`에 가산되고 null로 리셋된다(I-31 ②, 누적치뿐인 `pausedTotalMinutes`로는
+   * "현재 정지 중인 분"을 뺄 수 없었다).
+   */
+  readonly pausedAt: Timestamp | null;
+  /** 배속·정지 변경 감지용 단조 증가 값(I-31 권고 사항 ③) */
+  readonly clockRevision: number;
   readonly createdAt: Timestamp;
 }
 

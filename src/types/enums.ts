@@ -110,3 +110,113 @@ export type TransferType = 'TRANSFER' | 'FREE' | 'TRADE' | 'RELEASE';
  * // 4일차 확정 — 6일차 전량 확정 시 유지(6일차 대상 목록 밖)
  */
 export type LoanStatus = 'ACTIVE' | 'RETURNED';
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 5일차(2026-07-27) 추가 확정 — 아래는 전부 6일차 목록(이벤트 23종·포지션 11군·
+ * 부상 4등급·전술 6종·페이즈 6종·마켓 상태·국적 코드) **밖**이며 요구사항 원문에
+ * 값이 이미 열거돼 있어 4일차 전례(CompetitionType 등)와 동일하게 오늘 확정한다.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** 부상 상태 (E-24 `status`) — 값 확정(05:354). 등급(severity 1~4)은 6일차 "부상 4등급" 대상 */
+export type InjuryStatus = 'ACTIVE' | 'RECOVERED';
+
+/** 뉴스피드 이벤트 종류 (E-26 `type`) — 값 확정(05:369), 10종 */
+export type NewsFeedItemType =
+  | 'TRANSFER'
+  | 'LOAN'
+  | 'RETIREMENT'
+  | 'YOUTH_DEBUT'
+  | 'MANAGER_CHANGE'
+  | 'SPONSOR_BANKRUPT'
+  | 'AWARD'
+  | 'INJURY'
+  | 'MILESTONE'
+  | 'SANCTION';
+
+/**
+ * 제재 종류 (E-27 `sanction_type`) — 현재 확정값은 `REBUILD_SANCTION` 1종뿐(05:379).
+ * 원문이 "향후 `RELEGATION` 확장 여지"를 명시했으나 아직 확정 값이 아니므로 유니온에 넣지
+ * 않는다. 추가가 필요해지면 이슈 등록 후 배치 반영(8일차 이후는 R-H 배치 규칙 적용).
+ */
+export type SanctionType = 'REBUILD_SANCTION';
+
+/** 스폰서 계약 상태 (E-29 `status`) — 값 확정(05:406) */
+export type SponsorContractStatus = 'ACTIVE' | 'EXPIRED' | 'VOIDED';
+
+/** 포인트 원장 소유자 유형 (E-30 `owner_type`) — 값 확정(05:415) */
+export type PointTransactionOwnerType = 'TEAM' | 'SPONSOR';
+
+/**
+ * 포인트 원장 사유 코드 (E-30 `reason_code`, FR-EC-001) — 값 확정(03:701).
+ * ⚠️ 요구사항 원문은 "12종"이라 적었으나 실제 열거값은 11개뿐이다(문서 표기 오류로 추정,
+ * `docs/ISSUES.md` 제보 대상 — 코드는 실제 열거값 11개만 반영한다).
+ */
+export type PointTransactionReasonCode =
+  | 'LEAGUE_FINISH'
+  | 'PLAYOFF_PRIZE'
+  | 'CUP_PRIZE'
+  | 'GIANT_KILLING_BONUS'
+  | 'SPONSOR_INCOME'
+  | 'SPONSOR_SHARE'
+  | 'TRANSFER_IN'
+  | 'TRANSFER_OUT'
+  | 'WAGE'
+  | 'REBUILD_GRANT'
+  | 'YOUTH_COST'
+  | 'ACADEMY_INVEST';
+
+/** 수상 종류 (E-31 `type`) — 값 확정(05:436), 12종 */
+export type AwardType =
+  | 'LEAGUE_MVP'
+  | 'GOLDEN_BOOT'
+  | 'GOLDEN_PLAYMAKER'
+  | 'GOLDEN_GLOVE'
+  | 'BEST_YOUNG_PLAYER'
+  | 'MANAGER_OF_SEASON'
+  | 'TEAM_OF_SEASON'
+  | 'BALLON_DOR'
+  | 'WORLD_XI'
+  | 'CUP_MVP'
+  | 'PLAYOFF_MVP'
+  | 'PLAYER_OF_THE_ROUND';
+
+/** 수상 범위 (E-31 `scope`) — 값 확정(05:437) */
+export type AwardScope = 'LEAGUE' | 'WORLD' | 'CUP' | 'PLAYOFF';
+
+/** 트로피 종류 (E-32 `type`) — 값 확정(05:447) */
+export type TrophyType = 'LEAGUE_TITLE' | 'PLAYOFF_TITLE' | 'CUP_TITLE' | 'PROMOTION';
+
+/** 배팅 마켓 범위 (E-33 `scope`) — 값 확정(05:459). 2차 릴리스 선정의 */
+export type BetMarketScope = 'MATCH' | 'SEASON' | 'TOURNAMENT';
+
+/**
+ * 배팅 마켓 상태 (E-33 `status`) — **"마켓 상태"는 6일차 목록에 명시적으로 포함**돼 있어
+ * 오늘은 값을 선점하지 않는다. `MatchEventType`(day-6 이벤트 23종)과 동일한 브랜드
+ * placeholder 패턴 — plain string 대입 시 `as BetMarketStatus` 캐스팅을 강제해 조용한
+ * 오용을 차단한다.
+ */
+export type BetMarketStatus = string & { readonly __unconfirmedBetMarketStatus: true };
+
+/** 배팅 셀렉션 결과 (E-34 `result`) — 값 확정(05:475). 2차 릴리스 선정의 */
+export type BetSelectionResult =
+  | 'PENDING'
+  | 'WIN'
+  | 'LOSE'
+  | 'VOID'
+  | 'HALF_WIN'
+  | 'HALF_LOSE';
+
+/** 베팅 유형 (E-36 `type`) — 값 확정(05:492). 2차 릴리스 선정의 */
+export type BetType = 'SINGLE' | 'MULTI';
+
+/** 베팅 상태 (E-36 `status`) — 값 확정(05:493). 2차 릴리스 선정의. `BetMarketStatus`와 별개 축 */
+export type BetStatus = 'PENDING' | 'WON' | 'LOST' | 'VOID' | 'HALF_WON' | 'HALF_LOST';
+
+/** 사용자 권한 (E-38 `role`) — 값 확정(05:513). 2·3차 릴리스 선정의 */
+export type UserRole = 'USER' | 'ADMIN';
+
+/** 지갑 통화 (E-39 `currency`) — 값 확정(05:518), 1종. 2·3차 릴리스 선정의 */
+export type WalletCurrency = 'POINT';
+
+/** 지갑 거래 사유 (E-40 `reason`) — 값 확정(05:523). 2·3차 릴리스 선정의 */
+export type WalletTransactionReason = 'BET_PLACE' | 'BET_WIN' | 'BET_VOID' | 'TOPUP';

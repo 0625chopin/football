@@ -40,9 +40,41 @@ export type TransferId = string;
 /** E-14 Loan PK (uuid) — 4일차 추가 */
 export type LoanId = string;
 
+/** E-25 YouthProspect PK (uuid) — 5일차 추가 */
+export type YouthProspectId = string;
+/** E-26 NewsFeedItem PK (uuid) — 5일차 추가 */
+export type NewsFeedItemId = string;
+/** E-27 Sanction PK (uuid) — 5일차 추가 */
+export type SanctionId = string;
+/** E-28 Sponsor PK (uuid) — 5일차 추가 */
+export type SponsorId = string;
+/** E-29 SponsorContract PK (uuid) — 5일차 추가 */
+export type SponsorContractId = string;
+/** E-30 PointTransaction PK (uuid) — 5일차 추가 */
+export type PointTransactionId = string;
+/** E-31 Award PK (uuid) — 5일차 추가 */
+export type AwardId = string;
+/** E-32 Trophy PK (uuid) — 5일차 추가 */
+export type TrophyId = string;
+/** E-33 BetMarket PK (uuid) — 5일차 추가(2차 선정의) */
+export type BetMarketId = string;
+/** E-34 BetSelection PK (uuid) — 5일차 추가(2차 선정의) */
+export type BetSelectionId = string;
+/** E-35 Odds PK (uuid) — 5일차 추가(2차 선정의) */
+export type OddsId = string;
+/** E-36 Bet PK (uuid) — 5일차 추가(2차 선정의) */
+export type BetId = string;
+/** E-38 User PK (uuid, `auth.users` 참조) — 5일차 추가(2차 선정의) */
+export type UserId = string;
+/** E-40 WalletTransaction PK (uuid) — 5일차 추가(2차 선정의) */
+export type WalletTransactionId = string;
+
 /**
- * 시드 값 — 32비트 안전 정수(T2-a 확정).
- * `string`·`bigint`·53비트 초과 정수를 쓰지 않는다. 7일차에 브랜드를 씌운다.
+ * 시드 값 — **53비트 안전 정수**(`Number.MAX_SAFE_INTEGER`, D-28 / 구 I-32, 5일차 확정).
+ * 기존 32비트 규약은 2팀 시드 파생 네임스페이스 태그 예약으로 실효 payload가 30비트뿐이라
+ * 생일 충돌이 시즌당 수백 건 발생해 53비트로 완화했다(근거: `docs/require/06-prioritization-and-risks.md` D-28).
+ * `string`·`bigint`는 쓰지 않는다(PRNG 32비트 워드 연산·JSON 직렬화·핫패스 성능 — D-28 `bigint` 기각 사유).
+ * 7일차에 브랜드를 씌운다.
  */
 export type Seed = number;
 
