@@ -6,11 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-`create-next-app`으로 생성된 **초기 상태**의 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router).
+`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 3일차 진행 완료(2026-07-23 기준).**
 
-- **앱 코드는 아직 사실상 비어 있습니다.** `src/app/`에 `layout.tsx`, `page.tsx`, `globals.css`, `favicon.ico`만 있습니다. 기능 구현은 이제부터 시작입니다.
+- **화면 코드는 아직 없습니다.** `src/app/`에는 `layout.tsx`, `page.tsx`, `globals.css`, `favicon.ico`만 있습니다. 라우트 골격은 9~13일차(Task 005) 예정입니다.
+- **이미 만들어진 코드가 있습니다. 새로 만들기 전에 반드시 확인하세요.**
+  - `src/types/**` — 도메인 타입 **단일 소스**(1팀 소유). 11파일, E-01~E-08 정의 완료. **8일차(2026-07-30)에 동결**되며 이후 변경은 이슈 배치 반영만 가능합니다. 여기 있는 타입을 다른 곳에 다시 선언하지 마세요.
+  - `src/lib/sim/rng/**` — 시드 PRNG·결정론 유틸(2팀 소유). `prng.ts`(xoshiro128\*\*) / `derive.ts`(시드 계층 파생) / `precision.ts`(확률 6자리 정수 비교). **난수와 확률 비교는 전부 이 모듈을 경유합니다.**
 - 만들려는 제품(가상 축구 리그 시뮬레이션 / 승부 예측)의 기획은 `docs/devStep/01.초기기획.md`를 읽으세요. 기획 내용은 이 파일에 복제하지 않습니다.
-- 개발 단계별 문서는 `docs/devStep/`에 `NN.제목.md` 형식으로 누적합니다.
+- 개발 단계별 문서는 `docs/devStep/`에 `NN.제목.md` 형식으로 누적합니다. 타입·스키마 설계 원칙은 `02.*`, 결정↔Task 매핑표와 코드 리뷰 체크리스트는 `03.*`에 있습니다.
+- 일차별 작업 로그는 `docs/dailyWorkLog/NDay.md`, 화면 와이어프레임은 `docs/wireframe/`에 있습니다.
 
 ## 명령어
 
@@ -31,7 +35,8 @@ npm run lint    # ESLint (eslint.config.mjs, flat config)
 
 - **`src/` 디렉터리를 사용합니다.** App Router는 `src/app/`.
 - `tsconfig.json`의 경로 별칭: `@/*` → `./src/*`. 예: `@/components/...`, `@/lib/...`
-- `components/`, `lib/`는 **아직 없습니다.** 새로 만들 때 `src/` 하위(`src/components/`, `src/lib/`)에 두세요.
+- `src/types/`(도메인 타입)와 `src/lib/sim/rng/`(시드 PRNG)는 **이미 존재합니다.** `src/components/`는 아직 없습니다(4팀 23일차 이후 생성).
+- 새 코드는 `src/` 하위에 두되, **팀별 소유 경로를 먼저 확인하세요** — `docs/team-schedule/<팀>.md`의 "소유 경로" 절에 어느 디렉터리를 어느 팀이 커밋하는지 갈라 두었습니다. 남의 경로를 고치면 병렬 작업이 충돌합니다.
 
 ### 빌드 / 툴링
 
@@ -78,7 +83,7 @@ npm run lint    # ESLint (eslint.config.mjs, flat config)
 
 - 화면은 모두 component 단위로 만듭니다.
 - 화면의 모든 컴포넌트는 `http://localhost:3000/sample`에 보이도록 배치합니다.
-  - **`/sample` 라우트는 아직 없습니다.** 첫 컴포넌트를 만들 때 `src/app/sample/page.tsx`를 생성하고, 이후 모든 컴포넌트를 여기에 노출하세요.
+  - **`/sample` 라우트는 아직 없습니다.** 4팀이 Task 005(10일차)에서 생성하고 Task 014(34~38일차)에서 쇼케이스로 완성합니다. 임의로 만들지 말고 해당 팀 일정에 따르세요.
 - 개발은 더미 데이터(Mock Data)로 화면(UI)부터 구현합니다.
 - Database 설계 및 연결 전에 화면, 컴포넌트 구조, 사용자 경험(UX)을 먼저 완성합니다.
 - Mock 데이터와 실제 Database 데이터는 **동일한 TypeScript 타입**을 사용합니다.
@@ -88,7 +93,8 @@ npm run lint    # ESLint (eslint.config.mjs, flat config)
 
 ### 개발중 이슈 관련사항 (결정 X, 개선사항)
 
-- `docs/ISSUES.md`에 기록합니다. **이 파일은 아직 없습니다** — 첫 이슈 발생 시 생성하세요.
+- `docs/ISSUES.md`에 기록합니다. 현재 I-35까지 등재되어 있으며 **제보는 전원, 반영(파일 편집)은 1팀 코어·품질팀**이 합니다.
+- **확정된 결정**은 ISSUES가 아니라 `docs/require/06-prioritization-and-risks.md` 6.3절 결정 기록(D-\*)이 단일 소스입니다. 결정과 미결을 같은 곳에 쓰지 마세요.
 
 ### 테스트계정 (계정/비밀번호)
 
