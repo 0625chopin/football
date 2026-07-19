@@ -83,7 +83,13 @@ export interface Loan {
   readonly playerId: PlayerId;
   readonly ownerTeamId: TeamId;
   readonly loanTeamId: TeamId;
-  /** 임대료 분배 비율(%). 기본 50 */
+  /**
+   * 임대료 분배 비율(%). 기본 50. **8일차 판정(I-52)**: 퍼센트형 필드는 DC-08 4범주
+   * (포인트/배당/확률/컨디션) 어디에도 명시적으로 속하지 않지만, 타입 레벨에서는 다른
+   * 0~100 스케일 필드(`reputation`, `academyLevel` 등)와 동일하게 **일반 `number`**로
+   * 둔다 — 별도 브랜드를 두지 않는 이유는 T5(능력치) 판정과 같다(person.ts 참조). 소수
+   * 자리 정밀도(`numeric(5,2)`)는 물리 스키마(6팀 Task 009) 책임이다.
+   */
   readonly wageSharePct: number;
   readonly status: LoanStatus;
 }
@@ -117,7 +123,7 @@ export interface SponsorContract {
   readonly startSeason: number;
   readonly endSeason: number;
   readonly incomePerSeason: Points;
-  /** ≤ 30.00(%) */
+  /** ≤ 30.00(%) — 퍼센트 표현 규약은 `Loan.wageSharePct` 주석 참조(I-52) */
   readonly sharePct: number;
   readonly status: SponsorContractStatus;
 }

@@ -204,9 +204,12 @@ export type SponsorContractStatus = 'ACTIVE' | 'EXPIRED' | 'VOIDED';
 export type PointTransactionOwnerType = 'TEAM' | 'SPONSOR';
 
 /**
- * 포인트 원장 사유 코드 (E-30 `reason_code`, FR-EC-001) — 값 확정(03:701).
- * ⚠️ 요구사항 원문은 "12종"이라 적었으나 실제 열거값은 11개뿐이다(문서 표기 오류로 추정,
- * `docs/ISSUES.md` 제보 대상 — 코드는 실제 열거값 11개만 반영한다).
+ * 포인트 원장 사유 코드 (E-30 `reason_code`, FR-EC-001) — 값 확정(03:701), **12종**.
+ * **8일차 정정**: 이 주석이 이전에 "요구사항 원문 12종 vs 실제 열거값 11개(불일치)"라고
+ * 잘못 적혀 있었다 — 아래 리터럴은 실제로 12개이며 FR-EC-001 원문 12종과 정확히 일치한다
+ * (3팀·6팀·팀장 8일차 교차 검증, `docs/ISSUES.md` I-48). 주석만 틀렸을 뿐 타입은 항상
+ * 정확했다. 6팀이 DB `CHECK` 제약을 이 유니온에서 그대로 복사할 계획이었어서, 정정 전
+ * 상태로 두면 32일차 매퍼에서 12번째 값 삽입 시 `CHECK` 위반이 났을 것이다(I-48 참조).
  */
 export type PointTransactionReasonCode =
   | 'LEAGUE_FINISH'
@@ -309,3 +312,22 @@ export type CommonCodeApplyPolicy = 'NEXT_SEASON' | 'IMMEDIATE' | 'NEXT_MARKET';
 
 /** 공통코드 변경 이력 액션 (E-43 `action`) — 값 확정(05:583). append-only(NFR-SEC-010) */
 export type CommonCodeHistoryAction = 'CREATE' | 'UPDATE' | 'DEACTIVATE' | 'REACTIVATE';
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 8일차(2026-07-30) 추가 확정 — E-45~E-47(운영/감사, `ops.ts`)이 참조하는 enum성
+ * 값 2종. 6~7일차 작업표에 명시적으로 배정되지 않아 비어 있던 잔여분이며,
+ * `docs/require/05-data-requirements.md` 5.13절이 값 목록의 정본이다(1차 범위 —
+ * E-33~E-40 배팅/사용자처럼 2차 대비 선정의 대상이 아니다). C-6에 따라 이 두 값을
+ * `ops.ts`에 재선언하지 않는다.
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** 크론 실행 상태 (E-45 CronRun `status`) — 값 확정(05:680, FR-AD-017~019) */
+export type CronRunStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'NOOP';
+
+/**
+ * 감사 로그 행위자 유형 (E-47 AuditLog `actor_type`) — 값 확정(05:701).
+ * `HUMAN`=관리자 콘솔 조작, `ENGINE`=경기 시뮬 파이프라인, `ODDS`=배당 산출 파이프라인,
+ * `SETTLEMENT`=배팅 정산 파이프라인(2차). `actorId`가 채워지는 것은 `HUMAN`뿐이다
+ * (`AuditLog.actorId` 필드 주석 참조).
+ */
+export type AuditActorType = 'HUMAN' | 'ENGINE' | 'ODDS' | 'SETTLEMENT';

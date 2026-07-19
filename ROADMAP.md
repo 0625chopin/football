@@ -174,9 +174,9 @@
   - [x] 34속성(FR-PL-002) 타입, 시드 계층 타입(world/season/match), 상수 스냅샷 타입(E-44) — *34속성 **4일차 완료**(기술10·정신10·신체8·GK6). 시드 계층(`WorldSeed`/`SeasonSeed`/`MatchSeed`/`EventSeed`)·상수 스냅샷 타입(E-44 `SimConstantSnapshot`) **7일차 완료**(`src/types/brand.ts`, `config.ts`). 부수로 E-41~43(`CommonCodeGroup`/`CommonCode`/`CommonCodeHistory`)도 7일차에 함께 정의*
   - [x] 브랜드 타입으로 ID 혼용 방지(`TeamId`, `PlayerId` 등), 포인트는 정수 타입으로 고정(DC-08) — **7일차 완료**. ID 27종(+ E-42/43용 2종) 전량을 `Brand<T,TName>` 명목 타입으로 승격, `Points`도 브랜드화. `npx tsc --noEmit` 오류 0 + 서로 다른 브랜드 간 대입이 오류로 검출됨을 확인
   - [x] 각 enum에 **번역 키를 매핑하는 타입 규약** 정의 — 표시명은 타입이 아닌 메시지 카탈로그가 소유 (Task 011과 정합) — **7일차 완료**(`src/types/config.ts` `EnumTranslationCatalog<T>`, 키 문자열은 4팀 H-09 소유이므로 미포함)
-  - [ ] 타입 ↔ 엔티티 매핑표를 `src/types/README.md`로 남겨 추적성 유지
-- **수락 기준**: `npx tsc --noEmit` 오류 0. E-01~E-47 중 1차 범위 전 엔티티가 타입으로 존재하며 중복 enum 선언 0건.
-- **테스트**: 타입 레벨 테스트(`expectTypeOf`)로 필수 필드 누락 검출.
+  - [x] 타입 ↔ 엔티티 매핑표를 `src/types/README.md`로 남겨 추적성 유지 — **8일차 완료**. 작성 중 **E-45 CronRun / E-46 CronGap / E-47 AuditLog 3종이 6~7일차 어느 항목에도 배정되지 않아 미정의 상태**임을 발견(`docs/ISSUES.md` I-45) — E-33~E-40처럼 2차 선정의 대상으로 지정된 적이 없는 1차 범위 엔티티라 8일차에 `ops.ts`에 반영해 완결
+- **수락 기준**: `npx tsc --noEmit` 오류 0. E-01~E-47 중 1차 범위 전 엔티티가 타입으로 존재하며 중복 enum 선언 0건. — **8일차 충족 확인**(E-45~47 포함 전 엔티티 존재, `tsc` 오류 0)
+- **테스트**: 타입 레벨 테스트(`expectTypeOf`)로 필수 필드 누락 검출. — **8일차 완료**: `src/types/*.type-test.ts` 10파일(도메인별 1종 + `brand`/`enums`). ⚠️ `vitest.config.ts` 부재로 `npm test`(vitest run 기본 include)는 이 파일들을 아직 실행하지 않는다 — 실제 검증은 `npx tsc --noEmit`이 수행(`expectTypeOf`/`@ts-expect-error` 오류 주입 테스트로 실효성 확인 완료). Task 008(12~15일차)에서 `vitest.config.ts` `include`에 `*.type-test.ts` 패턴을 추가해야 `vitest run`으로도 실행된다(`docs/ISSUES.md` I-46).
 
 ### Task 003: 공통코드 36개 그룹 체계와 상수 로더 인터페이스를 설계한다 - 우선순위
 

@@ -100,6 +100,14 @@ export interface MatchEvent {
   readonly addedTime: number;
   /** FR-MT-002 전 23종 — `enums.ts`의 `MatchEventType`으로 6일차 확정 완료 */
   readonly type: MatchEventType;
+  /**
+   * 이 이벤트가 귀속되는 팀. 대부분 "이 팀이 행위 주체"지만 **`OWN_GOAL`은 예외** —
+   * **8일차 팀장 확정(2·5팀 합의, `docs/ISSUES.md` I-53)**: `OWN_GOAL.teamId`는 자책골을
+   * 넣은 선수(`primaryPlayerId`)의 소속팀이 아니라 **수혜팀(득점이 귀속되는 반대팀)**이다.
+   * 근거 — `TeamSeasonStat.goalsFor`/`goalsAgainst`가 이벤트 로그에서 파생되려면
+   * (FR-ST-005, AS-10) `teamId`가 득점 귀속팀이어야 `GOAL`/`PENALTY_SCORED`와 동일한
+   * 방향으로 집계된다. 실점팀 귀속으로 두면 자책골이 반대 방향으로 집계돼 스탯이 깨진다.
+   */
   readonly teamId: TeamId | null;
   readonly primaryPlayerId: PlayerId | null;
   /**
@@ -116,6 +124,14 @@ export interface MatchEvent {
    * `primaryPlayerId`가 유일한 출처다. `GOAL` 쪽에서 "이 골의 어시스트가 누구인지"는
    * `relatedEventSequence`로 연결된 `ASSIST` 이벤트를 조회해서 얻는다(중계 타임라인
    * 표시 전용, 통계 재계산 입력 아님) — 이중 표기가 아니라 **단일 링크**다.
+   *
+   * **`PENALTY_MISSED`에서는 선방한 GK(8일차 팀장 확정, 2·5팀 합의, I-55)** — GK가 막았으면
+   * 그 GK의 `PlayerId`, 골대 이탈·크로스바 등으로 빗나갔으면 null. 근거:
+   * `PlayerStatCoreValues.penaltiesSaved`(FR-ST-001 GK 지표)가 이벤트 로그에서 파생되려면
+   * 이 필드의 non-null 여부가 판정 신호여야 한다. 기존 범용 보조 참조 필드의 재사용이며
+   * (본 필드 헤더 주석 참조), `CardReason`(I-41, 보류)과 달리 **새 taxonomy를 만드는 게
+   * 아니라 이미 있는 필드를 기존 의미 그대로 재사용**하고 요구사항 근거(FR-ST-001)가
+   * 있어 오늘 확정했다.
    */
   readonly secondaryPlayerId: PlayerId | null;
   /**
@@ -124,16 +140,20 @@ export interface MatchEvent {
    */
   readonly xg: number | null;
   /**
-   * **I-37 (6일차 반영)** — 이 이벤트가 참조하는 같은 경기(`matchId`) 내 다른 `MatchEvent`의
-   * `sequence`. 확정된 참조 방향은 **ASSIST → GOAL**(04 문서 D3 · 2팀 W-24) — `ASSIST` 이벤트가
-   * 자신이 만들어낸 `GOAL` 이벤트의 `sequence`를 가리킨다. 해당 없는 이벤트(대부분)는 null.
-   * 별도 브랜드 타입을 두지 않은 이유는 I-19(PSO 스코어) 판정과 동일 — 값이 같은 배열
-   * 내부에서만 소비되는 단일 지점 참조라 브랜드가 필요할 만큼의 오용 리스크가 없다.
-   * `PlayerStatCoreValues.assists` 집계는 이 필드 없이도 `primaryPlayerId`만으로 정확하므로,
-   * 이 필드는 통계 재계산의 입력이 아니라 **중계 타임라인 표시 전용**이다(FR-MT-002 수용기준③).
-   * `secondaryPlayerId`와의 역할 경계: 어시스트 제공자를 `GOAL.secondaryPlayerId`에
-   * 중복 기입하지 않고, 오직 이 필드를 통해 `ASSIST` 이벤트(그 자신의 `primaryPlayerId`가
-   * 어시스트 제공자)로 링크한다 — 자세한 근거는 `secondaryPlayerId` 필드 주석 참조.
+   * 같은 경기(`matchId`) 내 다른 `MatchEvent`의 `sequence`를 가리키는 범용 참조.
+   * 해당 없는 이벤트(대부분)는 null. 별도 브랜드 타입을 두지 않은 이유는 I-19(PSO 스코어)
+   * 판정과 동일 — 값이 같은 배열 내부에서만 소비되는 단일 지점 참조라 브랜드가 필요할
+   * 만큼의 오용 리스크가 없다. 통계 집계(`PlayerStatCoreValues` 등)의 재계산 입력이 아니라
+   * **전부 중계 타임라인 표시 전용**이다(FR-MT-002 수용기준③) — 집계는 각 이벤트 자신의
+   * `primaryPlayerId`/`type`만으로 이미 정확하다(SSOT 원칙 유지).
+   *
+   * **확정된 참조 방향 목록(8일차 기준, 새 이벤트 추가 시 이 목록에 이어서 기록할 것)**:
+   * 1. **`ASSIST` → `GOAL`** (I-37, 6일차) — 어시스트가 자신이 만들어낸 골을 가리킨다.
+   *    `secondaryPlayerId`와의 역할 경계는 해당 필드 주석 참조.
+   * 2. **`PENALTY_SCORED` / `PENALTY_MISSED` → `PENALTY_AWARDED`** (I-54, 8일차 팀장 확정,
+   *    2·5팀 합의) — 결과 이벤트가 자신을 있게 한 선언 이벤트를 가리킨다. 방향이 1번과
+   *    같은 패턴("뒤에 발생한 이벤트가 앞선 원인 이벤트를 가리킨다")이라는 점에 유의 —
+   *    1번처럼 "행위자→결과"가 아니라 **"결과→원인 선언"** 순서다.
    */
   readonly relatedEventSequence: number | null;
   /** xG를 제외한 나머지 상세(슛 위치, 부상 등급, 카드 사유 등). 구체 스키마는 소비 시점 확정 */

@@ -12,9 +12,26 @@
  * ## 적용 원칙
  * - **D-15**: 하위 엔티티에 `worldId`를 두지 않는다.
  * - **D-16**: 외부(FM 등) 데이터 스키마를 모사한 임포트 DTO 타입을 만들지 않는다(T4).
- *   능력치는 **1~30 정수 스케일**을 따른다(T5). 범위 강제(브랜드/런타임 검증)는
- *   `docs/team-schedule/01-코어품질팀.md` 7일차 산출물 목록에 없어 오늘은 보류하고
- *   8일차 매핑표 검토 또는 이슈 배치 반영으로 넘긴다(범위 판단 근거는 7일차 팀장 보고 참조).
+ *   능력치는 **1~30 정수 스케일**을 따른다(T5).
+ *
+ *   **T5 최종 결정(8일차, 2026-07-30, 1팀 판정)**: **브랜드 타입을 도입하지 않는다.**
+ *   `PlayerAttributeValues`(34필드)·`Manager.tacticalSkill`·`Player.pa` 등 "1~30 스케일"
+ *   필드는 전부 `number`로 유지한다. 근거:
+ *   ① 이 값들은 2팀 엔진(FR-MT-004 능력치 보정 계수 체인)에서 34개 필드가 동시에 산술
+ *   연산(가중합·평균·배율 적용)의 피연산자로 광범위하게 쓰인다. 브랜드화하면 연산마다
+ *   unwrap 캐스트가 필요해져 시뮬레이션 코드 전반(2팀)·Mock 생성기(3팀)에 마찰이 크다.
+ *   ② ID 브랜드(`TeamId`/`PlayerId` 등)는 "다른 엔티티의 PK를 잘못된 자리에 전달"하는
+ *   실수가 실제 참조 무결성 버그로 이어지기 때문에 값어치가 있다. 반면 능력치 필드는
+ *   서로 뒤바뀌어도(예: `finishing`↔`passing`) 필드명이 이미 의미를 구분하며, 공유
+ *   브랜드 1종(예: `SkillValue`)으로는 그런 혼용조차 막지 못해 방어 실효성이 낮다.
+ *   ③ 이미 `Points`(`brand.ts`)가 세운 선례와 일관: "정수 보장은 생성 지점의 런타임
+ *   책임이며, 브랜드 자체가 값 제약을 컴파일 타임에 강제하지 않는다"는 원칙이 여기도
+ *   적용된다 — nominal 식별이 필요한(다른 개념과 섞일 위험이 실재하는) 값에만 브랜드를
+ *   쓴다는 기준으로 보면 능력치는 해당하지 않는다.
+ *   **범위(1~30) 검증은 값 생성 지점의 런타임 책임으로 위임한다** — 3팀 Task 007(Mock
+ *   팩토리)·6팀 Task 034(Supabase 어댑터/DB 제약)가 담당. 타입 레벨 검증은 하지 않으므로
+ *   이 결정이 `src/lib/sim/**` 결정론 규칙(NFR-DT-001)에 영향을 주지 않는다. 판정 상세는
+ *   `docs/ISSUES.md` I-47.
  * - **D-17**: 국적은 `NationalityCode`(단일 선언, `enums.ts`)를 쓴다. 이름 생성 로직은
  *   3팀 공유 생성기(Task 007) 단일 소유이며 여기서 생성 계약을 재정의하지 않는다(T10).
  * - **D-18**: 선수·감독 이름은 **번역 비대상**(고유명사)이다(T14). 표시 문자열을 담지 않는다.
@@ -35,6 +52,13 @@ import type { InjuryId, ManagerId, PlayerId, Points, TeamId } from './brand';
 /**
  * **E-06 Manager** — 감독. 팀과 N:1(교체 이력 추적 가능, T19).
  * `teamId`가 null이면 공석이며, 이때 전술 폴백은 `BALANCED`다(T21 / D-23은 3팀 Task 030 소관).
+ *
+ * **`isActing` 8일차 추가(3팀 SP-1 지적, `docs/ISSUES.md` I-49)** — D-23(공석 즉시 대행
+ * 자동 선임, 대행 상한 1시즌 초과 시 강제 정식 선임)을 판정하려면 대행/정식 구분이
+ * 필요한데 `tenureSeasons`만으로는 유도할 수 없었다(재직 기간이지 임명 유형이 아님).
+ * 2팀·4팀이 오늘 제기한 다른 항목들과 달리 **파생 계산으로 대체할 수 없는** 유일한
+ * 지점이라 동결 전 반영으로 판정했다 — 값 목록이 불확실해 보류한 `CardReason`(I-41)과
+ * 달리 이 필드는 D-23이 이미 형태(boolean)까지 확정해 둔 상태였다.
  */
 export interface Manager {
   readonly id: ManagerId;
@@ -47,6 +71,12 @@ export interface Manager {
   /** 1~30 정수 스케일(T5) */
   readonly tacticalSkill: number;
   readonly preferredFormation: Formation;
+  /**
+   * **D-23 대행 여부(I-49, 8일차)** — true = 공석 시 자동 선임된 대행(`BALANCED`,
+   * 숙련도 50%). false = 정식 선임. 대행 상한 1시즌 판정은 `isActing && tenureSeasons`의
+   * 조합으로 3팀 Task 030(54일차 이후)이 수행한다(생성·전이 로직은 여기서 정의하지 않음).
+   */
+  readonly isActing: boolean;
   /** 0~100 */
   readonly reputation: number;
   readonly contractUntilSeason: number;
@@ -88,8 +118,8 @@ export interface Player {
  *
  * **4일차 완성.** `PlayerAttribute`(E-08)와 `PlayerAttributeHistory`(E-09)가 이 블록을
  * 함께 참조하여 34개 필드가 두 곳에 중복 선언되지 않는다(단일 선언 원칙 / 체크리스트 C-6).
- * 범위(1~30)는 런타임 검증·브랜드 타입으로 강제 예정 — team-schedule 7일차 산출물 목록
- * 밖이라 오늘은 보류(T5, 판단 근거는 7일차 팀장 보고 참조).
+ * 범위(1~30)는 브랜드 타입으로 강제하지 않는다 — **T5 8일차 최종 결정(파일 헤더 참조)**.
+ * 생성 지점(Task 007/034)의 런타임 검증 책임으로 위임.
  */
 export interface PlayerAttributeValues {
   // 기술 10
