@@ -5,14 +5,20 @@
  * FR-MT-004~009 계수 체인의 각 항을 담당하는 8개 개별 계수 함수와, 이들을
  * 하나의 최종 배율로 합성하는 `combineAbilityModifiers`(9번째)를 포함한다.
  *
- * ## 이 파일의 범위 (17일차 = 골격만)
- * 여기서 확정하는 것은 **시그니처 + 클램프 경계 동작**뿐이다. 각 계수의 실제
- * 공식은 이후 일차에 이 자리를 채운다 — 컨디션·피로·캐미(18일차, 동일 파일),
+ * ## 이 파일의 범위 (18일차 갱신)
+ * 17일차에는 **시그니처 + 클램프 경계 동작**만 확정했다. 18일차에 컨디션·
+ * 피로·캐미 3종의 실공식을 채웠다 — 나머지 5개(부상·홈·날씨·감독·포지션)는
+ * 여전히 **중립값 1.0을 클램프해 반환하는 자리표시자**다(`// TODO` 주석 참조):
  * 포지션 숙련도(19일차, `position.ts` 분리 여부는 그날 재판단), 날씨·감독
- * 상성(20일차, `tactics.ts` 분리). 그때까지 8개 개별 함수는 전부 **중립값
- * 1.0을 클램프해 반환하는 자리표시자**다(`// TODO(N일차)` 주석 참조) —
- * 조기에 공식을 확정하면 그날 담당 판단을 앞질러 버리므로 의도적으로 비워
- * 둔다.
+ * 상성(20일차, `tactics.ts` 분리). 조기에 공식을 확정하면 그날 담당 판단을
+ * 앞질러 버리므로 의도적으로 비워 둔다.
+ *
+ * ## 캐미 공식(18일차 판단 — ROADMAP에 정확한 곡선이 명시되지 않아 결정)
+ * `M = min(1.0 + 0.01 × familiaritySeasons, 1.06)` — 시즌당 +1%p 선형 증가,
+ * `familiaritySeasons ≥ 6`부터 상한 1.06 고정. 과제 행에는 "상한 +6%"만
+ * 명시되어 있고 증가 곡선(선형/체감)은 지정되지 않았다 — 가장 단순하고
+ * 예측 가능한 선형 증가를 택했다. 실제 밸런싱 값(연 증가율)이 다르게
+ * 결정되면 이 상수만 교체하면 된다.
  *
  * ## 클램프 [0.35, 1.35]
  * 모든 계수(및 최종 합성값)는 이 범위를 벗어나지 않는다. 하한 0.35는
@@ -85,9 +91,10 @@ export interface ConditionModifierInput {
   readonly condition: number;
 }
 
-/** 컨디션 계수. TODO(18일차): `M = 0.70 + 0.30×(C−1)/9`로 교체 */
-export function conditionModifier(_input: ConditionModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
+/** 컨디션 계수. `M = 0.70 + 0.30×(C−1)/9` — C=1.0→0.70, C=10.0→1.00 */
+export function conditionModifier(input: ConditionModifierInput, options?: ClampOpts): number {
+  const raw = 0.7 + (0.3 * (input.condition - 1)) / 9;
+  return clampAbilityModifier(raw, options);
 }
 
 /** `fitnessModifier` 입력 — `PlayerState.fitness`(0~100) */
@@ -95,9 +102,10 @@ export interface FitnessModifierInput {
   readonly fitness: number;
 }
 
-/** 피로 계수. TODO(18일차): `M = 0.75 + 0.25×(fitness/100)`로 교체 */
-export function fitnessModifier(_input: FitnessModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
+/** 피로 계수. `M = 0.75 + 0.25×(fitness/100)` — fitness=0→0.75, fitness=100→1.00 */
+export function fitnessModifier(input: FitnessModifierInput, options?: ClampOpts): number {
+  const raw = 0.75 + 0.25 * (input.fitness / 100);
+  return clampAbilityModifier(raw, options);
 }
 
 /** `injuryModifier` 입력 — 활성 부상 등급(없으면 null) */
@@ -115,9 +123,10 @@ export interface FamiliarityModifierInput {
   readonly familiaritySeasons: number;
 }
 
-/** 팀 캐미(재직 연차) 계수. TODO(18일차): 상한 +6%(`M ≤ 1.06`) 공식으로 교체 */
-export function familiarityModifier(_input: FamiliarityModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
+/** 팀 캐미(재직 연차) 계수. `M = min(1.0 + 0.01×familiaritySeasons, 1.06)` — 상한 +6% */
+export function familiarityModifier(input: FamiliarityModifierInput, options?: ClampOpts): number {
+  const raw = Math.min(1.0 + 0.01 * input.familiaritySeasons, 1.06);
+  return clampAbilityModifier(raw, options);
 }
 
 /** `homeModifier` 입력 — 홈 경기 여부 */

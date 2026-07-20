@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "gate": "bash scripts/gate.sh"
+    "gate": "bash scripts/gate.sh",
+    "check:literals": "node scripts/check-literals.mjs"
   },
   "dependencies": {
     "next": "16.2.10",

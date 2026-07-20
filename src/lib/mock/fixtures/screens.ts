@@ -130,7 +130,12 @@ function toScoutRating(pa: number): 1 | 2 | 3 | 4 | 5 {
   return Math.min(5, Math.max(1, rating)) as 1 | 2 | 3 | 4 | 5;
 }
 
-function toPublicProfile(player: Player): PublicPlayerProfile {
+/**
+ * `Player` → `PublicPlayerProfile` 변환. **18일차 `MockDataSource`가 그대로 재사용한다**
+ * (export) — `getPlayerProfile`/`getTeamSquad` 등 여러 메서드가 같은 `pa` 제외 규칙을
+ * 따라야 해서 어댑터 쪽에서 재구현하지 않는다.
+ */
+export function toPublicProfile(player: Player): PublicPlayerProfile {
   // `pa`를 구조적으로 제외한다(I-38) — 구조분해 rest 패턴은 미사용 변수 lint 경고가 남아
   // 필드를 전부 나열하는 쪽을 택한다(Player 필드 목록은 world.ts가 이미 동결 타입 그대로
   // 채우고 있어 이 목록도 함께 검증됨 — 필드 추가/삭제 시 여기서 타입 에러로 드러난다).

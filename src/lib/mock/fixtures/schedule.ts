@@ -193,7 +193,14 @@ function simulateScore(
  * 순위표 역산 — FINISHED 경기만 집계(I-106 해소 지점)
  * ──────────────────────────────────────────────────────────────────────── */
 
-function deriveStandingsFromFixtures(
+/**
+ * `FINISHED` 경기만 집계해 순위표를 역산한다 — `round`는 결과 라벨링용일 뿐 필터링하지
+ * 않으므로(내부에서는 상태만 본다), 특정 라운드 시점 스냅샷이 필요한 호출자는 `fixtures`를
+ * `round` 이하로 미리 필터링해서 넘겨야 한다. **18일차 `MockDataSource.getStandings`가
+ * 임의 라운드 질의를 지원하려고 이 함수를 그대로 재사용한다**(export, I-106 후속) — 별도
+ * 재구현 없이 이 파일이 "순위표 역산"의 단일 소스로 남는다.
+ */
+export function deriveStandingsFromFixtures(
   state: PrngState,
   leagueId: LeagueId,
   teams: readonly Team[],

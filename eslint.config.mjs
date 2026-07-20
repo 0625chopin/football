@@ -76,6 +76,44 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Task 010(18일차, D-18): JSX 텍스트 리터럴 하드코딩 경고 — src/i18n/t()(Task 011,
+    // src/i18n/t.ts) 번역 키 경유를 강제하기 위한 선제 경고다. 아직 화면 본문은 4팀이
+    // 28일차 이후 채우지만(CLAUDE.md), 헤더 골격(src/app/[lang]/layout.tsx, 12일차)처럼
+    // 지금도 JSX에 한글/영문 리터럴을 직접 박아 넣는 코드가 있어 규칙을 선제적으로 켠다.
+    //
+    // 감지 대상: (1) JSX 자식 텍스트 노드, (2) `{"문자열"}`처럼 JSX 자식 위치에 직접 박은
+    // 문자열 리터럴. 속성값(`title="..."` 등)은 범위 밖 — D-18 표현이 "JSX 텍스트 리터럴"로
+    // 자식 텍스트에 한정하며, 속성까지 넓히면 `data-testid`/`type` 같은 비UI 속성까지
+    // 오탐한다. 한글(가-힣) 또는 영문자가 하나라도 포함된 경우만 잡는다 — 숫자·기호만
+    // 있는 텍스트("·", "0", "-")는 번역 대상이 아니라 잡지 않는다(숫자 리터럴은 별도로
+    // `scripts/check-literals.mjs`가 공통코드 대상만 좁혀서 검사한다, 이 규칙과 역할 분리).
+    //
+    // `src/i18n/**`는 예외 — 번역 카탈로그/Provider 자신은 텍스트의 출처이지 소비자가
+    // 아니다(4팀이 18일차에 만드는 `t.ts`/`provider.tsx` 오탐 방지, 팀장 지시).
+    files: ["src/**/*.tsx"],
+    ignores: ["src/i18n/**", "src/**/*.test.tsx", "src/**/*.type-test.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "JSXText[value=/[A-Za-z가-힣]/]",
+          message:
+            "하드코딩된 UI 텍스트입니다 (D-18). src/i18n/t() 번역 키를 경유하세요 — src/i18n/keys.ts 네이밍 규약 참고.",
+        },
+        {
+          selector: "JSXElement > JSXExpressionContainer > Literal[value=/[A-Za-z가-힣]/]",
+          message:
+            "하드코딩된 UI 텍스트입니다 (D-18). src/i18n/t() 번역 키를 경유하세요 — src/i18n/keys.ts 네이밍 규약 참고.",
+        },
+        {
+          selector: "JSXFragment > JSXExpressionContainer > Literal[value=/[A-Za-z가-힣]/]",
+          message:
+            "하드코딩된 UI 텍스트입니다 (D-18). src/i18n/t() 번역 키를 경유하세요 — src/i18n/keys.ts 네이밍 규약 참고.",
+        },
+      ],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
