@@ -29,4 +29,12 @@ export const match: MatchMessages = {
     empty: "No news to display.",
     error: "Failed to load news.",
   },
+  lineup: {
+    loading: "Loading lineup…",
+    empty: "No lineup to display.",
+    error: "Failed to load lineup.",
+    unsupportedFormation: "Unsupported formation.",
+    captainLabel: "Captain",
+    captainAbbr: "(C)",
+  },
 };

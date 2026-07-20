@@ -24,6 +24,11 @@ export const player = {
     condition: "컨디션",
     fitness: "피로도",
   },
+  position: {
+    title: "포지션",
+    // {position}은 enums.position.* 조회 결과(이미 번역된 라벨)가 그대로 치환된다.
+    altText: "{position} 포지션",
+  },
   empty: {
     message: "표시할 선수가 없습니다.",
   },

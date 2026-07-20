@@ -22,6 +22,10 @@ export const player: PlayerMessages = {
     condition: "Condition",
     fitness: "Fitness",
   },
+  position: {
+    title: "Position",
+    altText: "{position} position",
+  },
   empty: {
     message: "No players to display.",
   },

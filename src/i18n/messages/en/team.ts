@@ -11,6 +11,12 @@ export const team: TeamMessages = {
   badge: {
     altText: "{name} crest",
   },
+  form: {
+    win: "W",
+    draw: "D",
+    loss: "L",
+    altText: "Last 5 matches: {form}",
+  },
   empty: {
     message: "No teams to display.",
   },

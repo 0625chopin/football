@@ -391,14 +391,14 @@
 - **일정**: 28일차 ~ 33일차 (2026-08-27 ~ 2026-09-03) / 추정 8.5인일 / 담당 4팀 UI기반·i18n팀 + 5팀 화면·배팅UX팀 / **크리티컬 패스** — 일정상 **2단위 분할(스코프 불변)**: 013A(도메인 표현 8종 + 상태·유틸 6종 = 14종, 4.25인일, 4팀) 28~33일차 / 013B(복합 7종, 4.25인일, 5팀) 28~33일차. 두 팀이 서로 다른 디렉터리에서 병렬 수행
 - **근거**: FR-UI-021, FR-UI-000, FR-UI-024, NFR-RS-002, D-18
 - **구현 사항**
-  - [ ] 도메인 표현 컴포넌트: ~~`TeamBadge`~~, ~~`PlayerAvatar`~~, ~~`AbilityRadar`~~, ~~`ConditionGauge`~~ (28일차 완료), `FitnessBar`, `FormStrip`, `PositionMap`, `StatBar`
-  - [ ] 복합 컴포넌트: ~~`EventTimelineItem`~~, ~~`NewsItem`~~ (28일차 완료), `PitchLineup`(7 포메이션), `BracketTree`, `TrophyCase`, `GrowthChart`, `InjuryTimeline`, **`MatchCard`**(27일차 SP-2 승격 — `density:"card"|"row"` 단일 통합, +0.6~0.7인일 증분)
+  - [x] 도메인 표현 컴포넌트: ~~`TeamBadge`~~, ~~`PlayerAvatar`~~, ~~`AbilityRadar`~~, ~~`ConditionGauge`~~ (28일차 완료), ~~`FitnessBar`~~, ~~`FormStrip`~~, ~~`PositionMap`~~, ~~`StatBar`~~ (29일차 완료) — **8/8 종결**
+  - [ ] 복합 컴포넌트: ~~`EventTimelineItem`~~, ~~`NewsItem`~~ (28일차 완료), ~~`PitchLineup`(7 포메이션)~~ (29일차 완료 — 7종 렌더 검증), `BracketTree`, `TrophyCase`, `GrowthChart`, `InjuryTimeline`, **`MatchCard`**(27일차 SP-2 승격 — `density:"card"|"row"` 단일 통합, +0.6~0.7인일 증분)
   - [ ] 상태·유틸 컴포넌트: `SkeletonBlock`, `EmptyState`(메시지 키 주입), `ErrorState`(재시도 액션), `CountdownTimer`, `PhaseIndicator`, `OddsButton`(1차 비활성 모드)
   - [ ] 전 컴포넌트는 **도메인 타입 props만 받고 데이터 페칭을 하지 않는다**
   - [ ] 모든 표시 문구는 번역 키 경유, 숫자·시각은 로케일 포맷터 사용 (D-18)
   - [ ] React Compiler 전제 — `useMemo`/`useCallback` 미사용, 예외 시 정당화 주석
   - [ ] 넓은 콘텐츠는 자체 `overflow-x: auto` 컨테이너 적용
-- **수락 기준**: 22종 전부가 4상태를 지원하고, ko/en 전환 시 하드코딩 문자열 0건. (27일차 SP-2에서 `MatchCard` 승격으로 21→22종). **28일차 진행 6/22** — 4상태 판별 규약은 `state: DomainViewState|CompositeViewState<T>` 단일 prop + 리터럴 `loading|empty|error|ready`로 양 팀 통일(28일차 팀장 판정, I-156), 인터랙션 없는 컴포넌트는 서버 컴포넌트 + `t(locale, …)` 직접 호출.
+- **수락 기준**: 22종 전부가 4상태를 지원하고, ko/en 전환 시 하드코딩 문자열 0건. (27일차 SP-2에서 `MatchCard` 승격으로 21→22종). **29일차 진행 11/22** (도메인 8/8 종결, 복합 3/7, 상태·유틸 0/6) — 4상태 판별 규약은 `state: DomainViewState|CompositeViewState<T>` 단일 prop + 리터럴 `loading|empty|error|ready`로 양 팀 통일(28일차 팀장 판정, I-156), 인터랙션 없는 컴포넌트는 서버 컴포넌트 + `t(locale, …)` 직접 호출.
 
 ### Task 014: `/sample` 컴포넌트 쇼케이스를 구축한다 - 우선순위
 
@@ -601,7 +601,9 @@
   - [x] 시즌 페이즈 상태머신 `REGULAR ⇄ CUP_SLOT → PLAYOFF → (TIEBREAK) → SETTLEMENT → PRESEASON → REGULAR` (멱등 전이). **`TIEBREAK`는 승강 경계 동률 시에만 진입하는 조건부 페이즈**(D-27 / I-33, 6일차 `SeasonPhase`에 반영 완료) — 동률 판정 자체는 Task 026 소관이고 025가 026보다 먼저 끝나므로, **025는 동률 여부를 인자로 주입받는 순수 함수 인터페이스로 먼저 확정**한다 — **28일차 완료(2팀)**. `src/lib/sim/season/phase.ts`(신규) + `phase.test.ts`(12 tests). 이벤트→`{from,to}` 전이 테이블 기반 순수 함수 `transitionSeasonPhase(phase, event)`
     - **멱등은 "목표 페이즈면 no-op"으로 구현했다** — 이미 `to`에 도달해 있으면 그대로 반환하고, `from`도 `to`도 아니면 잘못된 전이로 예외를 던진다. 수락 기준 "동일 전이 2회 호출 시 1회 효과" 충족
     - **동률 판정은 주입이 아니라 이벤트 선택으로 분리**했다 — 호출자가 `ENTER_TIEBREAK`(→TIEBREAK→`RESOLVE_TIEBREAK`→SETTLEMENT)와 `COMPLETE_PLAYOFF`(→SETTLEMENT 직행) 중 맞는 것을 고른다. 026(동률 판정)이 나와도 이 모듈은 바뀌지 않는다
-  - [ ] 배속(0.25×~20×) 비례 재계산 및 정지/재개 오프셋 처리 — 동시 종료 정렬 유지
+  - [x] 배속(0.25×~20×) 비례 재계산 및 정지/재개 오프셋 처리 — 동시 종료 정렬 유지 — **29일차 완료(2팀)**. `src/lib/sim/schedule/speed.ts`(신규) + `speed.test.ts`(10 tests). 배속 변경은 **비례(곱셈)** 재계산(`rescaleKickoffsForSpeedChange`), 정지/재개는 **오프셋(덧셈)** 재계산(`rescheduleKickoffsForPauseResume`)으로 분리했고 둘 다 "기준 시각 이전 킥오프는 불변" 규칙을 공유한다
+    - **AS-16(동시 종료 정렬)은 리그 일괄 적용으로 보존된다** — `rescaleLeagueKickoffsForSpeedChange`/`rescheduleLeagueKickoffsForPauseResume`가 여러 리그에 동일 context/window를 적용하므로, `kickoff.ts`가 만든 리그 간 정렬이 재계산 후에도 **구조적으로** 유지된다(개별 리그를 따로 재계산하면 깨진다)
+    - **월드시계 실시간↔월드분 적분 일반식(H-24)은 여기서 구현하지 않았다** — 이 모듈은 스케줄 재계산만 좁게 담당하고, 적분식은 30일차 인계 소관이다
 - **수락 기준**: 세 리그 최종 라운드 킥오프 차이 ≤ 30분. 동일 시드 재생성 시 대진표 100% 동일. 리터럴 `24/20/16` 0건(NFR-SC-003).
 - **테스트**: Vitest — 대진 완전성(모든 팀 쌍 홈·원정 각 1), 배속 변경 시 정렬 유지, 4리그 확장 설정 성공.
 
@@ -804,7 +806,8 @@
     - **시드 독립성(NFR-DT-006)**: `deriveSeasonSeed(..., SEED_NAMESPACE.ODDS_PRESIM)`로 시즌 시드를 파생하고 `runIndex`를 `deriveMatchSeed`의 재추첨 구분자로 쓴다. `ODDS_PRESIM`(0b01)과 `MAIN`(0b00)은 값 집합이 서로소이며, 러너가 시즌·경기 시드 양쪽에 `assertNamespace` **런타임 검증**까지 건다. 테스트가 ⓐ 전 시드의 네임스페이스 ⓑ 동일 입력으로 파생한 MAIN 시드 집합과 **값이 겹치지 않음** ⓒ MC 반복 간 시드 전량 상이 ⓓ 재실행 완전 재현을 단언한다(**팀장이 `derive.ts`·`runner.ts` 대조로 직접 확인**)
     - 이벤트 발생확률·가중치는 여전히 **호출자 주입**(024 계수 체인 몫). **실제 배당률 변환(오버라운드·클램프)은 오늘 범위 밖**이며 잔여 항목이다
     - **I-08 해소** — `ODDS_PARAM.MC_N_SEASON` 300 → **1,500**, `REFRESH_ROUND_INTERVAL`(신규 코드) **5** 를 `src/lib/config/catalog.ts`·`fallback.ts`에 반영. 이슈 원문의 "월 CPU 총량 동일하게 정확도 2.2배" 권고 그대로이며, 9·11일차 주석이 "Task 035 착수 시 반영"으로 예약해 둔 항목을 기한 내에 처리했다
-  - [ ] 경기 마켓 N=3,000 프리시뮬 → 결과 분포 → 확률 → 오버라운드 1.06 적용, 배당 1.01~500.00 클램프 — **28일차 "확률 산출"까지 완료(3팀), 오버라운드·클램프는 잔여**. `src/lib/odds/match-market.ts`(신규) + `match-market.test.ts`(16 tests). 27일차 `runner.ts`를 이어받아 `tallyMatchOutcomes`(승/무/패 정수 카운트) → `computeMatchOutcomeProbabilities` → `computeMatchOutcomeMarket`(원스톱) 3계층
+  - [x] 경기 마켓 N=3,000 프리시뮬 → 결과 분포 → 확률 → 오버라운드 1.06 적용, 배당 1.01~500.00 클램프 — **29일차 완료(3팀)**. `src/lib/odds/overround.ts`(신규) + `overround.test.ts`(13 tests). 배당 = (1/p) × (1/overround), FR-BT-005 ①②. **상수는 재선언하지 않고 27일차 `ODDS_PARAM.OVERROUND/MIN_ODDS/MAX_ODDS`를 `loadConstants`로 재사용**한다(NFR-CFG-001). 셀렉션 키→확률(units) 레코드를 받는 **범용 시그니처**라 1X2뿐 아니라 시즌 마켓도 그대로 재사용 가능하고, 확률 0 셀렉션은 마켓에서 제외한다. 테스트가 클램프 경계(→1.01 / →500.00)와 Σ(1/odds) = 1.06±0.005를 단언한다. **이로써 경기 마켓의 확률 산출~배당 변환 경로가 종결**됐다(시즌 마켓 호출부는 아래 잔여 항목 소관)
+    - **28일차분(확률 산출)**: `src/lib/odds/match-market.ts`(신규) + `match-market.test.ts`(16 tests). 27일차 `runner.ts`를 이어받아 `tallyMatchOutcomes`(승/무/패 정수 카운트) → `computeMatchOutcomeProbabilities` → `computeMatchOutcomeMarket`(원스톱) 3계층
     - **수락 기준 "확률 합 = 1"은 근사가 아니라 항상 정확히 성립한다** — `rng/precision.ts`의 `normalizeWeights`가 6자리 고정 정밀도 정수 잔차를 최대 항에 흡수시켜 합계가 언제나 `PROBABILITY_UNIT_MAX`(1,000,000)다. 부동소수 누적합을 쓰지 않는다
     - 기본 N은 리터럴이 아니라 공통코드 `ODDS_PARAM.MC_N_MATCH`(3,000, 27일차 I-08 반영분)를 `runner.ts`가 읽는다. R-10에 따라 오늘은 1X2만 다룬다
   - [ ] 시즌 마켓 N=300(우승·승격·강등·득점왕), 토너먼트 마켓 브래킷 기반
