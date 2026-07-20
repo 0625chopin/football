@@ -142,7 +142,7 @@ grep -n "^| \*\*{N}\*\* " docs/team-schedule/0*.md
 4. `git add`(dailyWorkLog 포함) → 5. 일차·참여팀 명시 커밋
    (예: `chore: N일차 스프린트 완료 - A팀, B팀`) → 6. push.
 
-## 8단계 — 세션/컨텍스트 정리 (compact/clear)
+<!-- ## 8단계 — 세션/컨텍스트 정리 (compact/clear)
 
 commit&push 후에만 진행. **팀 활성 상태에서 `/compact` 금지**(팀 구성 정보
 소실 — CLAUDE.md는 재주입되지만 팀 구성은 재주입 안 됨).
@@ -151,7 +151,7 @@ commit&push 후에만 진행. **팀 활성 상태에서 `/compact` 금지**(팀 
    유발). 이게 지켜지면 다음 세션 0단계가 파일만으로 끝남.
 2. 정리 확인 → 3. `/compact`(범위 연속 진행 마무리 시 `/clear`) 실행.
 4. 다음 일차 팀원은 이전 컨텍스트 안 이어받는 **새 spawn**으로 생성
-   (팀원 컨텍스트 절감 수단은 compact가 아니라 종료 후 재생성).
+   (팀원 컨텍스트 절감 수단은 compact가 아니라 종료 후 재생성). -->
 
 ## Hard Rules (예외 없음)
 
