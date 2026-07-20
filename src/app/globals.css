@@ -24,7 +24,7 @@
      이는 색만으로 구분하지 않는다는 전제와 일치하므로 완전 분리를 강제하지 않았다.
      WCAG 배경 대비(별도 축, ΔE와 무관): promotion/playoff/relegation/live는 라이트 배경
      대비 4.8~7.2:1·다크 배경 대비 3.7~8.5:1로 배지 채움·보더 용도(비텍스트 3:1 기준)에 충분하다.
-     --warning만 예외 — 파스텔 톤을 유지해야 ΔE≥15가 나오므로 배경 대비가 낮다
+     --warning만 예외 — 파스텔 톤을 유지해야 CVD 구분(ΔE)이 나오므로 배경 대비가 낮다
      (라이트 1.34:1, 다크 12.61:1이나 라이트 쪽이 WCAG 1.4.11 비텍스트 3:1 기준 미달).
      그래서 --warning은 페이지 배경 위 단독 채움(보더 없는 배지·텍스트)으로 쓰지 않고,
      반드시 --warning-foreground(짙은 호박색, --warning 배지 위 대비 8.2~9.6:1)로
@@ -34,7 +34,9 @@
      sRGB 색역: promotion/playoff(라이트+다크 playoff)/relegation(라이트)은 OKLCH 원값이
      색역 밖이라 채도(C)를 낮춰 색역 안으로 재조정했다(명도·색상각은 보존, 대비 수치는 위 값
      그대로 유지됨). --warning-foreground도 원래 채도(C=0.13)가 색역 밖이라 C=0.065로 낮췄다.
-     회귀 테스트: src/app/globals.color.test.ts — 토큰 값이 바뀌면 대비·색역 단언이 깨진다. */
+     회귀 테스트: src/lib/a11y/contrast.test.ts — 이 CSS를 직접 파싱하므로 토큰 값이 바뀌면
+     CVD ΔE·색역·배경 대비·배지 쌍 단언이 깨진다. ΔE 하한은 12이며 실측 최소치는 12.56
+     (다크·protanopia의 live↔warning) — 여유가 0.56뿐이라 이 두 값 조정 시 반드시 재확인할 것. */
   --color-promotion: var(--promotion);
   --color-playoff: var(--playoff);
   --color-relegation: var(--relegation);
