@@ -8,6 +8,9 @@ export const team: TeamMessages = {
     title: "Team profile",
     rosterTitle: "Roster",
   },
+  badge: {
+    altText: "{name} crest",
+  },
   empty: {
     message: "No teams to display.",
   },

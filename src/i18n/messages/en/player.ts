@@ -8,6 +8,20 @@ export const player: PlayerMessages = {
     title: "Player profile",
     statsTitle: "Season stats",
   },
+  avatar: {
+    altText: "{name} avatar",
+  },
+  ability: {
+    title: "Ability",
+    technical: "Technical",
+    mental: "Mental",
+    physical: "Physical",
+    goalkeeping: "Goalkeeping",
+  },
+  state: {
+    condition: "Condition",
+    fitness: "Fitness",
+  },
   empty: {
     message: "No players to display.",
   },
