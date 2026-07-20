@@ -35,7 +35,7 @@
 |---|---|---|---|---|---|---|
 | **4** | **아키텍트 / 타입 설계** | 라우트 골격, 공용 TS 타입(E-01~E-47), Mock↔DB 어댑터 계약, 코드 규약·정적 가드레일, 결정 기록 관리 | `src/types/**`, `src/lib/data/` 인터페이스, `src/app/**` 라우트 골격, `docs/DECISIONS.md` | E-01~E-47, FR-UI-020·023·024, NFR-MT-001·002·005·008·009, NFR-SC-003, DC-01·02·10 | `dev/nextjs-app-developer` | Read/Write/Edit, context7(Next.js 16), `node_modules/next/dist/docs/` |
 | **5** | **시뮬레이션 엔진** | 분 단위 이벤트 엔진, 시드 PRNG·결정론, 대진표·스케줄링, 경기 후처리·순위·타이브레이커, 플레이오프·컵, 시즌 정산 | `src/lib/sim/**` (순수 함수, React·Supabase 미의존) | FR-LG-001~017, FR-MT-001~016, FR-ST-003·005, NFR-DT-001~008, NFR-PF-001~003·006 | (신규) — `dev/nextjs-app-developer` 규약 준용 | Read/Write/Edit, Vitest, `sequential-thinking` MCP |
-| **6** | **데이터 / 밸런싱** | 공통코드 36그룹, 포인트 배분표, 능력치·성장·컨디션·부상 곡선, 절차적 선수/클럽 생성, 경제·프리시즌, 열거형 표시명 카탈로그 | `src/lib/config/**`, `src/lib/mock/**`, `src/lib/naming/**`, `src/lib/economy/**`, `src/i18n/messages/*/enums.*` | FR-PL, FR-TM, FR-TR, FR-EC, FR-YT, FR-AW, FR-AD-011~016, NFR-CFG-001~007, NFR-OB-003 | (신규) | Read/Write/Edit, Vitest, supabase MCP(시드) |
+| **6** | **데이터 / 밸런싱** | 공통코드 37그룹(37개로 갱신 — 14일차 I-88 결정, `docs/ISSUES.md` 참조), 포인트 배분표, 능력치·성장·컨디션·부상 곡선, 절차적 선수/클럽 생성, 경제·프리시즌, 열거형 표시명 카탈로그 | `src/lib/config/**`, `src/lib/mock/**`, `src/lib/naming/**`, `src/lib/economy/**`, `src/i18n/messages/*/enums.*` | FR-PL, FR-TM, FR-TR, FR-EC, FR-YT, FR-AW, FR-AD-011~016, NFR-CFG-001~007, NFR-OB-003 | (신규) | Read/Write/Edit, Vitest, supabase MCP(시드) |
 | **7** | **배팅 / 배당 도메인** | 배팅 마켓 정의, 몬테카를로 배당 산출, 마감·정산·보이드, 사후 배팅 차단 | `src/lib/odds/**`, `src/lib/betting/**` | FR-BT-001~014, NFR-DT-006, NFR-PF-004·005, NFR-SEC-004·005·009, NFR-QA-007 | (신규) | Read/Write/Edit, Vitest, playwright MCP |
 | **8** | **UI / 컴포넌트 (i18n 주담당)** | shadcn/ui 기반 컴포넌트 21종, `/sample` 쇼케이스, 전 화면 4상태, 반응형·접근성, **다국어 기반(D-18)** | `src/components/**`, `src/app/**` 화면, `src/i18n/**`, `src/app/globals.css` | FR-UI-000~026, FR-ST-004, NFR-RS-001~005, NFR-A11Y-001~006, NFR-PF-009, D-18 | `dev/ui-markup-specialist` | shadcn MCP, playwright MCP, context7 |
 | **9** | **DB / Supabase** | 스키마·마이그레이션, 인덱스, RLS, Edge Function 크론, 서비스롤 키 격리, 어댑터 실구현, 성능·볼륨 | `docs/db/**`, `supabase/**`, `src/lib/data/supabase/**` | E-01~E-47 물리 스키마, FR-AD-017~022, NFR-CR-001~009, NFR-SEC-001~012, NFR-SC-001~005, NFR-PF-008·011~014 | `nextjs-supabase-expert` | supabase MCP(project ref `damruradpliktkrlkakl`), context7 |
@@ -233,7 +233,7 @@
 | **R-10** | **배당 산출 비용** — 30경기 × N=3,000 | 중간 / 중간 | N을 공통코드로 조정 가능하게 유지, 워커 분리 가능한 인터페이스. **팀원 3의 예산안이 N값 상한 결정에 입력** | 팀원 7 / 팀원 3 |
 | **R-11** | **사후 배팅 / 결과 유출** | 높음 / 중간 | 경과 시간 필터를 뷰·보안 함수로 서버에서 강제(Task 034), 침투 테스트 5종을 별도 Task(041)로 분리해 책임 명확화 | 팀원 7·9·10 |
 | **R-12** | **데이터 볼륨 폭증** — 시즌당 이벤트 7.5만 | 중간 / 높음 | 인덱스·파티셔닝·아카이브를 Task 042에서 처리하되, 스키마 설계(Task 009) 단계에서 전략을 미리 문서화 | 팀원 9 |
-| **R-15** | **파라미터 초기값 설정 부담** — 36개 그룹 | 중간 / 높음 | "밸런싱은 반복 작업"을 전제로 팀원 6에게 **전담 소유권**을 부여. `default_value`로 언제든 복원 | 팀원 6 |
+| **R-15** | **파라미터 초기값 설정 부담** — 37개 그룹(37개로 갱신 — 14일차 I-88 결정) | 중간 / 높음 | "밸런싱은 반복 작업"을 전제로 팀원 6에게 **전담 소유권**을 부여. `default_value`로 언제든 복원 | 팀원 6 |
 | **R-16** | **Mock↔실데이터 전환 시 UI 수정 발생** | 중간 / 중간 | 어댑터 인터페이스를 Phase 1(Task 004)에서 확정하고, 컴포넌트의 Supabase 직접 import를 ESLint로 차단. 전환 전후 스냅샷 비교(Task 034) | 팀원 4·9 |
 
 ### 7.3 팀 구조상의 의존 리스크

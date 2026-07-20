@@ -1,9 +1,30 @@
 /**
- * 공통코드 그룹 카탈로그 — **36종 전량** (9일차 2026-07-31, Task 003 착수분)
+ * 공통코드 그룹 카탈로그 — **37종 전량** (9일차 2026-07-31 착수, 14일차 2026-08-07 37번째
+ * 그룹 추가, Task 003 착수분)
  *
  * 근거: `docs/require/05-data-requirements.md` 5.12.1절 "공통코드 그룹 카탈로그(초기 시드)"
- * 표(#1 `ROUND_INTERVAL_MIN` ~ #36 `TRANSFER_PARAM`), ROADMAP.md Task 003.
+ * 표(#1 `ROUND_INTERVAL_MIN` ~ #36 `TRANSFER_PARAM`) + **#37 `NATIONALITY_WEIGHT`**(05문서
+ * 표 밖, 14일차 신규 — 아래 "37번째 그룹 추가" 절 참조), ROADMAP.md Task 003.
  * 소유: 3팀 데이터·밸런싱·배당팀(CLAUDE.md `src/lib/config/**`).
+ *
+ * ## 37번째 그룹 추가 — I-88 사용자 결정 (14일차, 2026-08-07)
+ * 13일차 `namePools.ts`는 국적 이름 풀·비중을 05문서 5.12.1절 표(9일차 동결분, #1~#36)에
+ * 자리가 없어 정적 TS 데이터로 구현했고, 이 괴리를 팀장 보고로 넘겼다(I-88). 3팀은
+ * "정적 데이터 유지"를 권고했으나(`_assertCatalogSize`가 여러 팀 산출물에 박혀 있어 그룹
+ * 추가 시 연쇄 재작업이 발생한다는 근거), **사용자가 D-17 파급① 원문("국가 목록과 각국
+ * 비중은 공통코드로 관리")을 그대로 지키는 쪽으로 14일차에 최종 판단**했다 — 결정문을
+ * 구현에 맞춰 정정하지 않고 구현을 결정문에 맞춘다는 취지(`docs/require/
+ * 06-prioritization-and-risks.md`의 D-17 원문은 수정하지 않음). 그래서 37번째 그룹
+ * `NATIONALITY_WEIGHT`를 추가한다 — 단 **이름 풀 데이터 자체(20개국 성/이름 후보군
+ * 문자열)는 이 결정의 대상이 아니다.** D-17 파급①이 말하는 건 "국가 목록과 비중"이지
+ * 이름 문자열 전체가 아니므로, `namePools.ts`의 이름 데이터는 계속 정적 TS로 남는다
+ * (범위를 넓히지 않는다). "국가 목록"은 이 그룹의 code 키 집합(=
+ * `SUPPORTED_NATIONALITY_CODES`와 동일)으로, "비중"은 코드별 `DECIMAL` 값으로 표현한다.
+ * 실값은 어디에도 문서화된 적이 없어(I-88 "각국 비중은 아예 미구현") **억측 금지
+ * 원칙에 따라 `fallback.ts`에 빈 구조로 둔다** — `WEATHER_EFFECT`(그룹#10) 선례와 동일.
+ * 15일차 Mock 월드 팩토리는 이 그룹 값이 비어 있어도(또는 로더가 비어있는 값을 반환해도)
+ * `SUPPORTED_NATIONALITY_CODES` 균등 랜덤 추첨으로 착수 가능 — 실측 비중은 031b(66~68일차
+ * 밸런싱 튜닝)에서 채운다.
  *
  * ## 이 파일이 담는 것 / 담지 않는 것
  * - **담는 것**: 그룹 메타데이터(정적 카탈로그)뿐이다 — `group_code`, 표시명, 설명, 값
@@ -69,8 +90,10 @@ export type CommonCodeGroupCatalogEntry = Pick<
 >;
 
 /**
- * 공통코드 그룹 카탈로그 36종 전량.
- * 근거: `docs/require/05-data-requirements.md` 5.12.1절 표. `sortOrder`는 표의 순번(#)이다.
+ * 공통코드 그룹 카탈로그 37종 전량(05문서 5.12.1절 표 36종 + 14일차 신규 1종).
+ * 근거: `docs/require/05-data-requirements.md` 5.12.1절 표(#1~#36). `sortOrder`는 표의
+ * 순번(#)이며, 37번째(`NATIONALITY_WEIGHT`)는 표에 없어 표 다음 순번을 그대로 이었다
+ * (파일 상단 "37번째 그룹 추가" 절 참조).
  */
 export const COMMON_CODE_GROUP_CATALOG = [
   {
@@ -424,10 +447,27 @@ export const COMMON_CODE_GROUP_CATALOG = [
     relatedFr: ['FR-TR-003', 'FR-TR-006', 'FR-TR-009', 'FR-TR-010'],
     sortOrder: 36,
   },
+  {
+    groupCode: 'NATIONALITY_WEIGHT',
+    groupName: '국적 배정 비중',
+    description:
+      '국적 배정 비중(D-17 파급① "국가 목록과 각국 비중은 공통코드로 관리", I-88 사용자 결정 ' +
+      '14일차 반영 — 05문서 5.12.1절 표에는 없던 그룹, 파일 상단 "37번째 그룹 추가" 절 참조) — ' +
+      '코드는 `src/lib/naming/namePools.ts`의 `SUPPORTED_NATIONALITY_CODES` 20개국과 동일: ' +
+      'KR/JP/CN/BR/AR/MX/ES/PT/FR/DE/IT/GB/NL/HR/NG/SN/CI/GH/CM/EG. ' +
+      '각 코드의 값은 선수 국적 배정 시 상대 가중치(비중)다. ' +
+      '실값은 문서 근거가 없어 미정 — 억측 금지 원칙에 따라 기본값을 비워 둔다(`fallback.ts` ' +
+      '참조, `WEATHER_EFFECT` 선례와 동일). 15일차는 균등분포로 시작하고 031b(밸런싱 튜닝)에서 ' +
+      '실측 보강한다.',
+    valueType: 'DECIMAL',
+    applyPolicy: 'NEXT_SEASON',
+    relatedFr: ['FR-PL-014'],
+    sortOrder: 37,
+  },
 ] as const satisfies readonly CommonCodeGroupCatalogEntry[];
 
-/** 카탈로그가 정확히 36개 그룹을 담고 있음을 모듈 로드 시점에 보증한다. */
-const _assertCatalogSize: 36 = COMMON_CODE_GROUP_CATALOG.length;
+/** 카탈로그가 정확히 37개 그룹을 담고 있음을 모듈 로드 시점에 보증한다(14일차 37번째 그룹 추가 반영). */
+const _assertCatalogSize: 37 = COMMON_CODE_GROUP_CATALOG.length;
 void _assertCatalogSize;
 
 /** 카탈로그에서 파생한 그룹 코드 유니온 — 신규 도메인 타입이 아니라 배열 리터럴의 파생값이다. */

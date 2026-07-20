@@ -30,7 +30,7 @@
 2. **설명 가능한 시뮬레이션** — 분 단위 이벤트 로그가 스탯의 SSOT, "왜 그 결과인지"를 텍스트 중계로 제시 (FR-MT-001~003, FR-ST-005)
 3. **결정론적 재현성** — 시드 + 상수 스냅샷 쌍으로 100% 재현. 배팅 신뢰의 기반 (NFR-DT 전량, FR-AD-014)
 4. **깊이 있는 배팅 마켓** — 1X2부터 시즌 우승·승강·득점왕까지 몬테카를로 기반 배당 (FR-BT)
-5. **코드 없는 밸런싱** — 튜닝 상수 36개 그룹 전량 DB 공통코드 외부화, 배포 없이 세계를 튜닝 (FR-AD-011~016, NFR-CFG)
+5. **코드 없는 밸런싱** — 튜닝 상수 37개 그룹 전량 DB 공통코드 외부화, 배포 없이 세계를 튜닝 (FR-AD-011~016, NFR-CFG) — **37개로 갱신(14일차 I-88 결정, `docs/ISSUES.md` 참조 — 국적/이름 비중 그룹 신규 추가)**
 
 ### 핵심 기능 (MVP 기준)
 
@@ -178,7 +178,7 @@
 - **수락 기준**: `npx tsc --noEmit` 오류 0. E-01~E-47 중 1차 범위 전 엔티티가 타입으로 존재하며 중복 enum 선언 0건. — **8일차 충족 확인**(E-45~47 포함 전 엔티티 존재, `tsc` 오류 0)
 - **테스트**: 타입 레벨 테스트(`expectTypeOf`)로 필수 필드 누락 검출. — **8일차 완료**: `src/types/*.type-test.ts` 10파일(도메인별 1종 + `brand`/`enums`). ⚠️ `vitest.config.ts` 부재로 `npm test`(vitest run 기본 include)는 이 파일들을 아직 실행하지 않는다 — 실제 검증은 `npx tsc --noEmit`이 수행(`expectTypeOf`/`@ts-expect-error` 오류 주입 테스트로 실효성 확인 완료). Task 008(12~15일차)에서 `vitest.config.ts` `include`에 `*.type-test.ts` 패턴을 추가해야 `vitest run`으로도 실행된다(`docs/ISSUES.md` I-46).
 
-### Task 003: 공통코드 36개 그룹 체계와 상수 로더 인터페이스를 설계한다 - 우선순위
+### Task 003: 공통코드 37개 그룹 체계와 상수 로더 인터페이스를 설계한다 - 우선순위 (**37개로 갱신 — 14일차 I-88 결정, 원래 착수 시점엔 36개였음, 아래 각 완료 항목의 "36" 표기는 그 날짜 기준 사실이라 유지**)
 
 - **담당**: 3팀 데이터·밸런싱·배당팀 / 리뷰: 1팀 코어·품질팀 / 지원: 2·5팀(상수 소비측)
 - **일정**: 9일차 ~ 12일차 (2026-07-31 ~ 2026-08-05) / 추정 3.5인일 / 담당 3팀 데이터·밸런싱·배당팀
@@ -189,8 +189,9 @@
   - [x] 하드코딩 안전 기본값 테이블 작성 (NFR-CFG-005, DC-13) + 폴백 시 WARN 로그 규약 — **11일차 완료** (`src/lib/config/fallback.ts`). 36개 그룹 전량에 안전 기본값을 등록(`SAFE_DEFAULT_VALUES`, 05문서 5.12.1 코드 예시값 기반). 값 구조가 문서에 없는 JSON 그룹 4종(`WEATHER_EFFECT`/`RATING_WEIGHT`/`OVR_WEIGHT`/`MANAGER_MATCHUP`)은 억측 없이 빈 객체로 두고 36일차(031a 실제 시드) 소관임을 명시. `loader.ts`의 `ConstantSource` 계약을 구현하는 `hardcodedFallbackSource` + 조회 시 `console.warn` 기반 WARN 로그(39일차 `obs/logger.ts` 도입 전까지의 캡슐화된 임시 구현) + `installHardcodedFallback()`으로 `setFallbackSource` 명시 등록(모듈 로드 시 자동등록 없음 — 테스트 격리 보존). 테스트 `src/lib/config/fallback.test.ts`(8케이스: 36그룹 커버리지, WARN 로그, 전역 소스 우선순위) 전건 통과
   - [x] 발효 정책 3종(`NEXT_SEASON` / `IMMEDIATE` / `NEXT_MARKET`) 해석 함수 시그니처 확정 — **11일차 완료** (`src/lib/config/policy.ts`). FR-AD-013 기준 `resolveNextSeasonEffective`/`resolveImmediateEffective`/`resolveNextMarketEffective` 3종 + 단일 진입점 `isPolicyEffective`(exhaustive switch로 `CommonCodeApplyPolicy` 유니온 전량 강제). `PolicyEffectContext`는 배팅 도메인 타입(`BetMarketStatus`)에 직접 의존하지 않고 `isMarketAlreadyOpened: boolean`으로 얇게 계약(5팀 035 소비 시점에 실제 상태 매핑). `src/types` 신규 선언 없음, `CommonCodeApplyPolicy`는 배럴 import만 사용. 테스트 `src/lib/config/policy.test.ts`(9케이스) 전건 통과
   - [x] 상수 스냅샷 직렬화·해시(SHA-256) 규칙 확정 (FR-AD-014, NFR-CFG-006) — **12일차 완료** (`src/lib/config/snapshot.ts`). `src/types` E-44 `SimConstantSnapshot`의 `constants` shape을 `buildConstantsSnapshotInput(groups?)`(기본값 36개 전체, `loadConstants` 재조회)로 조립하고, `computeSnapshotHash`가 2팀 `src/lib/sim/rng/hash.ts`의 `hashState()`/`canonicalize()`를 재사용(재구현 없음, `src/lib/sim/**` 미수정)해 SHA-256 해시를 계산. `resolveSnapshotDedup(constants, existingSnapshots)`가 동일 해시 존재 시 `REUSE`(기존 레코드 재사용), 없으면 `CREATE`(새 해시)를 판정하는 순수 함수로 NFR-CFG-006 ①(해시 기준 1건만 저장)을 확정. `withIncrementedRefCount`로 재사용 시 참조 카운트를 불변 증가. NFR-CFG-006 ②③(시즌당 ≤20건·≤1MB 예산 감사)과 실제 DB 영속화·생성 호출 배선은 각각 38일차(`apply.ts`)·2팀 Task 023/031 소비 시점 소관으로 범위 밖. 테스트 `src/lib/config/snapshot.test.ts`(8케이스: 조립·결정론·값 차이·그룹 조회 순서 무관·REUSE·CREATE·빈 목록·refCount 불변성) 전건 통과, `npx tsc --noEmit`·`npm run lint`(신규 파일 0 경고/오류, `.next` 빌드 산출물 관련 기존 오류는 무관)·`npm run test`(23 files, 279 tests) 오류 0. **⚑ H-05 인계 완료 (→ 2팀 엔진 상수, 4팀 폴링 주기, 5팀 어드민 콘솔)**: 공통코드 36그룹 카탈로그(`catalog.ts`)와 `loadConstants(group)` 인터페이스(`loader.ts`)가 13일차부터 소비 가능
-- **수락 기준**: 36개 그룹이 모두 등록되고, 엔진이 숫자 리터럴 대신 로더를 통해 값을 얻는 경로가 타입으로 강제된다.
+- **수락 기준**: 36개 그룹이 모두 등록되고, 엔진이 숫자 리터럴 대신 로더를 통해 값을 얻는 경로가 타입으로 강제된다. (Task 003 자체는 12일차에 36개 기준으로 이미 완료 판정됨 — 이 수치는 그대로 유지)
 - **테스트**: 폴백 동작, 발효 정책별 적용 시점, 해시 중복 제거 (NFR-QA-008).
+- **⚠️ 37번째 그룹 추가(14일차, I-88 결정)**: D-17 결정문("국가 목록과 각국 비중은 공통코드로 관리") 원문을 준수하기 위해 국적 비중 그룹을 공통코드로 신규 추가한다(사용자 판정, 3팀의 정적 데이터 유지 권고는 채택되지 않음 — 경위는 `docs/ISSUES.md` I-88 참조). 3팀이 `catalog.ts`·`fallback.ts`에 반영 중(14일차). 이후 이 문서의 "36개 그룹" 표기는 **Task 003 완료 시점(9~12일차)의 사실 기록**이므로 그대로 두고, Task 031/037처럼 **앞으로의 작업 범위를 가리키는 표기만 37개로 갱신**했다(아래 참고). `docs/db/schema-design.md`(6팀 소유)와 `docs/dailyWorkLog/1~13Day.md`(그 시점 사실 기록)는 이번에 변경하지 않았다.
 
 ### Task 004: Mock↔DB 데이터 어댑터 인터페이스 계약을 확정한다 - 우선순위
 
@@ -245,7 +246,7 @@
 - **구현 사항**
   - [ ] `src/lib/mock/` 에 월드 팩토리 — 3리그 60팀 / 팀당 22~30명 ≈ 1,560명 / 감독 60명 / 스폰서 풀 ≥ 40
   - [x] **국적 기반 이름 생성기**(D-17) — `nationality`별 이름 풀에서 조합 생성, 실존 인물명 회피. **생성 로직은 `src/lib/naming/`에 두어 Mock과 실제 엔진이 공유** — **13일차 완료**(`src/lib/naming/generate.ts`의 `generatePlayerName(state, nationality)`, `namePools.ts`(20개국 이름 풀 + 표기 순서), `blacklist.ts`(실명 60여 건 회피 필터), `generate.test.ts`. 2팀 `sim/rng/prng.ts`의 `nextIntBelow`로 `{state,value}` 스레딩, 블랙리스트 충돌 시 같은 커서로 재추첨. 미지원 국적은 조용한 대체 없이 `RangeError`. `npx tsc --noEmit`·`npx eslint src`·`npm run test` 오류 0. **⚑ H-10 인계**(열거형 ko/en 표시명 목록, `docs/handoff/H-10-enum-display-names.md`) — 4팀 14일차 소비 시작
-  - [ ] 절차적 엠블럼 SVG 생성기 (외부 에셋·외부 API 의존 0, DC-11, D-16)
+  - [x] 절차적 엠블럼 SVG 생성기 (외부 에셋·외부 API 의존 0, DC-11, D-16) — **14일차 완료**(`src/lib/naming/emblem.ts`의 `generateTeamEmblem(crestSeed: Seed)`. `Team.crestSeed` 하나로 도형 5종(방패·원·육각·오각·마름모)·배색 패턴 6종·문양 5종·색상 2종(HSL→hex 로컬 헬퍼, 신규 의존성 없음)을 전부 결정해 64×64 viewBox 인라인 SVG 문자열을 조립 — FR-TM-001 ③ "동일 시드 시 동일 엠블럼"을 위해 색상까지 시드에서 파생하고 파라미터로 받지 않음(`colorPrimary`/`colorSecondary`는 반환값으로 내보내 15일차 Mock 팩토리가 `Team.colorPrimary/colorSecondary`에 대입하는 소비 계약 전제). 2팀 `sim/rng/derive.ts`의 `stateForSeed(seed)`(엔진 `penalty.ts`/`tick.ts`/`events.ts`와 동일한 리프 시드 패턴)로 로컬 PRNG 상태 파생, `prng.ts`의 `nextIntBelow`만 사용. `emblem.test.ts` 26케이스(동일 시드 재현성, 외부 참조 문자열 0건, hex 색상 형식, 80개 서로 다른 시드 전량 고유 SVG, 음수·초과·비정수 시드 `RangeError`, 접근성/테마 규약) 전부 통과. **14일차 2차 교차 점검(4팀 지적) 반영**: ① 윤곽선 `stroke`를 고정 `rgba(0,0,0,0.28)`에서 `stroke="currentColor" stroke-opacity="0.28"`로 변경 — Task 012(다크/라이트 대비 4.5:1)에 대응해 소비처가 CSS `color` 상속만으로 테마별 대비 조정 가능(팀 고유 배색인 `colorPrimary`/`colorSecondary`/문양 색은 대상 아님, 그대로 시드 고정). ② `<svg>` 내부 하드코딩 영문 `role="img" aria-label="procedurally generated club emblem"` 제거, `aria-hidden="true" focusable="false"`로 장식용 선언(D-18 하드코딩 문자열 금지) — 실제 접근 가능한 이름은 소비처(미착수 `TeamBadge`)가 wrapper에 번역 키로 부여하는 계약으로 JSDoc에 명시. `npx tsc --noEmit`·`npm run lint`·`npm run test`(28 test files·366 tests) 오류 0.
   - [ ] 진행 상태 Mock — 라이브 경기, 이벤트 타임라인, 순위표, 스탯, 뉴스 피드, 브래킷
   - [ ] 4상태 시나리오 Mock — 정상/로딩/빈/에러 각각의 픽스처 세트 (FR-UI-000)
   - [ ] Mock 어댑터를 Task 004의 `DataSource` 인터페이스로 구현
@@ -263,7 +264,7 @@
     - 주의: vitest의 `typecheck` 모드는 "실험적 기능"이라는 경고가 매 실행 출력된다(vitest 버전 고정 권장). 실행 시간이 typecheck 미포함 대비 약 +5초 늘어난다(8.6초→13초대).
   - [x] `npm run test` / `test:watch` / `test:coverage` 스크립트 추가 — **13일차 완료** (`package.json`. `test:watch`는 `vitest`(기본 watch 모드), `test:coverage`는 `vitest run --coverage` — 이미 설치된 vitest/`@vitest/coverage-v8`만으로 동작해 신규 의존성 없음. `npm run test`: 26파일/325케이스 통과, `npm run test:coverage`: 동일 통과 + 커버리지 리포트 정상 출력(전체 라인 95.28%). **⚠️ 이 95.28%는 "테스트가 있는 파일만"의 수치다** — `vitest.config.ts`의 `coverage`에 `all`/`include`가 없어 무테스트 파일(예: `src/lib/sim/match/events.ts` 305줄, 13일차 1차 교차 점검 실측)이 분모에서 통째로 빠진다. 14일차 임계 설정 시 `all: true` + `include: ['src/lib/sim/**']`를 함께 넣고 재측정 필요 — `docs/ISSUES.md` I-90 참조)
   - [x] 스위트 디렉터리 골격 — 단위 / 스냅샷 / 분포 불변식 / 회계 항등식 / 구조 불변식 / 성능 벤치 6종 — **13일차 완료, 13일차 1차 교차 점검(2팀)으로 경로 정정** (최초 `src/lib/sim/__suites__/`에 생성했으나, ⑴ `accounting`(포인트 총량 보존)이 애초에 sim이 아니라 Task 029(3팀 포인트 원장) 소관이고 ⑵ D-03은 sim 전용이 아니라 H-03(3단 머지 게이트)의 전역 근거이며 ⑶ 14일차 `include: ['src/lib/sim/**']` 커버리지 임계와 경로가 겹치는 문제까지 겹쳐 **`src/__suites__/{unit,snapshot,distribution,accounting,structure,performance}/`로 이동**(팀 md 산출물 지정 `src/**/__suites__/` 그대로 충족, 2팀 소유 경로 `src/lib/sim/**`에서도 빠져나옴). 각 1개 `*.suite.test.ts` placeholder(`describe`+`it.todo`), `docs/require/06-prioritization-and-risks.md` D-03 결정 ①~⑤·⑦ 대응(⑥ 공통코드 테스트는 `src/lib/config/*.test.ts`로 기구현되어 6종에서 제외). 단위(①)·성능(⑦)은 기존 co-located `*.test.ts`(2팀 `rng/{prng,derive,hash,precision,sort}`·`match/{stats,substitution,tick,tier-b-resim-contract,penalty}.test.ts` + `rng/bench.test.ts`)가 실질 담당 중임을 각 파일 JSDoc에 명시. 이동 후 `npx vitest run` 6파일 전부 todo로 재집계 확인(실패 0건, "빈 스위트가 통과" 요건 충족). 최종 구조는 15일차 H-03에서 확정)
-  - [ ] 커버리지 임계 설정 — `src/lib/sim/` 라인 80% / 브랜치 70%
+  - [x] 커버리지 임계 설정 — `src/lib/sim/` 라인 80% / 브랜치 70% — **14일차 완료** (`vitest.config.ts` coverage에 `include: ['src/lib/sim/**/*.ts']` + `thresholds: { lines: 80, branches: 70 }` 추가, I-90 동반 해소. 재측정 결과 aggregate lines 87.61%/branches 77.97%로 통과. 임계를 임시로 99/99로 올려 `npm run test:coverage`가 실제로 실패(`exit code 1`, `ERROR: Coverage ... does not meet global threshold`)하는 것까지 재현 확인 후 80/70 원복. **⚠️ 13일차 인계가 요구한 `all: true`는 설치된 vitest 4.1.10에 존재하지 않는 옵션**이라 `include`만으로 대체(`docs/ISSUES.md` I-90 정정 기록). `perFile`은 2팀 소유 파일(`events.ts` 0%, `stats.ts` branch 66.66%) 보강을 강제하지 않기 위해 미채택 — 신규 I-94로 후속 판단 이관)
   - [ ] 3단 머지 게이트 스크립트화 (`tsc --noEmit` + `lint` + `test`)
 - **수락 기준**: 3개 스크립트가 동작하고 빈 스위트가 통과. 커버리지 임계 미달 시 실패.
 
@@ -302,7 +303,7 @@
 - **일정**: 14일차 ~ 22일차 (2026-08-07 ~ 2026-08-19) / 추정 7.5인일 / 담당 4팀 UI기반·i18n팀 / **크리티컬 패스 · M-1 게이트**
 - **근거**: **D-18**, FR-UI-020, FR-UI-023, NFR-MT-006·009, DC-02, DC-10
 - **구현 사항**
-  - [ ] **선행 필수** — `node_modules/next/dist/docs/`에서 Next.js 16의 i18n·라우팅·미들웨어 관련 가이드를 읽고 참조 경로를 기록한다. 학습 데이터 기반 추정 구현 금지 (AGENTS.md)
+  - [x] **선행 필수** — `node_modules/next/dist/docs/`에서 Next.js 16의 i18n·라우팅·미들웨어 관련 가이드를 읽고 참조 경로를 기록한다. 학습 데이터 기반 추정 구현 금지 (AGENTS.md) — **14일차 완료**. 참조 경로 5건(`internationalization.md`, `01-getting-started/16-proxy.md`, `03-file-conventions/proxy.md`, `04-functions/cookies.md`, `03-file-conventions/route-groups.md`) 및 15일차 이후 반영할 판단은 `docs/team-schedule/04-UI기반i18n팀.md` §8 참조. 코드/디렉터리 생성 없음(`proxy.ts`·`src/i18n/**` 여전히 미생성)
   - [ ] 로케일 라우팅 전략 확정 — 경로 세그먼트(`/[locale]/...`) 방식 여부, 기본 로케일 **ko**, 2차 로케일 **en**, 미지원 로케일 폴백 규칙
   - [ ] 메시지 카탈로그 구조 설계 — `src/i18n/messages/{ko,en}/` 를 도메인별 네임스페이스로 분할(`common`, `league`, `match`, `player`, `team`, `stat`, `admin`, `error`)
   - [ ] 번역 키 네이밍 규약 — `<namespace>.<component|screen>.<element>` 형식, 키 상수의 타입 안전 접근(누락 키를 `tsc`가 잡도록 타입 생성)
@@ -460,7 +461,7 @@
 - **근거**: FR-UI-019, FR-UI-025, FR-UI-026, FR-AD-001~005·012·015·022, NFR-SEC-007
 - **구현 사항**
   - [ ] `/admin` — 시뮬 상태(페이즈·다음 킥오프), 배속 슬라이더(0.25×~20×), 정지/재개, 시드 조회, 월드 리셋(2단계 확인), 로그 뷰어
-  - [ ] `/admin/config` — 36개 그룹별 상수 목록(현재값·기본값·설명·영향 FR), 편집 폼, 범위 검증 인라인 에러, 발효 시점 지정, 변경 이력 diff (사전 설계: `docs/wireframe/10-어드민공통코드-폼스펙.md`, 13일차 5팀)
+  - [ ] `/admin/config` — 37개 그룹별 상수 목록(현재값·기본값·설명·영향 FR), 편집 폼, 범위 검증 인라인 에러, 발효 시점 지정, 변경 이력 diff (사전 설계: `docs/wireframe/10-어드민공통코드-폼스펙.md`, 13일차 5팀. **37개로 갱신 — 14일차 I-88 결정**)
   - [ ] `/admin/scheduler` — 마지막 실행 시각, 성공/실패 이력, 밀린 라운드 수, 중단 구간(`cron_gap`), 잠금 상태
   - [ ] 1차는 비공개 경로 + 환경 플래그로 보호 (NFR-SEC-007)
   - [ ] 위험 조작(리셋·강제 정산)은 2단계 확인 + 사유 입력 필수
@@ -505,7 +506,7 @@
   - [x] 스탯 자연 누적 — 이벤트 로그가 SSOT, 사후 임의 배분 금지 (11일차, `stats.ts`. **AS-10 9일차 부분 무효화**(`docs/ISSUES.md`) 반영: `PlayerStatCoreValues` 56필드 중 이벤트 대응이 있는 Tier A 16개만 이 파일이 이벤트 폴드로 산출하고, 대응 이벤트가 없거나 로스터·타임라인 컨텍스트가 필요한 Tier B 40개는 이번 산출물에서 제외 — I-34가 요구한 56필드 전량 Tier A/B 매핑표를 `PLAYER_STAT_FIELD_CLASSIFICATION`으로 확정)
   - [x] 교체 로직(최대 5명·3창), 부상 발생 시 즉시 교체 판단 (12일차, `substitution.ts`)
   - [x] 승부차기(5+서든데스) — **PK 골은 `player_match_stat.goals`에 미포함**, `pk_home`/`pk_away`로 분리 기록 (D-19) (13일차, `penalty.ts`. 킥 성공 확률은 024 계수 체인 대기 중이라 `resolveScoreProbability` 콜백으로 위임하고, 매 킥 직후 "수학적으로 이미 결정"(remaining 기반) 검사로 조기 확정·정규 종료를 하나의 식으로 통일. `PENALTY_SHOOTOUT`은 킥마다의 이벤트가 아니라 경기 전체 구조 마커 1건 — `stats.ts`가 이미 이 타입을 Tier A 무기여로 처리해 수정 불필요함을 재검증)
-  - [ ] GK 퇴장 + 교체 소진 시 필드플레이어 GK 배치 절차 확정 후 `docs/ISSUES.md` I-02 해소
+  - [x] GK 퇴장 + 교체 소진 시 필드플레이어 GK 배치 절차 확정 후 `docs/ISSUES.md` I-02 해소 (14일차, `gk-fallback.ts`. D-22 ①~⑤ 전 단계 구현 — ①은 `substitution.ts`의 `applySubstitution`에 위임, ②~④는 goalkeeping 최고→유효능력 최저→`playerId` 기반 시드 결정론 추첨. `docs/ISSUES.md` I-02는 D-22로 이미 취소선 처리되어 있어 별도 편집 없음. **재작업(14일차, 팀장 2차 검증 + I-83 확정 반영, I-95 등재)**: ⑤의 배율 0.35가 실은 3팀 카탈로그 등재값(`POSITION_PROFICIENCY_MULT.GK_CROSS`)임이 드러나 리터럴 `GK_CROSS_POSITION_MODIFIER`를 `GK_CROSS_POSITION_MODIFIER_DEFAULT`(안전 기본값)로 재정의하고 `ResolveGkFallbackOptions.crossPositionModifier`(선택적 주입 파라미터)를 추가. **2차 재작업(1팀 교차 점검 + 사용자 승인)**: 주입 누락 시 조용한 폴백을 막기 위해 `GkFallbackResult.crossPositionModifierSource: 'INJECTED' | 'DEFAULT'` 관측 필드 추가(WARN 로그 대신 반환값으로만 노출 — 순수 함수 계층 부작용 0건 유지). `npx tsc --noEmit`·`npm run lint`·`gk-fallback.test.ts`(16케이스) 전부 통과)
   - [ ] React·Supabase import 0건 (순수 함수 계층)
 - **수락 기준**: 경기 1건 p95 ≤ 50ms / p99 ≤ 120ms. 스코어 = 골 이벤트 합 + 자책골 정합 100%.
 - **테스트**: Vitest — 시드 스냅샷 100경기 전건 일치(NFR-QA-003), 이벤트↔스탯 재계산 일치, 성능 벤치.
@@ -619,13 +620,13 @@
 - **수락 기준**: 프리시즌 전체 처리 ≤ 60초. 프리시즌 종료 후 전 팀이 스쿼드 규칙 충족.
 - **테스트**: Vitest — 20시즌 이적률 밴드, 은퇴·배출 수급 균형, 멱등성 재실행.
 
-### Task 031: 공통코드 36개 그룹을 시드하고 밸런싱 튜닝 루프를 구축한다
+### Task 031: 공통코드 37개 그룹을 시드하고 밸런싱 튜닝 루프를 구축한다 (**37개로 갱신 — 14일차 I-88 결정**)
 
 - **담당**: 3팀 데이터·밸런싱·배당팀 / 리뷰: 1팀 코어·품질팀 / 지원: 6팀 DB·인프라팀(시드 마이그레이션)
-- **일정**: 36일차 ~ 66일차 (2026-09-08 ~ 2026-10-20) / 추정 5.5인일 / 담당 3팀 데이터·밸런싱·배당팀 — 일정상 **2단위 분할(스코프 불변)**: 031a(36그룹 시드·메타데이터·발효 정책, 2.5인일) 36~38일차 (2026-09-08 ~ 2026-09-10) / 031b(변경 이력·밸런싱 튜닝 루프, 3.0인일) 63~66일차 (2026-10-15 ~ 2026-10-20)
+- **일정**: 36일차 ~ 66일차 (2026-09-08 ~ 2026-10-20) / 추정 5.5인일 / 담당 3팀 데이터·밸런싱·배당팀 — 일정상 **2단위 분할(스코프 불변)**: 031a(37그룹 시드·메타데이터·발효 정책 — 37개로 갱신, 14일차 I-88 결정, 2.5인일) 36~38일차 (2026-09-08 ~ 2026-09-10) / 031b(변경 이력·밸런싱 튜닝 루프, 3.0인일) 63~66일차 (2026-10-15 ~ 2026-10-20)
 - **근거**: FR-AD-011~016, NFR-CFG-001~007, NFR-OB-003, R-01, R-15, I-05, I-06
 - **구현 사항**
-  - [ ] 36개 그룹의 실제 기본값 시드 데이터 작성 (05문서 5.12.1 기준) → I-06 해소
+  - [ ] 37개 그룹의 실제 기본값 시드 데이터 작성 (05문서 5.12.1 기준 36개 + 국적 비중 그룹 1개, I-88) → I-06 해소
   - [ ] 타입·범위 메타데이터 및 DB 제약, JSON 스키마 검증 (NFR-CFG-004)
   - [ ] 발효 정책 적용 — `NEXT_SEASON` 그룹이 진행 중 시즌에 영향 0
   - [ ] 상수 스냅샷 기록·해시 중복 제거 (시즌당 ≤ 20건, ≤ 1MB)
@@ -641,7 +642,7 @@
 - **근거**: Task 009 설계서, E-01~E-47, D-15, 05문서 5.16, DC-06~DC-08, NFR-SC-001
 - **구현 사항**
   - [x] supabase MCP `apply_migration`으로 1차 범위 테이블 생성 (project ref: `damruradpliktkrlkakl`)
-  - [ ] 공통코드 4테이블(E-41~E-44) + 운영 3테이블(E-45~E-47) 포함
+  - [x] 공통코드 4테이블(E-41~E-44) + 운영 3테이블(E-45~E-47) 포함
   - [ ] 13개 인덱스 + `fixture(status, kickoff_at)` 부분 인덱스 생성
   - [ ] 제약 — `fixture.snapshot_id` NOT NULL, 팀당 활성 스폰서 계약 ≤ 3, 범위 CHECK 제약
   - [ ] `mcp__supabase__generate_typescript_types`로 DB 타입 생성 → `src/lib/data/database.types.ts`

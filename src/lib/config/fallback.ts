@@ -11,7 +11,7 @@
  *   안전 기본값 테이블**(`SAFE_DEFAULT_VALUES`)과, 조회 시 남기는 캡슐화된 WARN 로그.
  *   `installHardcodedFallback()`으로 `loader.ts`의 `setFallbackSource`에 명시적으로
  *   등록할 수 있게 노출한다.
- * - **담지 않는 것(이후 일차 소관)**: 36개 그룹의 **정식 시드 데이터**(36일차
+ * - **담지 않는 것(이후 일차 소관)**: 37개 그룹의 **정식 시드 데이터**(36일차
  *   `supabase/seed/common-code.sql`, 031a) — 이 파일의 값은 "시스템이 멈추지 않게 하는
  *   안전값"이 목적이지, DB에 적재할 최종 기본값 확정이 아니다(team-schedule 11일차 산출물
  *   설명 "하드코딩 안전 기본값 테이블" vs 36일차 "36개 그룹 실제 기본값 시드 데이터"의
@@ -35,6 +35,10 @@
  * 보장하려면 이 4개 그룹의 실제 구조가 36일차(031a)에 채워져야 한다 — 팀장 보고에 이슈로
  * 남긴다. `CUP_PARAM`은 표에 구체값(`BYE_COUNT`=4, `INSERT_ROUNDS`=[6,12,18,24,32,40])이
  * 있으므로 그대로 채웠다.
+ *
+ * **14일차 추가 — `NATIONALITY_WEIGHT`(37번째 그룹, I-88 사용자 결정)**: 05문서 표 밖의
+ * 신규 그룹이라 "표의 코드 예시"가 아예 없다. 같은 억측 금지 원칙을 적용해 빈 객체 `{}`로
+ * 둔다(`WEATHER_EFFECT`류와 동일 취급) — 근거는 `catalog.ts`의 "37번째 그룹 추가" 절 참조.
  *
  * **예외 — `UI_PARAM`(팀장 결정, 11일차 2차 교차 점검)**: `POLL_INTERVAL_MS`/`POLL_LIVE_MS`만
  * 05문서 예시값(5000/3000)이 아니라 **비용 안전망 전용 값**(30000/15000)을 쓴다. 이 그룹
@@ -72,8 +76,8 @@ function warnFallbackUsed(group: CommonCodeGroupCode): void {
 }
 
 /**
- * 36개 그룹 전량의 하드코딩 안전 기본값. `Record<CommonCodeGroupCode, ...>` 타입 자체가
- * "36개 그룹 키 전량이 존재해야 한다"를 컴파일타임에 강제하므로(누락 시 `tsc` 오류),
+ * 37개 그룹 전량의 하드코딩 안전 기본값. `Record<CommonCodeGroupCode, ...>` 타입 자체가
+ * "37개 그룹 키 전량이 존재해야 한다"를 컴파일타임에 강제하므로(누락 시 `tsc` 오류),
  * catalog.ts의 `_assertCatalogSize` 관례처럼 별도 런타임 assert는 불필요하다. 값 출처와
  * 한계는 위 JSDoc "값의 출처와 한계" 절 참조.
  *
@@ -270,10 +274,17 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
     TRADE_VALUE_GAP_PCT: 15,
     LOAN_WAGE_SHARE_PCT: 50,
   },
+  // 05문서 표 밖의 14일차 신규 그룹(I-88 사용자 결정) — "국가 목록과 각국 비중" 중 비중
+  // 실값은 어디에도 문서화된 적이 없다. 억측 금지 원칙에 따라 빈 구조로 둔다. 코드 키
+  // 집합(국가 목록)은 `namePools.ts`의 `SUPPORTED_NATIONALITY_CODES`가 이미 20개국으로
+  // 담당하고 있어 여기서 다시 나열하지 않는다(값이 채워지기 전까지 로더 소비자는 이
+  // 그룹에서 특정 국가 키를 가정하지 말고 균등분포로 처리해야 한다 — 15일차 Mock
+  // 팩토리가 그렇게 한다). 실제 비중은 031b(66~68일차 밸런싱 튜닝)에서 채운다.
+  NATIONALITY_WEIGHT: {},
 };
 
-/** 카탈로그의 36개 그룹과 안전 기본값 테이블의 그룹 수가 일치함을 모듈 로드 시점에 보증한다. */
-const _assertSafeDefaultCoverage: 36 = Object.keys(SAFE_DEFAULT_VALUES).length as 36;
+/** 카탈로그의 37개 그룹과 안전 기본값 테이블의 그룹 수가 일치함을 모듈 로드 시점에 보증한다. */
+const _assertSafeDefaultCoverage: 37 = Object.keys(SAFE_DEFAULT_VALUES).length as 37;
 void _assertSafeDefaultCoverage;
 void COMMON_CODE_GROUP_CATALOG;
 

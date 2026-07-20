@@ -2,7 +2,8 @@
  * fallback.ts 테스트 — Task 003 / 11일차 산출물.
  *
  * NFR-CFG-005("공통코드가 미등록·손상되어도 시스템이 정지하지 않는다")와 AS-13(폴백 시
- * WARN 로그)이 실제로 성립하는지, 그리고 36개 그룹 커버리지를 검증한다.
+ * WARN 로그)이 실제로 성립하는지, 그리고 37개 그룹 커버리지를 검증한다(14일차 I-88
+ * 사용자 결정으로 `NATIONALITY_WEIGHT` 그룹 추가, 36→37).
  *
  * vitest.config.ts가 아직 없어 `@/*` 별칭이 테스트에서 해석되지 않으므로(CLAUDE.md),
  * 이 파일은 상대경로 import만 사용한다(loader.test.ts 관례).
@@ -27,9 +28,9 @@ afterEach(() => {
 });
 
 describe('SAFE_DEFAULT_VALUES 커버리지', () => {
-  it('36개 그룹 전량에 안전 기본값 키가 존재한다', () => {
+  it('37개 그룹 전량에 안전 기본값 키가 존재한다', () => {
     const groupCodes = COMMON_CODE_GROUP_CATALOG.map((g) => g.groupCode);
-    expect(groupCodes).toHaveLength(36);
+    expect(groupCodes).toHaveLength(37);
 
     for (const code of groupCodes) {
       expect(Object.prototype.hasOwnProperty.call(SAFE_DEFAULT_VALUES, code)).toBe(true);
