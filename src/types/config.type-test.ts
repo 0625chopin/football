@@ -11,9 +11,13 @@ import type { CommonCode, CommonCodeGroup, CommonCodeHistory, EnumTranslationCat
 import type { Position } from './enums';
 
 describe('config.ts — CommonCodeGroup/CommonCode/CommonCodeHistory (E-41~43)', () => {
-  it('CommonCodeGroup.minValue/maxValue는 숫자형이 아니면 둘 다 null이다(NFR-CFG-004)', () => {
-    expectTypeOf<CommonCodeGroup['minValue']>().toBeNullable();
-    expectTypeOf<CommonCodeGroup['maxValue']>().toBeNullable();
+  it('CommonCode.minValue/maxValue/jsonSchema는 타입이 아니면 각각 null이다(NFR-CFG-004) — 13일차 I-93으로 E-41→E-42 이동', () => {
+    expectTypeOf<CommonCode['minValue']>().toBeNullable();
+    expectTypeOf<CommonCode['maxValue']>().toBeNullable();
+    expectTypeOf<CommonCode['jsonSchema']>().toBeNullable();
+    // @ts-expect-error — I-93 이동 후 CommonCodeGroup에는 더 이상 minValue가 없다(그룹 1쌍으로는
+    // 코드별 유효 범위를 표현할 수 없어서 옮겼다). 이 자리가 다시 통과하면 회귀다.
+    expectTypeOf<CommonCodeGroup['minValue']>();
   });
 
   it('CommonCode.worldId는 null이면 전역 기본값이다(D-15 단일 월드 전제에서도 필드는 유지)', () => {

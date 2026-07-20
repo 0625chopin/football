@@ -49,11 +49,6 @@ export interface CommonCodeGroup {
   readonly applyPolicy: CommonCodeApplyPolicy;
   /** 관련 FR ID 목록(문서 추적성) */
   readonly relatedFr: readonly string[];
-  /** 숫자형 허용 범위(NFR-CFG-004). 숫자형이 아니면 둘 다 null */
-  readonly minValue: number | null;
-  readonly maxValue: number | null;
-  /** JSON형 값 검증용 스키마. JSON형이 아니면 null */
-  readonly jsonSchema: Readonly<Record<string, unknown>> | null;
   readonly isActive: boolean;
   /** 콘솔 표시 순서 */
   readonly sortOrder: number;
@@ -79,6 +74,25 @@ export interface CommonCode {
   readonly valueNum: number | null;
   /** JSON형일 때. JSON형이 아니면 null */
   readonly valueJson: Readonly<Record<string, unknown>> | null;
+  /**
+   * 숫자형 허용 범위(NFR-CFG-004). 숫자형이 아니면 둘 다 null.
+   *
+   * **13일차 이슈 배치 반영(I-93) — E-41(그룹)에서 이 위치(E-42, 코드)로 이동**: 그룹당
+   * 1쌍뿐이던 원래 위치로는 같은 그룹 안에서 코드마다 유효 범위가 판이한 경우를 표현할
+   * 수 없었다(예: `SQUAD_PARAM.MIN`=22 vs `GK_MIN`=2, `ROUND_INTERVAL_MIN.LEAGUE_1`=75 vs
+   * `LEAGUE_3`=115 — 3팀 `fallback.ts` 실측). `unit` 필드가 이미 이 자리(코드 레벨)에 있는
+   * 것과 같은 이유(값의 스토리지 계약이 아니라 파라미터별 도메인 지식)로 여기로 내렸다.
+   */
+  readonly minValue: number | null;
+  readonly maxValue: number | null;
+  /**
+   * JSON형 값 검증용 스키마. JSON형이 아니면 null.
+   *
+   * **13일차 이슈 배치 반영(I-93) — E-41(그룹)에서 이 위치(E-42, 코드)로 이동**: `minValue`/
+   * `maxValue`와 동형 문제 — 같은 JSON 타입 그룹 안에서도 코드마다 스키마가 다르다(예:
+   * `CUP_PARAM.BYE_COUNT`=스칼라 정수 vs `INSERT_ROUNDS`=배열).
+   */
+  readonly jsonSchema: Readonly<Record<string, unknown>> | null;
   /**
    * 초기 시드값(되돌리기 기준). **D-26: 조정은 `value`만 하고 `defaultValue`는 절대
    * 갱신하지 않는다** — 이 필드를 바꾸는 쓰기 경로는 초기 시드 적재뿐이며, 어댑터 구현체

@@ -218,8 +218,8 @@
   - [x] **Task 011에서 확정한 로케일 라우팅 전략과 정합**하도록 세그먼트 구조를 결정 (경로 세그먼트 방식 채택 시 전 라우트가 로케일 하위에 배치) — 9일차 §7.4에서 팀장 승인으로 `app/[lang]/` 세그먼트 방식 조기 확정(`docs/team-schedule/04-UI기반i18n팀.md` §7.4), 10일차에 실제 라우트 생성에 적용
   - [x] 2차 대비 라우트 자리만 예약: `/bet`, `/my/bets`, `/my/wallet` (플래그로 비활성) — **11일차 완료**. feature flag 시스템이 아직 프로젝트에 없어(CLAUDE.md "아직 도입되지 않은 것") 코드 분기 없이 순수 placeholder로만 생성, JSDoc에 비활성 자리 예약임을 명시. `/ko`·`/en` 양쪽 6경로 200 확인
   - [x] 전역 레이아웃 골격 — 헤더(리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머·**로케일 스위처**), 사이드 내비, 푸터 (FR-UI-020) — **12일차 완료**: `src/app/[lang]/layout.tsx`의 `<body>`에 `SiteHeader`/`SideNav`/`SiteFooter` 로컬 함수로 앱 셸 추가(`src/components/` 부재로 별도 파일 미분리, 23일차 이후 013A에서 교체 예정). 헤더 4개 자리는 전부 `disabled` placeholder, 사이드 내비는 11일차까지 생성된 라우트만 `/${lang}/...`로 연결(admin/bet/my 예약분 제외). `npx tsc --noEmit`(0건) / `npm run lint`(0건) 통과. 참조: `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/layout.md`, `.../02-components/link.md`(App Router `<Link>`에 Pages Router의 `locale` prop 없음 확인)
-  - [ ] 각 라우트에 `loading.tsx` / `error.tsx` / `not-found.tsx` 배치 (FR-UI-000 기반)
-- **수락 기준**: 전 라우트가 200으로 응답하고, `npm run build` 성공, 콘솔 에러 0건.
+  - [x] 각 라우트에 `loading.tsx` / `error.tsx` / `not-found.tsx` 배치 (FR-UI-000 기반) — **13일차 완료**: `src/app/[lang]/**` 20개 리프 라우트(루트 `[lang]` 포함, 예약 3개 포함) 전체에 3종씩 총 60파일 생성. `error.tsx`는 `'use client'` + Next.js 16.2 신규 `unstable_retry`(공식 문서가 `reset`보다 우선 권장) 사용. `npx tsc --noEmit`(0건) / `npx eslint src`(0건), `npm run dev --webpack` 기준 `/ko`·`/en` 40경로 curl 200 전부 확인. WSL에서 `npm run build`는 번들러 무관 EPERM으로 실패하므로(CLAUDE.md) 수락 기준의 "build 성공"은 tsc/eslint/dev 순회로 대체 판정. 참조: `node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/{loading,error,not-found}.md`
+- **수락 기준**: 전 라우트가 200으로 응답하고, `npm run build` 성공, 콘솔 에러 0건. (13일차: WSL 빌드 실패 이슈로 `npm run build` 대신 `tsc --noEmit`/`eslint`/dev 순회 curl 200으로 대체 판정 — CLAUDE.md 근거)
 - **테스트**: Playwright MCP로 전 라우트 순회 스모크 — 200 응답 및 콘솔 에러 0건 확인.
 
 ### Task 006: 시드 계층 PRNG와 결정론 유틸리티를 구축한다 - 우선순위
@@ -244,7 +244,7 @@
 - **근거**: FR-LG-017, FR-TM-001, FR-PL-014, D-16, D-17, DC-09, DC-11, DC-12
 - **구현 사항**
   - [ ] `src/lib/mock/` 에 월드 팩토리 — 3리그 60팀 / 팀당 22~30명 ≈ 1,560명 / 감독 60명 / 스폰서 풀 ≥ 40
-  - [ ] **국적 기반 이름 생성기**(D-17) — `nationality`별 이름 풀에서 조합 생성, 실존 인물명 회피. **생성 로직은 `src/lib/naming/`에 두어 Mock과 실제 엔진이 공유**
+  - [x] **국적 기반 이름 생성기**(D-17) — `nationality`별 이름 풀에서 조합 생성, 실존 인물명 회피. **생성 로직은 `src/lib/naming/`에 두어 Mock과 실제 엔진이 공유** — **13일차 완료**(`src/lib/naming/generate.ts`의 `generatePlayerName(state, nationality)`, `namePools.ts`(20개국 이름 풀 + 표기 순서), `blacklist.ts`(실명 60여 건 회피 필터), `generate.test.ts`. 2팀 `sim/rng/prng.ts`의 `nextIntBelow`로 `{state,value}` 스레딩, 블랙리스트 충돌 시 같은 커서로 재추첨. 미지원 국적은 조용한 대체 없이 `RangeError`. `npx tsc --noEmit`·`npx eslint src`·`npm run test` 오류 0. **⚑ H-10 인계**(열거형 ko/en 표시명 목록, `docs/handoff/H-10-enum-display-names.md`) — 4팀 14일차 소비 시작
   - [ ] 절차적 엠블럼 SVG 생성기 (외부 에셋·외부 API 의존 0, DC-11, D-16)
   - [ ] 진행 상태 Mock — 라이브 경기, 이벤트 타임라인, 순위표, 스탯, 뉴스 피드, 브래킷
   - [ ] 4상태 시나리오 Mock — 정상/로딩/빈/에러 각각의 픽스처 세트 (FR-UI-000)
@@ -261,8 +261,8 @@
   - [x] Vitest + coverage 설치, `vitest.config.ts`에서 `@/*` 별칭 해석 — **12일차 완료** (`@vitest/coverage-v8` 설치, `vitest.config.ts` 신규 작성. `@/*` 별칭은 Vite 8.1.5 네이티브 `resolve.tsconfigPaths` 옵션으로 해석(별도 플러그인 불필요, tsconfig.json 단일 소스 유지). `npx tsc --noEmit` 오류 0, 실제 소스 범위 lint 오류 0(WSL 마운트 스트레이 아티팩트로 인한 무관 lint 노이즈는 4팀 확인 결과 1팀 소행 아님, I-62 갱신은 팀장 반영).
     - **`docs/ISSUES.md` I-46 실제 해소** — 최초 시도(`test.include`에 `*.type-test.ts` 추가)는 **거짓 해소였다**(팀장 2차 검증 실증: 고의로 틀린 `expectTypeOf` 단언을 넣어도 vitest 런타임 include에서는 esbuild가 타입을 소거해 초록불로 통과). 정정: 런타임 `test.include`에서 `*.type-test.ts`를 **제외**하고, vitest 4.x 네이티브 `test.typecheck`(`enabled: true`, `checker: 'tsc'`, `include: ['**/*.type-test.ts']`)로 전환 — 실제 `tsc` 프로세스가 단언을 검증한다. 동일한 고의 오류 재주입으로 **이번엔 실패로 뜨는 것까지 재현 확인**(`Type Errors 1 failed`). `npx vitest run` 24파일/291케이스(기존 12파일·180케이스 + type-test 10파일 + 2·3팀 신규 2파일) 전건 통과, `Type Errors: no errors`.
     - 주의: vitest의 `typecheck` 모드는 "실험적 기능"이라는 경고가 매 실행 출력된다(vitest 버전 고정 권장). 실행 시간이 typecheck 미포함 대비 약 +5초 늘어난다(8.6초→13초대).
-  - [ ] `npm run test` / `test:watch` / `test:coverage` 스크립트 추가
-  - [ ] 스위트 디렉터리 골격 — 단위 / 스냅샷 / 분포 불변식 / 회계 항등식 / 구조 불변식 / 성능 벤치 6종
+  - [x] `npm run test` / `test:watch` / `test:coverage` 스크립트 추가 — **13일차 완료** (`package.json`. `test:watch`는 `vitest`(기본 watch 모드), `test:coverage`는 `vitest run --coverage` — 이미 설치된 vitest/`@vitest/coverage-v8`만으로 동작해 신규 의존성 없음. `npm run test`: 26파일/325케이스 통과, `npm run test:coverage`: 동일 통과 + 커버리지 리포트 정상 출력(전체 라인 95.28%). **⚠️ 이 95.28%는 "테스트가 있는 파일만"의 수치다** — `vitest.config.ts`의 `coverage`에 `all`/`include`가 없어 무테스트 파일(예: `src/lib/sim/match/events.ts` 305줄, 13일차 1차 교차 점검 실측)이 분모에서 통째로 빠진다. 14일차 임계 설정 시 `all: true` + `include: ['src/lib/sim/**']`를 함께 넣고 재측정 필요 — `docs/ISSUES.md` I-90 참조)
+  - [x] 스위트 디렉터리 골격 — 단위 / 스냅샷 / 분포 불변식 / 회계 항등식 / 구조 불변식 / 성능 벤치 6종 — **13일차 완료, 13일차 1차 교차 점검(2팀)으로 경로 정정** (최초 `src/lib/sim/__suites__/`에 생성했으나, ⑴ `accounting`(포인트 총량 보존)이 애초에 sim이 아니라 Task 029(3팀 포인트 원장) 소관이고 ⑵ D-03은 sim 전용이 아니라 H-03(3단 머지 게이트)의 전역 근거이며 ⑶ 14일차 `include: ['src/lib/sim/**']` 커버리지 임계와 경로가 겹치는 문제까지 겹쳐 **`src/__suites__/{unit,snapshot,distribution,accounting,structure,performance}/`로 이동**(팀 md 산출물 지정 `src/**/__suites__/` 그대로 충족, 2팀 소유 경로 `src/lib/sim/**`에서도 빠져나옴). 각 1개 `*.suite.test.ts` placeholder(`describe`+`it.todo`), `docs/require/06-prioritization-and-risks.md` D-03 결정 ①~⑤·⑦ 대응(⑥ 공통코드 테스트는 `src/lib/config/*.test.ts`로 기구현되어 6종에서 제외). 단위(①)·성능(⑦)은 기존 co-located `*.test.ts`(2팀 `rng/{prng,derive,hash,precision,sort}`·`match/{stats,substitution,tick,tier-b-resim-contract,penalty}.test.ts` + `rng/bench.test.ts`)가 실질 담당 중임을 각 파일 JSDoc에 명시. 이동 후 `npx vitest run` 6파일 전부 todo로 재집계 확인(실패 0건, "빈 스위트가 통과" 요건 충족). 최종 구조는 15일차 H-03에서 확정)
   - [ ] 커버리지 임계 설정 — `src/lib/sim/` 라인 80% / 브랜치 70%
   - [ ] 3단 머지 게이트 스크립트화 (`tsc --noEmit` + `lint` + `test`)
 - **수락 기준**: 3개 스크립트가 동작하고 빈 스위트가 통과. 커버리지 임계 미달 시 실패.
@@ -460,7 +460,7 @@
 - **근거**: FR-UI-019, FR-UI-025, FR-UI-026, FR-AD-001~005·012·015·022, NFR-SEC-007
 - **구현 사항**
   - [ ] `/admin` — 시뮬 상태(페이즈·다음 킥오프), 배속 슬라이더(0.25×~20×), 정지/재개, 시드 조회, 월드 리셋(2단계 확인), 로그 뷰어
-  - [ ] `/admin/config` — 36개 그룹별 상수 목록(현재값·기본값·설명·영향 FR), 편집 폼, 범위 검증 인라인 에러, 발효 시점 지정, 변경 이력 diff
+  - [ ] `/admin/config` — 36개 그룹별 상수 목록(현재값·기본값·설명·영향 FR), 편집 폼, 범위 검증 인라인 에러, 발효 시점 지정, 변경 이력 diff (사전 설계: `docs/wireframe/10-어드민공통코드-폼스펙.md`, 13일차 5팀)
   - [ ] `/admin/scheduler` — 마지막 실행 시각, 성공/실패 이력, 밀린 라운드 수, 중단 구간(`cron_gap`), 잠금 상태
   - [ ] 1차는 비공개 경로 + 환경 플래그로 보호 (NFR-SEC-007)
   - [ ] 위험 조작(리셋·강제 정산)은 2단계 확인 + 사유 입력 필수
@@ -504,7 +504,7 @@
   - [x] 이벤트 23종 생성 및 시간순 정렬, `detail(JSON)` 최소화. **이벤트는 타입 코드만 저장하고 문구는 UI 카탈로그가 담당**(D-18) (10일차, `events.ts`)
   - [x] 스탯 자연 누적 — 이벤트 로그가 SSOT, 사후 임의 배분 금지 (11일차, `stats.ts`. **AS-10 9일차 부분 무효화**(`docs/ISSUES.md`) 반영: `PlayerStatCoreValues` 56필드 중 이벤트 대응이 있는 Tier A 16개만 이 파일이 이벤트 폴드로 산출하고, 대응 이벤트가 없거나 로스터·타임라인 컨텍스트가 필요한 Tier B 40개는 이번 산출물에서 제외 — I-34가 요구한 56필드 전량 Tier A/B 매핑표를 `PLAYER_STAT_FIELD_CLASSIFICATION`으로 확정)
   - [x] 교체 로직(최대 5명·3창), 부상 발생 시 즉시 교체 판단 (12일차, `substitution.ts`)
-  - [ ] 승부차기(5+서든데스) — **PK 골은 `player_match_stat.goals`에 미포함**, `pk_home`/`pk_away`로 분리 기록 (D-19)
+  - [x] 승부차기(5+서든데스) — **PK 골은 `player_match_stat.goals`에 미포함**, `pk_home`/`pk_away`로 분리 기록 (D-19) (13일차, `penalty.ts`. 킥 성공 확률은 024 계수 체인 대기 중이라 `resolveScoreProbability` 콜백으로 위임하고, 매 킥 직후 "수학적으로 이미 결정"(remaining 기반) 검사로 조기 확정·정규 종료를 하나의 식으로 통일. `PENALTY_SHOOTOUT`은 킥마다의 이벤트가 아니라 경기 전체 구조 마커 1건 — `stats.ts`가 이미 이 타입을 Tier A 무기여로 처리해 수정 불필요함을 재검증)
   - [ ] GK 퇴장 + 교체 소진 시 필드플레이어 GK 배치 절차 확정 후 `docs/ISSUES.md` I-02 해소
   - [ ] React·Supabase import 0건 (순수 함수 계층)
 - **수락 기준**: 경기 1건 p95 ≤ 50ms / p99 ≤ 120ms. 스코어 = 골 이벤트 합 + 자책골 정합 100%.
@@ -640,7 +640,7 @@
 - **일정**: 13일차 ~ 18일차 (2026-08-06 ~ 2026-08-13) / 추정 4.5인일 / 담당 6팀 DB·인프라팀
 - **근거**: Task 009 설계서, E-01~E-47, D-15, 05문서 5.16, DC-06~DC-08, NFR-SC-001
 - **구현 사항**
-  - [ ] supabase MCP `apply_migration`으로 1차 범위 테이블 생성 (project ref: `damruradpliktkrlkakl`)
+  - [x] supabase MCP `apply_migration`으로 1차 범위 테이블 생성 (project ref: `damruradpliktkrlkakl`)
   - [ ] 공통코드 4테이블(E-41~E-44) + 운영 3테이블(E-45~E-47) 포함
   - [ ] 13개 인덱스 + `fixture(status, kickoff_at)` 부분 인덱스 생성
   - [ ] 제약 — `fixture.snapshot_id` NOT NULL, 팀당 활성 스폰서 계약 ≤ 3, 범위 CHECK 제약

@@ -7,7 +7,7 @@
  *
  * ## 이 파일이 담는 것 / 담지 않는 것
  * - **담는 것**: 그룹 메타데이터(정적 카탈로그)뿐이다 — `group_code`, 표시명, 설명, 값
- *   타입, min/max, 발효 정책, 관련 FR, 콘솔 표시 순서.
+ *   타입, 발효 정책, 관련 FR, 콘솔 표시 순서.
  * - **담지 않는 것**: 상수 로더(`loadConstants`)·그룹 단위 캐시·무효화 훅(10일차
  *   `loader.ts`), 하드코딩 안전 기본값·폴백 WARN 로그(11일차 `fallback.ts`), 발효 정책
  *   해석 함수(11일차 `policy.ts`), 스냅샷 직렬화·해시(12일차 `snapshot.ts`), 그룹별 실제
@@ -22,12 +22,16 @@
  * 제외했다. import는 배럴(`@/types`)만 사용하고 서브경로(`@/types/config`) 직접 import는
  * 쓰지 않는다(체크리스트 C-5·C-6).
  *
- * ## min/max를 전 그룹 `null`로 둔 이유
- * 05문서 5.12.1절 표에는 그룹별 명시적 숫자 범위 컬럼이 없다(표는 `group_code`/설명/타입/
- * 코드 예시(기본값)/`apply_policy`/관련 FR만 제공). 실측 근거 없이 범위를 추정해 넣는 것은
- * 억측이므로, 이 파일에서는 전 그룹 `minValue`/`maxValue`를 `null`로 둔다. 실제 범위 확정과
- * "범위 밖 값 저장 전 거부"는 11일차(`fallback.ts`, DC-13)·37일차(`schema.ts`, NFR-CFG-004)
- * 소관이다.
+ * ## `minValue`/`maxValue`/`jsonSchema`가 이 파일에 없는 이유 (13일차 이슈 배치, I-93)
+ * 원래 이 3필드는 E-41 `CommonCodeGroup`(그룹 레벨, 그룹당 1쌍)에 있었다. 그러나 그룹
+ * 내부 코드들의 자연스러운 유효 범위는 서로 판이하다(예: `SQUAD_PARAM.MIN`=22 vs
+ * `GK_MIN`=2, `ROUND_INTERVAL_MIN.LEAGUE_1`=75 vs `LEAGUE_3`=115 — `CUP_PARAM.BYE_COUNT`
+ * 스칼라 vs `INSERT_ROUNDS` 배열도 같은 문제) — 그룹 레벨 1쌍으로는 이걸 표현할 수 없다.
+ * 13일차 1차 교차 점검(3팀·6팀이 각자 다른 사례로 독립 제기, 팀장 승인)에서 1팀이
+ * **E-42 `CommonCode`(코드 레벨)로 이동**시켰다(`src/types/config.ts`). 그래서 그룹
+ * 메타데이터만 담는 이 카탈로그에는 더 이상 이 3필드가 없다 — 실제 범위/스키마 값은
+ * 코드 단위로, 37일차(`schema.ts`, NFR-CFG-004) 이후 그룹별로 점진 채워진다("실측
+ * 근거 없이 범위를 추정하지 않는다"는 원칙은 여전히 유효하며, 오늘도 값을 채우지 않는다).
  *
  * ## value_type이 그룹 내에서 혼합된 항목(설계 메모 — 팀 보고 대상)
  * 05문서 표는 일부 그룹(`FITNESS_PARAM`·`INJURY_PARAM`·`SPONSOR_PARAM`·`ODDS_PARAM`·
@@ -61,9 +65,6 @@ export type CommonCodeGroupCatalogEntry = Pick<
   | 'valueType'
   | 'applyPolicy'
   | 'relatedFr'
-  | 'minValue'
-  | 'maxValue'
-  | 'jsonSchema'
   | 'sortOrder'
 >;
 
@@ -80,9 +81,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-009'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 1,
   },
   {
@@ -93,9 +91,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-001'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 2,
   },
   {
@@ -106,9 +101,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-006'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 3,
   },
   {
@@ -118,9 +110,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-004'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 4,
   },
   {
@@ -131,9 +120,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-010'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 5,
   },
   {
@@ -144,9 +130,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-008'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 6,
   },
   {
@@ -157,9 +140,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-007'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 7,
   },
   {
@@ -170,9 +150,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-006'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 8,
   },
   {
@@ -183,9 +160,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-005'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 9,
   },
   {
@@ -196,9 +170,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'JSON',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-006'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 10,
   },
   {
@@ -208,9 +179,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-006'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 11,
   },
   {
@@ -221,9 +189,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-009'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 12,
   },
   {
@@ -234,9 +199,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-011'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 13,
   },
   {
@@ -246,9 +208,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-010'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 14,
   },
   {
@@ -259,9 +218,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-002'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 15,
   },
   {
@@ -271,9 +227,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-003'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 16,
   },
   {
@@ -284,9 +237,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-004'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 17,
   },
   {
@@ -297,9 +247,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-005'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 18,
   },
   {
@@ -309,9 +256,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-006'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 19,
   },
   {
@@ -322,9 +266,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-EC-008', 'FR-EC-010', 'FR-EC-011'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 20,
   },
   {
@@ -334,9 +275,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-TR-005'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 21,
   },
   {
@@ -347,9 +285,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-TM-007'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 22,
   },
   {
@@ -360,9 +295,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-YT-001', 'FR-YT-002'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 23,
   },
   {
@@ -373,9 +305,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-015'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 24,
   },
   {
@@ -387,9 +316,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_MARKET',
     relatedFr: ['FR-BT-005'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 25,
   },
   {
@@ -400,9 +326,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_MARKET',
     relatedFr: ['FR-BT-010'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 26,
   },
   {
@@ -412,9 +335,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'JSON',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-ST-003'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 27,
   },
   {
@@ -424,9 +344,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'JSON',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-PL-003'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 28,
   },
   {
@@ -437,9 +354,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'IMMEDIATE',
     relatedFr: ['FR-UI-022', 'FR-ST-004'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 29,
   },
   {
@@ -449,9 +363,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'JSON',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-009'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 30,
   },
   {
@@ -462,9 +373,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'IMMEDIATE',
     relatedFr: ['FR-AD-017', 'FR-AD-018', 'FR-AD-019', 'FR-AD-020'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 31,
   },
   {
@@ -475,9 +383,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-007'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 32,
   },
   {
@@ -488,9 +393,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'JSON',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-LG-015'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 33,
   },
   {
@@ -501,9 +403,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'INT',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-011'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 34,
   },
   {
@@ -513,9 +412,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-MT-004'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 35,
   },
   {
@@ -526,9 +422,6 @@ export const COMMON_CODE_GROUP_CATALOG = [
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_SEASON',
     relatedFr: ['FR-TR-003', 'FR-TR-006', 'FR-TR-009', 'FR-TR-010'],
-    minValue: null,
-    maxValue: null,
-    jsonSchema: null,
     sortOrder: 36,
   },
 ] as const satisfies readonly CommonCodeGroupCatalogEntry[];

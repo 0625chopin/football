@@ -1,0 +1,34 @@
+"use client"; // Error Boundary는 Client Component여야 한다(error.md)
+
+import { useEffect } from "react";
+
+/**
+ * `/[lang]/awards` 에러 폴백 — Task 005(13일차), 빈 자리표시자.
+ *
+ * 화면 본문은 5팀 소관이며 28일차 이후 채워진다. 4팀은 라우트 골격만 만든다.
+ * `unstable_retry`는 v16.2.0 신규 API — 공식 문서가 `reset`보다 우선 권장한다.
+ */
+export default function Error({
+  error,
+  unstable_retry,
+}: {
+  error: Error & { digest?: string };
+  unstable_retry: () => void;
+}) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <main className="p-4 text-sm">
+      <h2 className="font-semibold">문제가 발생했습니다 (준비 중)</h2>
+      <button
+        type="button"
+        onClick={() => unstable_retry()}
+        className="mt-2 rounded border border-foreground/20 px-2 py-1"
+      >
+        다시 시도
+      </button>
+    </main>
+  );
+}
