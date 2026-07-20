@@ -5,13 +5,14 @@
  * FR-MT-004~009 계수 체인의 각 항을 담당하는 8개 개별 계수 함수와, 이들을
  * 하나의 최종 배율로 합성하는 `combineAbilityModifiers`(9번째)를 포함한다.
  *
- * ## 이 파일의 범위 (18일차 갱신)
+ * ## 이 파일의 범위 (19일차 갱신)
  * 17일차에는 **시그니처 + 클램프 경계 동작**만 확정했다. 18일차에 컨디션·
- * 피로·캐미 3종의 실공식을 채웠다 — 나머지 5개(부상·홈·날씨·감독·포지션)는
- * 여전히 **중립값 1.0을 클램프해 반환하는 자리표시자**다(`// TODO` 주석 참조):
- * 포지션 숙련도(19일차, `position.ts` 분리 여부는 그날 재판단), 날씨·감독
- * 상성(20일차, `tactics.ts` 분리). 조기에 공식을 확정하면 그날 담당 판단을
- * 앞질러 버리므로 의도적으로 비워 둔다.
+ * 피로·캐미 3종의 실공식을 채웠다. 19일차에 **포지션 숙련도는 이 파일에서
+ * 빠졌다** — 인접 그래프 BFS가 필요해 단일 수식 3종과 성격이 달라 별도 파일
+ * `./position.ts`로 분리했다(분리 근거는 그 파일 헤더 참조). 이 파일에 남은
+ * 자리표시자는 이제 4개(부상·홈·날씨·감독)다: 날씨·감독 상성(20일차,
+ * `tactics.ts` 분리 여부는 그날 재판단). 조기에 공식을 확정하면 그날 담당
+ * 판단을 앞질러 버리므로 의도적으로 비워 둔다.
  *
  * ## 캐미 공식(18일차 판단 — ROADMAP에 정확한 곡선이 명시되지 않아 결정)
  * `M = min(1.0 + 0.01 × familiaritySeasons, 1.06)` — 시즌당 +1%p 선형 증가,
@@ -160,15 +161,11 @@ export function managerModifier(_input: ManagerModifierInput, options?: ClampOpt
   return clampAbilityModifier(NEUTRAL_MODIFIER, options);
 }
 
-/** `positionModifier` 입력 — `PlayerPosition.proficiency`(1~5) */
-export interface PositionModifierInput {
-  readonly proficiency: number;
-}
-
-/** 포지션 숙련도 계수. TODO(19일차): BFS 인접 페널티 공식 연동(`position.ts` 분리 여부 그날 재판단) */
-export function positionModifier(_input: PositionModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
-}
+/**
+ * 포지션 숙련도 계수(`M_position`)는 19일차부터 `./position.ts`의
+ * `positionModifier`/`PositionModifierInput`을 쓴다. 이 파일에는 두지 않는다
+ * (분리 근거: 그 파일 헤더 "modifiers.ts 잔류 vs 파일 분리" 절).
+ */
 
 /**
  * 계수 체인 합성(9번째 함수) — 개별 계수 8종(또는 그 일부)을 곱한 뒤 한 번 더

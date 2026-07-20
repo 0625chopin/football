@@ -67,6 +67,7 @@ import type {
   TeamId,
   WorldSeed,
 } from '@/types';
+import { MOCK_EPOCH_NOW } from './world';
 import type { MockWorld } from './world';
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -96,8 +97,12 @@ export interface MockProgress {
  * 고정 앵커 / 상수
  * ──────────────────────────────────────────────────────────────────────── */
 
-/** 이 진행 상태 스냅샷이 표현하는 "현재 시각"(고정값) — 결정론을 위해 `Date.now()`를 쓰지 않는다. */
-export const MOCK_NOW = '2026-08-11T15:00:00.000Z';
+/**
+ * 이 진행 상태 스냅샷이 표현하는 "현재 시각"(고정값) — `world.ts`의 `MOCK_EPOCH_NOW`를
+ * 그대로 재노출한다(19일차 I-114 해소, 기준 시각 통일). 이 파일에서 별도 리터럴을 다시
+ * 하드코딩하지 않는다 — 결정론을 위해 `Date.now()`를 쓰지 않는 원칙은 동일하다.
+ */
+export const MOCK_NOW = MOCK_EPOCH_NOW;
 
 /** 순위표가 표현하는 라운드 — 전 팀이 이 라운드까지 소화했다고 가정한다(단순화, 파일 헤더 참조). */
 const STANDINGS_ROUND = 10;

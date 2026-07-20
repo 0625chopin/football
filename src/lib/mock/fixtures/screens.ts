@@ -224,12 +224,17 @@ export function buildMockFixtureScreens(worldSeed: WorldSeed = FIXTURE_WORLD_SEE
   // 표본, progress.ts 헤더 참조) 여기서는 null이 나오면 그 자체가 계약 위반이다 — 조용히
   // 폴백하지 않고 즉시 실패시킨다(다른 Mock 팩토리들의 fail-fast 관례와 동일).
   const seasonSnapshotId = progress.season.snapshotId;
+  /* v8 ignore start -- generateMockProgress()가 진행 중 시즌에 항상 snapshotId를 채운다는
+   * 것은 `progress.test.ts`가 이미 계약으로 고정한 불변식이다(호출자가 그 계약을 깨지
+   * 않는 한 이 분기는 공개 API 경로로 구조적으로 도달 불가능한 방어 코드다 — 19일차
+   * 게이트 커버리지 보강, `MockDataSource.ts` 생성자의 동일 패턴과 같은 근거). */
   if (seasonSnapshotId === null) {
     throw new Error(
       'buildMockFixtureScreens: generateMockProgress()가 만든 Season.snapshotId가 null이다 — ' +
         '진행 중 시즌 스냅샷은 항상 값이 있어야 한다(progress.ts 계약 위반).',
     );
   }
+  /* v8 ignore stop */
 
   const scheduleStep = generateSeasonSchedule(
     scheduleState,
@@ -246,6 +251,10 @@ export function buildMockFixtureScreens(worldSeed: WorldSeed = FIXTURE_WORLD_SEE
   /* ---- FR-UI-002 홈/라이브센터 ---- */
   const home: HomeScreenData = {
     liveFixtures: progress.liveFixtures,
+    // `?? null`은 `progress.ts`가 "리그당 라이브 경기 1건"을 항상 만든다는 계약
+    // (`progress.test.ts`가 고정)의 방어일 뿐, 리그 3개인 이 Mock 월드에서 실제로 빈
+    // 배열이 나올 수 없다 — 19일차 게이트 커버리지 보강, 위 snapshotId 가드와 동일 근거.
+    /* v8 ignore next */
     nextKickoff: progress.liveFixtures[0] ?? null,
     topNews: progress.newsFeed.slice(0, 5),
   };
@@ -269,8 +278,12 @@ export function buildMockFixtureScreens(worldSeed: WorldSeed = FIXTURE_WORLD_SEE
 
   /* ---- FR-UI-005 선수 상세 ---- */
   const samplePlayer = world.players[0];
+  // `world.test.ts`("선수마다 PlayerAttribute·PlayerState가 정확히 1건씩 존재한다")가
+  // 이미 고정한 불변식 — `?? null`은 그 계약이 깨졌을 때의 방어일 뿐 실제로 도달하지 않는다.
+  /* v8 ignore next */
   const attribute = world.playerAttributes.find((a) => a.playerId === samplePlayer.id) ?? null;
   const positions = world.playerPositions.filter((p) => p.playerId === samplePlayer.id);
+  /* v8 ignore next */
   const state = world.playerStates.find((s) => s.playerId === samplePlayer.id) ?? null;
   const playerDetail: PlayerDetailScreenData = {
     profile: toPublicProfile(samplePlayer),
@@ -281,6 +294,9 @@ export function buildMockFixtureScreens(worldSeed: WorldSeed = FIXTURE_WORLD_SEE
 
   /* ---- FR-UI-006 클럽 상세 ---- */
   const sampleTeam = world.teams[0];
+  // `world.ts`가 팀마다 정확히 감독 1명을 만든다(생성 루프가 팀당 1회 `generateManagerForTeam`
+  // 호출) — `?? null`은 그 불변식이 깨졌을 때의 방어일 뿐 실제로 도달하지 않는다.
+  /* v8 ignore next */
   const teamManager = world.managers.find((m) => m.teamId === sampleTeam.id) ?? null;
   const teamPlayerIds = new Set(
     world.playerStates.filter((s) => s.teamId === sampleTeam.id).map((s) => s.playerId),

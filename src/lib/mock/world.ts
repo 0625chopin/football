@@ -171,8 +171,28 @@ const LEAGUE_NAMES: Readonly<Record<number, string>> = {
 /** 티어별 플레이오프 참가 팀 수 — `world.ts` `League` 필드 주석("10 / 4 / 2") 그대로 */
 const PLAYOFF_TEAM_COUNT: Readonly<Record<number, number>> = { 1: 10, 2: 4, 3: 2 };
 
-/** 이름 없는 새 월드가 생성된 시각(고정값) — 결정론을 위해 `Date.now()`를 쓰지 않는다. */
-const WORLD_CREATED_AT: Timestamp = '2026-08-10T00:00:00.000Z';
+/**
+ * Mock 산출물 전역 공유 "현재 시각" 앵커 — **19일차 I-114 해소**. `progress.ts`의
+ * `MOCK_NOW`, `data/mock/MockDataSource.ts`의 설정 타임스탬프가 전부 이 값 하나에서
+ * 파생된다. 이전에는 이 파일(15일차, 08-10)·`progress.ts`(16일차, 08-11)·
+ * `MockDataSource.ts`(18일차, 08-13)가 각자 작성한 날짜를 그대로 하드코딩해 최대 3일까지
+ * 기준 시각이 벌어져 있었다(I-114) — 이후 새 Mock 산출물이 "현재 시각"이 필요하면
+ * 이 상수를 재노출/재사용하고 별도 리터럴을 새로 만들지 않는다.
+ */
+export const MOCK_EPOCH_NOW: Timestamp = '2026-08-11T15:00:00.000Z';
+
+/**
+ * 이름 없는 새 월드가 생성된 시각(고정값) — `MOCK_EPOCH_NOW`보다 40일 앞선 시점으로 둔다.
+ * `progress.ts`가 이 값에서 파생하는 시즌 시작 시각(`MOCK_EPOCH_NOW` - 10일)보다도
+ * 앞서야, "월드가 자신의 진행 중 시즌보다 나중에 생성됐다"는 시간 역전이 생기지 않는다
+ * (I-114, 결정론을 위해 `Date.now()`를 쓰지 않고 고정 오프셋으로 계산한다).
+ */
+const WORLD_CREATED_AT: Timestamp = daysBeforeEpoch(40);
+
+/** `MOCK_EPOCH_NOW`에서 `days`일 전 시각을 계산한다 — `progress.ts`의 `minutesBefore`와 동일 관례. */
+function daysBeforeEpoch(days: number): Timestamp {
+  return new Date(new Date(MOCK_EPOCH_NOW).getTime() - days * 86_400_000).toISOString() as Timestamp;
+}
 
 const OUTFIELD_ATTR_KEYS: readonly (keyof PlayerAttributeValues)[] = [
   'finishing', 'passing', 'crossing', 'dribbling', 'firstTouch', 'tackling',

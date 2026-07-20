@@ -5,6 +5,24 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Task 010(19일차, H-06 인계): eslint-config-next/typescript의 @typescript-eslint/no-unused-vars
+  // 기본값은 argsIgnorePattern이 없어, 인터페이스 계약상 어쩔 수 없이 받지만 쓰지 않는 매개변수를
+  // `_` 접두사로 표시하는 이 저장소의 기존 관례(예: src/lib/data/mock/MockDataSource.ts)를
+  // 인식하지 못하고 전부 경고로 잡는다. 접두사 관례 자체는 이미 코드베이스에 있었으므로
+  // 이 규칙만 그 관례를 인식하도록 맞춘다 — 실제 미사용 변수(접두사 없음)는 계속 경고된다.
+  {
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
   // NFR-DT-001: src/lib/sim/** 는 결정론 유지가 필요해 Math.random()/Date.now()를 금지한다.
   // 이 둘은 MemberExpression(object.property) 형태라 no-restricted-globals가 아니라
   // no-restricted-properties로 잡아야 실제로 동작한다(no-restricted-globals는 프로퍼티 키가 아니라

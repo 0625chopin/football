@@ -56,6 +56,13 @@
  * (전 리그)를 호출해 결정론적으로 상태를 굳힌다 — 이후 인스턴스 생성은 순수 조회만 한다.
  * `getStandings`의 라운드 재계산 경로만 예외적으로 쿼리 시점에 결정론적 PRNG를 다시
  * 스레딩한다(같은 입력 → 항상 같은 출력, `Math.random()` 미사용).
+ *
+ * ## 19일차 갱신 — I-114 해소
+ * 공통코드 그룹/코드 타임스탬프가 이 파일 전용 리터럴(`MOCK_CONFIG_TIMESTAMP`, 08-13)을
+ * 따로 갖고 있었는데, `world.ts`의 `WORLD_CREATED_AT`(08-10)·`progress.ts`의 `MOCK_NOW`
+ * (08-11)와 각각 최대 3일까지 어긋나 있었다. 이제 생성자에서 `this.world.world.createdAt`
+ * (`world.ts`의 단일 앵커 `MOCK_EPOCH_NOW`에서 파생)을 그대로 재사용해 별도 리터럴을
+ * 없앴다 — 이 어댑터가 새 타임스탬프가 필요해지더라도 여기서 새 날짜를 하드코딩하지 않는다.
  */
 
 import { installHardcodedFallback } from '@/lib/config/fallback';
@@ -145,9 +152,6 @@ const SCHEDULE_MATCH_KEY_STRIDE = 100_000;
 /** `getStandings` 임의 라운드 재계산 전용 스트림 키 베이스 — 위 스케줄 생성 키 공간과도 분리한다. */
 const STANDINGS_QUERY_STREAM_KEY_BASE = 600_000;
 
-/** 공통코드 그룹/코드 Mock 엔티티의 고정 타임스탬프 — 이 어댑터가 만들어진 시점(결정론 앵커). */
-const MOCK_CONFIG_TIMESTAMP = '2026-08-13T00:00:00.000Z';
-
 const DEFAULT_TEAM_FIXTURES_LIMIT = 20;
 const DEFAULT_STAT_RANKING_LIMIT = 50;
 const DEFAULT_NEWS_FEED_LIMIT = 20;
@@ -184,6 +188,8 @@ export class MockDataSource implements DataSource {
   private readonly world: MockWorld;
   private readonly progress: MockProgress;
   private readonly seasonSeedValue: number;
+  /** 공통코드 그룹/코드 Mock 엔티티의 타임스탬프 — `world.createdAt`을 재사용한다(19일차 I-114 해소, 기준 시각 통일). */
+  private readonly configTimestamp: string;
 
   private readonly teamToLeague: ReadonlyMap<TeamId, LeagueId>;
   private readonly teamsByLeague: ReadonlyMap<LeagueId, readonly Team[]>;
@@ -205,14 +211,20 @@ export class MockDataSource implements DataSource {
     this.world = generateMockWorld(worldSeed);
     this.progress = generateMockProgress(worldSeed, this.world);
     this.seasonSeedValue = deriveSeasonSeed(worldSeed, 1);
+    this.configTimestamp = this.world.world.createdAt;
 
     const seasonSnapshotId = this.progress.season.snapshotId;
+    /* v8 ignore start -- generateMockProgress()가 진행 중 시즌에 항상 snapshotId를 채운다는
+     * 것은 `progress.test.ts`가 고정한 불변식이다. 공개 생성자 경로로는 구조적으로 도달할
+     * 수 없는 방어 코드라 19일차 게이트 커버리지 보강에서 테스트로 강제 유발하지 않는다
+     * (`fixtures/screens.ts`의 동일 패턴과 같은 근거). */
     if (seasonSnapshotId === null) {
       throw new Error(
         'MockDataSource: generateMockProgress()가 만든 Season.snapshotId가 null입니다 — ' +
           '진행 중 시즌 스냅샷은 항상 값이 있어야 합니다(progress.ts 계약 위반).',
       );
     }
+    /* v8 ignore stop */
 
     /* ---- 리그/팀 인덱스 ---- */
     const teamToLeague = new Map<TeamId, LeagueId>();
@@ -265,9 +277,14 @@ export class MockDataSource implements DataSource {
 
     this.world.leagues.forEach((league, leagueIndex) => {
       const teams = teamsByLeague.get(league.id);
+      /* v8 ignore start -- teamsByLeague는 바로 위 for문에서 this.world.leagues의 모든
+       * 리그에 대해 채워지므로, 같은 리스트를 다시 순회하는 이 forEach에서 미스가 날 수
+       * 없다 — 구조적으로 도달 불가능한 방어 코드(19일차 게이트 커버리지 보강, 위 생성자
+       * 가드와 동일 근거). */
       if (teams === undefined) {
         throw new Error(`MockDataSource: 리그 "${league.id}"의 팀 목록을 찾을 수 없습니다.`);
       }
+      /* v8 ignore stop */
 
       const scheduleState = stateForSeed(
         deriveMatchSeed(this.seasonSeedValue, SCHEDULE_STREAM_KEY_BASE + leagueIndex),
@@ -767,8 +784,8 @@ export class MockDataSource implements DataSource {
     return COMMON_CODE_GROUP_CATALOG.map((entry) => ({
       ...entry,
       isActive: true,
-      createdAt: MOCK_CONFIG_TIMESTAMP,
-      updatedAt: MOCK_CONFIG_TIMESTAMP,
+      createdAt: this.configTimestamp,
+      updatedAt: this.configTimestamp,
     }));
   }
 
@@ -782,6 +799,11 @@ export class MockDataSource implements DataSource {
     return Object.entries(values).map(([code, raw], index) => {
       const isNumber = typeof raw === 'number';
       const isJsonObject = typeof raw === 'object' && raw !== null;
+      // `Array.isArray(raw)` true 분기: `fallback.ts`의 JSON형 그룹 5종 전부 코드값이
+      // 배열이 아닌 객체(또는 빈 `{}`)라 현재 데이터로는 도달하지 않는다 — 배열형 JSON
+      // 공통코드가 실제로 생기면(31a 시드 SQL 이후) 이 분기가 그때 커버된다(19일차 게이트
+      // 커버리지 보강, 방어적 미래 대비 분기).
+      /* v8 ignore next */
       const valueJson: Readonly<Record<string, unknown>> | null = isJsonObject
         ? Array.isArray(raw)
           ? { items: raw }
@@ -806,8 +828,8 @@ export class MockDataSource implements DataSource {
         sortOrder: index + 1,
         isActive: true,
         effectiveFromSeason: null,
-        createdAt: MOCK_CONFIG_TIMESTAMP,
-        updatedAt: MOCK_CONFIG_TIMESTAMP,
+        createdAt: this.configTimestamp,
+        updatedAt: this.configTimestamp,
         updatedBy: null,
       };
     });

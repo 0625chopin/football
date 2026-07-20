@@ -51,7 +51,17 @@ export default defineConfig({
       // 테스트 전략 결정 — 4팀 UI기반팀 착수(23일차)에 맞춰 해당 의존성을 추가할 때 함께
       // 이 예외를 제거하고 테스트를 작성한다, 이슈 후보로 별도 보고). 그 전까지 이 파일만
       // 커버리지 분모에서 제외해 게이트가 이 파일 때문에 항상 실패하는 것을 막는다.
-      exclude: ['src/lib/data/polling.ts'],
+      // database.types.ts: MCP `generate_typescript_types`가 Supabase 스키마에서 그대로 뽑아내는
+      // **생성 파일**이다 — type/interface 선언뿐이라 실행 가능한 statement가 없고(순수 타입이라
+      // DataSource.ts와 같은 이유로 원래 분모 기여가 0이어야 하지만, 파일 규모가 커 v8 provider가
+      // "커버되지 않은 파일"로 집계해 lines 0%로 잡힌다), 애초에 테스트 대상이 될 수 없다.
+      // 19일차 팀장 `npm run gate` 마감 검증에서 ERROR로 검출(16~18일차 3개 일차간 게이트가
+      // 마감 검증 경로에 연결되지 않아 미검출 — docs/ISSUES.md 신규 항목 참조).
+      // 아래 polling.ts와 달리 이 제외는 **재포함 조건이 없는 영구 제외**다 — polling.ts는
+      // 의존성 설치·테스트 작성이라는 미래 조건이 채워지면 제외를 해제할 대상이지만,
+      // database.types.ts는 생성물 자체의 성격상 재포함할 시나리오가 없다(재생성해도 여전히
+      // 순수 타입 선언 파일).
+      exclude: ['src/lib/data/polling.ts', 'src/lib/data/database.types.ts'],
       // perFile(I-94, 15일차 재판단): 14일차엔 match/events.ts(0%)·match/stats.ts(branch 66.66%)가
       // 파일 단위로 70%를 밑돌아 aggregate만 채택했었다. 2팀 15일차 산출물(스냅샷 파이프라인 테스트)
       // 반영 후 재측정한 결과 events.ts 100%, stats.ts branch 75.75%로 두 파일 모두 임계를 상회해
