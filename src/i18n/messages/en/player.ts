@@ -42,7 +42,5 @@ export const player: PlayerMessages = {
     error: "Failed to load injury timeline.",
     roundLabel: "R{round}",
     roundRangeFormat: "R{start}–R{end}",
-    statusActive: "Injured",
-    statusRecovered: "Recovered",
   },
 };

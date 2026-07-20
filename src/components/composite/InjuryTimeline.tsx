@@ -11,10 +11,11 @@ import type { CompositeViewState } from "./types"
 // 여러 개를 그리는 요구라 GrowthChart의 좌표 계산 방식(뷰박스 고정 + 순수 함수 스케일)을
 // 그대로 재적용했다 — 새 렌더 기법을 도입하지 않는다.
 //
-// **`InjuryStatus`(ACTIVE/RECOVERED) 표시명 카탈로그 부재** — `enums.ts`(3팀 콘텐츠 소유)에
-// `injurySeverity`는 이미 있으나(19일차 H-10 7그룹) `injuryStatus`는 아직 없다. 이 컴포넌트
-// 범위를 벗어나는 파일(4팀 구조/3팀 콘텐츠)이라 여기서 추가하지 않고, 상태 라벨은 이
-// 컴포넌트 전용 로컬 키(`player.injuryTimeline.status*`)로 임시 처리한다 — 이슈 후보로 보고.
+// **`InjuryStatus`(ACTIVE/RECOVERED) 표시명** — 31일차 구현 당시 `enums.ts`(3팀 콘텐츠
+// 소유)에 `injurySeverity`는 있었으나(19일차 H-10 7그룹) `injuryStatus`는 없어 컴포넌트
+// 전용 로컬 키(`player.injuryTimeline.status*`)로 임시 처리했다(I-165). 같은 날 3팀이
+// `enums.injuryStatus` 카탈로그를 신설해 이중화가 됐고, 32일차에 그 카탈로그를 직접
+// 경유하도록 정리했다 — 로컬 키는 제거됨.
 //
 // **severity → Badge variant 매핑**은 `EventTimelineItem`의 `EVENT_BADGE_VARIANT` 선례와
 // 동일한 관례(색만으로 구분하지 않고 항상 텍스트 라벨과 함께)를 따른다. 막대 자체는 단일
@@ -187,12 +188,7 @@ export function InjuryTimeline({ locale, state, className }: InjuryTimelineProps
                 {row.injury.typeLabel}
               </span>
               <Badge variant={row.injury.status === "ACTIVE" ? "default" : "outline"}>
-                {t(
-                  locale,
-                  row.injury.status === "ACTIVE"
-                    ? "player.injuryTimeline.statusActive"
-                    : "player.injuryTimeline.statusRecovered",
-                )}
+                {t(locale, `enums.injuryStatus.${row.injury.status}`)}
               </Badge>
               <span className="ml-auto shrink-0 text-xs tabular-nums text-muted-foreground">
                 {t(locale, "player.injuryTimeline.roundRangeFormat", {

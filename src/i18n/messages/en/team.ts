@@ -23,4 +23,17 @@ export const team: TeamMessages = {
   error: {
     loadFailed: "Failed to load team info.",
   },
+  trophy: {
+    empty: "No trophies",
+    error: "Failed to load trophy info.",
+    countFormat: "×{count}",
+    seasonsFormat: "({seasons})",
+    awardsTitle: "Individual awards",
+    type: {
+      LEAGUE_TITLE: "League Title",
+      PLAYOFF_TITLE: "Playoff Title",
+      CUP_TITLE: "Cup Title",
+      PROMOTION: "Promotion",
+    },
+  },
 };

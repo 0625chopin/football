@@ -4,8 +4,9 @@
 //
 // 31일차(013B, 5팀): `growthChart`(`GrowthChart`)·`injuryTimeline`(`InjuryTimeline`)
 // 그룹 추가. 키 구조는 4팀 소유·콘텐츠 확장은 5팀 기여 몫 관례(`match.ts` 선례와 동일).
-// `injuryTimeline.status*`는 `InjuryStatus` enum 전용 카탈로그(`enums.ts`, 3팀 콘텐츠)가
-// 아직 없어 컴포넌트 로컬 키로 임시 처리했다 — 이슈 후보로 보고(팀 보고 참조).
+// **32일차(I-165 해소)**: `injuryTimeline.statusActive`/`statusRecovered` 로컬 키는
+// `enums.injuryStatus`(3팀이 31일차 신설) 카탈로그와 이중화돼 있어 제거했다 —
+// `InjuryTimeline.tsx`는 이제 `enums.injuryStatus.*`를 직접 경유한다.
 export const player = {
   list: {
     title: "선수 목록",
@@ -53,8 +54,6 @@ export const player = {
     roundLabel: "R{round}",
     // {start}/{end}는 라운드 번호(숫자)가 그대로 치환된다.
     roundRangeFormat: "R{start}–R{end}",
-    statusActive: "부상 중",
-    statusRecovered: "복귀 완료",
   },
 };
 

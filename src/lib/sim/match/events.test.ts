@@ -415,4 +415,70 @@ describe('ensureStructuralMarkers — I-65 구조 마커(KICKOFF/HALF_TIME/FULL_
     expect(result).toEqual(original);
     expect(result).not.toBe(original);
   });
+
+  // 32일차 추가분 — 위 테스트들은 KICKOFF/FULL_TIME의 "틱 배열의 첫/끝"만 짚고, HALF_TIME이
+  // FIRST_HALF_STOPPAGE(스토피지) 마지막 틱까지 포함해 정확히 어디에 놓이는지, 그리고 연장전
+  // 포함 시 FULL_TIME이 SECOND_HALF_STOPPAGE가 아니라 EXTRA_SECOND 마지막 틱으로 이동하는지는
+  // 실측하지 않았다(`buildTickSequence`의 스토피지 분수가 시드에 따라 0일 수도 있어, 기존
+  // "arrayContaining" 단언은 우연히 통과할 수 있다). 아래는 스토피지가 있는 상태를 직접 고정한
+  // 픽스처로 그 경계값을 명시적으로 짚는다.
+  it('HALF_TIME은 전반 스토피지가 있으면 그 마지막 틱(45분 + 추가시간)에 위치한다(전반 정규 종료 틱이 아니다)', () => {
+    const ticks: MatchTick[] = [
+      { tick: 1, phase: 'FIRST_HALF', minute: 1, addedTime: 0 },
+      { tick: 45, phase: 'FIRST_HALF', minute: 45, addedTime: 0 },
+      { tick: 46, phase: 'FIRST_HALF_STOPPAGE', minute: 45, addedTime: 1 },
+      { tick: 47, phase: 'FIRST_HALF_STOPPAGE', minute: 45, addedTime: 2 },
+      { tick: 48, phase: 'SECOND_HALF', minute: 46, addedTime: 0 },
+      { tick: 49, phase: 'SECOND_HALF', minute: 90, addedTime: 0 },
+      { tick: 50, phase: 'SECOND_HALF_STOPPAGE', minute: 90, addedTime: 1 },
+    ];
+    const withMarkers = ensureStructuralMarkers([], ticks);
+    const halfTime = withMarkers.find((e) => e.type === 'HALF_TIME')!;
+    expect(halfTime.minute).toBe(45);
+    expect(halfTime.addedTime).toBe(2);
+
+    const fullTime = withMarkers.find((e) => e.type === 'FULL_TIME')!;
+    expect(fullTime.minute).toBe(90);
+    expect(fullTime.addedTime).toBe(1);
+  });
+
+  it('연장전 포함 경기의 FULL_TIME은 후반 스토피지가 아니라 EXTRA_SECOND 마지막 틱(120분)에 위치한다', () => {
+    const { ticks } = buildTickSequence({ matchSeed: SEED, includeExtraTime: true });
+    const events = generateMatchEvents(ticks, SEED, emptyOptions());
+    const withMarkers = ensureStructuralMarkers(events, ticks);
+
+    const fullTime = withMarkers.find((e) => e.type === 'FULL_TIME')!;
+    expect(fullTime.minute).toBe(120);
+    expect(fullTime.addedTime).toBe(0);
+    // 후반 스토피지(SECOND_HALF_STOPPAGE) 구간에는 FULL_TIME이 놓이지 않는다 — 연장이 있는
+    // 경기에서 정규시간 종료 시점을 "경기 종료"로 착각해 잘못된 자리에 삽입하는 회귀를 막는다.
+    const secondHalfStoppageEvents = withMarkers.filter(
+      (e) => ticks.some((t) => t.phase === 'SECOND_HALF_STOPPAGE' && t.minute === e.minute && t.addedTime === e.addedTime) && e.type === 'FULL_TIME',
+    );
+    expect(secondHalfStoppageEvents).toHaveLength(0);
+  });
+
+  it('타입은 같지만 정위치(minute/addedTime)가 아닌 기존 이벤트는 마커로 인정되지 않아, 정위치에 별도로 마커가 새로 삽입된다', () => {
+    // hasMarker는 type뿐 아니라 minute/addedTime까지 일치해야 "이미 있다"고 본다(events.ts
+    // 구현). 이 계약이 type만 보도록 잘못 완화되면, 엉뚱한 자리의 FULL_TIME이 정위치 삽입을
+    // 조용히 막아 "FINISHED인데 정위치 FULL_TIME 없음"(I-65가 막으려는 바로 그 상태)이
+    // 재발한다 — 이 테스트가 그 회귀를 잡는다.
+    const { ticks } = buildTickSequence({ matchSeed: SEED, includeExtraTime: false });
+    const misplacedFullTime = makeDraft({
+      sequence: 1,
+      type: 'FULL_TIME',
+      minute: ticks[0].minute,
+      addedTime: ticks[0].addedTime,
+    });
+    const withMarkers = ensureStructuralMarkers([misplacedFullTime], ticks);
+
+    const fullTimeEvents = withMarkers.filter((e) => e.type === 'FULL_TIME');
+    expect(fullTimeEvents).toHaveLength(2);
+    expect(fullTimeEvents.map((e) => ({ minute: e.minute, addedTime: e.addedTime }))).toEqual(
+      expect.arrayContaining([
+        { minute: ticks[0].minute, addedTime: ticks[0].addedTime },
+        { minute: ticks[ticks.length - 1].minute, addedTime: ticks[ticks.length - 1].addedTime },
+      ]),
+    );
+  });
 });
