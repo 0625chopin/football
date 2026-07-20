@@ -38,4 +38,12 @@ export const common: CommonMessages = {
     close: "Close",
     loading: "Loading…",
   },
+  phase: {
+    summary: "Season {season} · {phase}",
+    roundProgress: "R{current}/{total}",
+  },
+  countdown: {
+    nextKickoffLabel: "Next kickoff",
+    paused: "Paused",
+  },
 };

@@ -11,7 +11,7 @@
  *   안전 기본값 테이블**(`SAFE_DEFAULT_VALUES`)과, 조회 시 남기는 캡슐화된 WARN 로그.
  *   `installHardcodedFallback()`으로 `loader.ts`의 `setFallbackSource`에 명시적으로
  *   등록할 수 있게 노출한다.
- * - **담지 않는 것(이후 일차 소관)**: 37개 그룹의 **정식 시드 데이터**(36일차
+ * - **담지 않는 것(이후 일차 소관)**: 38개 그룹의 **정식 시드 데이터**(36일차
  *   `supabase/seed/common-code.sql`, 031a) — 이 파일의 값은 "시스템이 멈추지 않게 하는
  *   안전값"이 목적이지, DB에 적재할 최종 기본값 확정이 아니다(team-schedule 11일차 산출물
  *   설명 "하드코딩 안전 기본값 테이블" vs 36일차 "36개 그룹 실제 기본값 시드 데이터"의
@@ -76,8 +76,8 @@ function warnFallbackUsed(group: CommonCodeGroupCode): void {
 }
 
 /**
- * 37개 그룹 전량의 하드코딩 안전 기본값. `Record<CommonCodeGroupCode, ...>` 타입 자체가
- * "37개 그룹 키 전량이 존재해야 한다"를 컴파일타임에 강제하므로(누락 시 `tsc` 오류),
+ * 38개 그룹 전량의 하드코딩 안전 기본값. `Record<CommonCodeGroupCode, ...>` 타입 자체가
+ * "38개 그룹 키 전량이 존재해야 한다"를 컴파일타임에 강제하므로(누락 시 `tsc` 오류),
  * catalog.ts의 `_assertCatalogSize` 관례처럼 별도 런타임 assert는 불필요하다. 값 출처와
  * 한계는 위 JSDoc "값의 출처와 한계" 절 참조.
  *
@@ -283,10 +283,25 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
   // 그룹에서 특정 국가 키를 가정하지 말고 균등분포로 처리해야 한다 — 15일차 Mock
   // 팩토리가 그렇게 한다). 실제 비중은 031b(66~68일차 밸런싱 튜닝)에서 채운다.
   NATIONALITY_WEIGHT: {},
+  // 31일차 신규 그룹(I-160 반영, `catalog.ts` "38번째 그룹 추가" 절 — 값 산정 근거 전문은
+  // 거기 있다). MANAGER_MATCHUP(빈 구조)과 달리 여기는 실값을 채운다 — FR-MT-009가
+  // ATTACKING 하나는 구체값을 명시했고(own×1.12/conceded×1.10), 나머지 5종은 3팀이
+  // 그 값을 기준점 삼아 대칭·비대칭 설계로 산정한 잠정값이다(031b 밸런싱 튜닝 대상).
+  // 각 코드(성향)의 값은 `xg-manager-tendency.ts`의 `ManagerTendencyXgMultiplier` 형태
+  // (`{ ownXgMultiplier, concededXgMultiplier }`)를 그대로 따른다 — 그 파일은 읽기만 하고
+  // 수정하지 않았다(2팀 소유).
+  MANAGER_STYLE_XG: {
+    ATTACKING: { ownXgMultiplier: 1.12, concededXgMultiplier: 1.1 },
+    BALANCED: { ownXgMultiplier: 1.0, concededXgMultiplier: 1.0 },
+    DEFENSIVE: { ownXgMultiplier: 0.88, concededXgMultiplier: 0.9 },
+    COUNTER: { ownXgMultiplier: 1.06, concededXgMultiplier: 0.94 },
+    POSSESSION: { ownXgMultiplier: 1.08, concededXgMultiplier: 1.04 },
+    HIGH_PRESS: { ownXgMultiplier: 1.1, concededXgMultiplier: 1.12 },
+  },
 };
 
-/** 카탈로그의 37개 그룹과 안전 기본값 테이블의 그룹 수가 일치함을 모듈 로드 시점에 보증한다. */
-const _assertSafeDefaultCoverage: 37 = Object.keys(SAFE_DEFAULT_VALUES).length as 37;
+/** 카탈로그의 38개 그룹과 안전 기본값 테이블의 그룹 수가 일치함을 모듈 로드 시점에 보증한다. */
+const _assertSafeDefaultCoverage: 38 = Object.keys(SAFE_DEFAULT_VALUES).length as 38;
 void _assertSafeDefaultCoverage;
 void COMMON_CODE_GROUP_CATALOG;
 

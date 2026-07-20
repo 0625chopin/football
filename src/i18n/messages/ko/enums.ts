@@ -4,6 +4,7 @@ import type {
   BetMarketStatus,
   EnumTranslationCatalog,
   InjurySeverity,
+  InjuryStatus,
   ManagerStyle,
   MatchEventType,
   Position,
@@ -80,6 +81,14 @@ const injurySeverity: EnumTranslationCatalog<InjurySeverity> = {
   SEVERE: "중상",
 };
 
+// 31일차(I-160과 별개 제보 — 5팀 Task 018 `InjuryTimeline` 구현 중 발견): H-10 문서
+// "8. 후속 대상 열거형 목록"에 `InjuryStatus`(2)가 미착수로 남아 있던 그룹. 값 2종뿐이라
+// H-10 원 컨벤션(괄호·부연설명 없이 간결한 표시명)을 그대로 따랐다.
+const injuryStatus: EnumTranslationCatalog<InjuryStatus> = {
+  ACTIVE: "부상 중",
+  RECOVERED: "회복 완료",
+};
+
 const managerStyle: EnumTranslationCatalog<ManagerStyle> = {
   ATTACKING: "공격적",
   BALANCED: "균형",
@@ -134,6 +143,7 @@ export const enums = {
   position,
   matchEvent,
   injurySeverity,
+  injuryStatus,
   managerStyle,
   seasonPhase,
   awardType,

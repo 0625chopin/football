@@ -15,7 +15,7 @@ type GroupKey = keyof typeof enumsKo;
 
 const groups = Object.keys(enumsKo) as GroupKey[];
 
-describe('enums ko/en 표시명 — 키 대칭(H-10 7그룹 70리터럴)', () => {
+describe('enums ko/en 표시명 — 키 대칭(H-10 7그룹 70리터럴 + 31일차 injuryStatus 1그룹 2리터럴 = 8그룹 72리터럴)', () => {
   it('ko/en 그룹 이름 집합이 동일하다', () => {
     expect(Object.keys(enumsEn).sort()).toEqual(groups.slice().sort());
   });
@@ -27,10 +27,12 @@ describe('enums ko/en 표시명 — 키 대칭(H-10 7그룹 70리터럴)', () =>
   });
 
   // H-10 문서 "7그룹(+AwardScope 별도 절)=70리터럴". 24일차(I-135)에 `AwardScope`
-  // (4종) 그룹 골격을 추가해 66 → 70으로 갱신됐다.
-  const EXPECTED_LITERAL_COUNT = 70;
+  // (4종) 그룹 골격을 추가해 66 → 70으로 갱신됐다. 31일차: H-10 §8 "후속 대상"
+  // 목록에 미착수로 남아있던 `InjuryStatus`(2종) 그룹을 5팀 제보로 추가해 70 → 72로
+  // 갱신됐다(5팀 Task 018 `InjuryTimeline` 구현 중 발견 — 3팀이 값 채움).
+  const EXPECTED_LITERAL_COUNT = 72;
 
-  it(`7그룹 ${EXPECTED_LITERAL_COUNT}개 코드 리터럴 전부가 ko/en 양쪽에서 빈 문자열 없이 채워져 있다`, () => {
+  it(`8그룹 ${EXPECTED_LITERAL_COUNT}개 코드 리터럴 전부가 ko/en 양쪽에서 빈 문자열 없이 채워져 있다`, () => {
     let total = 0;
     for (const group of groups) {
       const koValues = Object.values(enumsKo[group]) as string[];

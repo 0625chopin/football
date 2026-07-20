@@ -56,3 +56,24 @@ export function formatOdds(decimalOdds: number, locale: SupportedLocale): string
     maximumFractionDigits: ODDS_FRACTION_DIGITS,
   }).format(decimalOdds);
 }
+
+/**
+ * `CountdownTimer`(013A, 31일차)가 쓰는 잔여시간 표기 — `HH:MM:SS` 0-패딩.
+ *
+ * 로케일 인자를 받지 않는다: 자릿수 구분 기호(`formatPoints`)나 소수점(`formatOdds`)과
+ * 달리 `HH:MM:SS` 콜론 구분 시각 표기는 ko/en 양쪽에서 동일한 관례이고(와이어프레임
+ * `00:12:04` 표기가 ko/en 공통), `Intl.*`에 위임할 로케일 의존 서식이 없다. 그래도
+ * 이 파일에 두는 이유는 각 소비 컴포넌트가 각자 0-패딩 로직을 중복 구현하지 않게 하기
+ * 위함이다(포인트/배당과 같은 "단일 경유지" 원칙).
+ *
+ * 음수(킥오프 시각 경과)는 0으로 clamp한다 — 카운트다운은 도달 후 "00:00:00"에서 멈추는
+ * 것이 정상 표시이며, 음수 표기는 UI 요구사항에 없다.
+ */
+export function formatCountdownClock(remainingMs: number): string {
+  const totalSeconds = Math.max(Math.floor(remainingMs / 1000), 0);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+}

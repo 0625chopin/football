@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Points, Timestamp } from "@/types";
-import { formatKickoff, formatOdds, formatPoints } from "./format";
+import { formatCountdownClock, formatKickoff, formatOdds, formatPoints } from "./format";
 
 const KICKOFF: Timestamp = "2026-08-17T10:30:00.000Z";
 
@@ -57,5 +57,27 @@ describe("formatOdds() — 소수 2자리 고정", () => {
 
   it("최대값 근방(500.00)도 그대로 표기한다", () => {
     expect(formatOdds(500, "en")).toBe("500.00");
+  });
+});
+
+describe("formatCountdownClock() — HH:MM:SS 0-패딩(CountdownTimer, 31일차)", () => {
+  it("1시간 미만도 시(H) 자리를 0-패딩해 채운다", () => {
+    expect(formatCountdownClock(724_000)).toBe("00:12:04");
+  });
+
+  it("초 단위 이하는 버림(floor)한다", () => {
+    expect(formatCountdownClock(1_999)).toBe("00:00:01");
+  });
+
+  it("음수(경과 후)는 0으로 clamp한다", () => {
+    expect(formatCountdownClock(-5_000)).toBe("00:00:00");
+  });
+
+  it("1시간 이상도 시:분:초로 정확히 환산한다", () => {
+    expect(formatCountdownClock(3 * 3_600_000 + 12_000)).toBe("03:00:12");
+  });
+
+  it("ko/en 로케일 인자가 없다 — 콜론 구분 표기는 로케일 불변(공통 관례)", () => {
+    expect(formatCountdownClock.length).toBe(1);
   });
 });

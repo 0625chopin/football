@@ -47,6 +47,23 @@ export const common = {
     close: "닫기",
     loading: "불러오는 중…",
   },
+  // Task 013A(31일차) — PhaseIndicator. `{phase}`엔 `enums.seasonPhase.*`(3팀 기여)로
+  // 이미 번역된 표시명을 주입한다(템플릿·주입값 모두 번역 — i18n/README.md §2.1 정책과
+  // `common.header.seasonPhaseLabel`이 이미 쓰는 관례를 그대로 따름). `roundProgress`는
+  // 라운드 개념이 없는 페이즈(SETTLEMENT/PRESEASON 등)에서는 소비처가 아예 렌더하지
+  // 않도록 선택적으로 쓴다 — `totalRounds` 도메인 필드가 아직 없어(라운드 총수는
+  // League.teamCount에서 소비처가 파생) 이 컴포넌트는 값을 계산하지 않고 표시만 한다.
+  phase: {
+    summary: "시즌 {season} · {phase}",
+    roundProgress: "R{current}/{total}",
+  },
+  // Task 013A(31일차) — CountdownTimer. 카운트다운 환산식은 H-24 계약 범위 밖이라
+  // (`docs/wireframe/00-공통규약.md` R-14 ②) 이 컴포넌트는 `kickoffAt`(서버가 배속 반영해
+  // 산출한 실제 타임스탬프)까지 클라 tick만 한다. `paused`는 R-14 ④ "정지 상태 표기".
+  countdown: {
+    nextKickoffLabel: "다음 킥오프",
+    paused: "일시정지 중",
+  },
 };
 
 export type CommonMessages = typeof common;

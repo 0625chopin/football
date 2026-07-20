@@ -1,11 +1,47 @@
 /**
- * 공통코드 그룹 카탈로그 — **37종 전량** (9일차 2026-07-31 착수, 14일차 2026-08-07 37번째
- * 그룹 추가, Task 003 착수분)
+ * 공통코드 그룹 카탈로그 — **38종 전량** (9일차 2026-07-31 착수, 14일차 2026-08-07 37번째
+ * 그룹 추가, 31일차 2026-09-01 38번째 그룹 추가, Task 003 착수분)
  *
  * 근거: `docs/require/05-data-requirements.md` 5.12.1절 "공통코드 그룹 카탈로그(초기 시드)"
  * 표(#1 `ROUND_INTERVAL_MIN` ~ #36 `TRANSFER_PARAM`) + **#37 `NATIONALITY_WEIGHT`**(05문서
- * 표 밖, 14일차 신규 — 아래 "37번째 그룹 추가" 절 참조), ROADMAP.md Task 003.
+ * 표 밖, 14일차 신규 — 아래 "37번째 그룹 추가" 절 참조) + **#38 `MANAGER_STYLE_XG`**(05문서
+ * 표 밖, 31일차 신규 — 아래 "38번째 그룹 추가" 절 참조), ROADMAP.md Task 003.
  * 소유: 3팀 데이터·밸런싱·배당팀(CLAUDE.md `src/lib/config/**`).
+ *
+ * ## 38번째 그룹 추가 — I-160 반영 (31일차, 2026-09-01)
+ * 30일차 2팀이 I-119(`src/lib/sim/match/xg-manager-tendency.ts`, FR-MT-009 "감독 성향 xG
+ * 배율")를 구현하며 성향별 자팀(own)/피(conceded) xG 배율 테이블이 필요해졌으나, 이 값을
+ * 담을 공통코드 그룹이 37종 카탈로그에 없었다(`MANAGER_MATCHUP`은 6×6 상성 매트릭스 전용 —
+ * 다른 계수). 그 파일 초안이 안전 기본값(중립 1.0)을 리터럴로 두었던 것은 팀장이 I-83 (b)
+ * 위반으로 반려했고, 이후 `table`은 호출자 필수 주입 + 미주입 시 fail-fast로 바뀌어
+ * **그룹 신설 전까지는 그 함수 호출 자체가 의도적으로 불가능한 상태**였다(I-160). 팀장이
+ * 이슈 원문을 확인해 3팀에 그룹 신설 + 실값 등재를 요청했다.
+ *
+ * **실값 근거 — FR-MT-009 예시값을 기준점으로 한 대칭·비대칭 설계**: FR-MT-009 원문이
+ * 명시하는 유일한 구체값은 `ATTACKING → own×1.12, conceded×1.10`이다. 나머지 5종은
+ * 05문서·FR 어디에도 수치가 없어(순수 밸런싱 미지수), 이 그룹을 만드는 3팀이 그 예시값을
+ * 기준점 삼아 아래 원칙으로 산정했다(추후 031b 밸런싱 튜닝 전까지의 잠정값이며, 실측
+ * 반영 전이라는 한계를 그대로 인정한다):
+ * - `BALANCED`(own=1.00/conceded=1.00) — 6종 중 유일하게 편차가 없는 기준점(대조군).
+ * - `DEFENSIVE`(own=0.88/conceded=0.90) — `ATTACKING` 편차(+0.12/+0.10)를 1.0 기준으로
+ *   부호만 반전한 대칭값(-0.12/-0.10). "공격적 성향의 정반대"라는 정성적 의미를 가장
+ *   단순하게 수치화한 것이다.
+ * - `COUNTER`(own=1.06/conceded=0.94) — 수비 형태를 유지하다 전환 시 효율적으로 득점하는
+ *   성향이라 own은 소폭 증가, conceded는 감소(둘 다 `ATTACKING` 편차의 절반 크기, 부호는
+ *   own만 양수 유지) — "공격 성향 없이도 득점 효율은 있다"를 반영.
+ * - `POSSESSION`(own=1.08/conceded=1.04) — 지속적 공격 전개로 own은 `ATTACKING`에 준하게
+ *   증가하지만, 볼 소유 자체가 수비 안정성도 어느 정도 제공하므로 conceded 증가폭은
+ *   `ATTACKING`보다 작다(own 편차 > conceded 편차 유지 — `ATTACKING`과 동일한 부등호 방향).
+ * - `HIGH_PRESS`(own=1.10/conceded=1.12) — 전방 압박으로 own도 오르지만, 압박이 뚫렸을 때의
+ *   피해가 더 크다는 실축구 통념에 따라 `ATTACKING`과 **반대로** conceded 편차가 own 편차보다
+ *   크다 — 6종 중 유일하게 이 부등호가 뒤집힌 성향이다(고위험 하이프레스 특성 반영).
+ *
+ * `applyPolicy`는 `MANAGER_MATCHUP`(같은 FR-MT-009 소관, 시즌 중 상성 값이 바뀌면 이미
+ * 진행 중인 시즌의 경기별 재현성이 깨질 위험)과 동일한 이유로 `NEXT_SEASON`을 그대로
+ * 채택했다 — 감독 교체 자체는 FR-MT-009 수용 기준 ③에 따라 "다음 경기부터 즉시" 반영되지만,
+ * 그건 팀에 배정된 감독 레코드가 바뀌는 것이지 성향별 배율 상수표 자체의 개정이 아니다.
+ * `valueType`은 `MANAGER_MATCHUP`과 동일하게 `JSON`(성향 코드 → `{ownXgMultiplier,
+ * concededXgMultiplier}` 객체)이다.
  *
  * ## 37번째 그룹 추가 — I-88 사용자 결정 (14일차, 2026-08-07)
  * 13일차 `namePools.ts`는 국적 이름 풀·비중을 05문서 5.12.1절 표(9일차 동결분, #1~#36)에
@@ -90,10 +126,10 @@ export type CommonCodeGroupCatalogEntry = Pick<
 >;
 
 /**
- * 공통코드 그룹 카탈로그 37종 전량(05문서 5.12.1절 표 36종 + 14일차 신규 1종).
- * 근거: `docs/require/05-data-requirements.md` 5.12.1절 표(#1~#36). `sortOrder`는 표의
- * 순번(#)이며, 37번째(`NATIONALITY_WEIGHT`)는 표에 없어 표 다음 순번을 그대로 이었다
- * (파일 상단 "37번째 그룹 추가" 절 참조).
+ * 공통코드 그룹 카탈로그 38종 전량(05문서 5.12.1절 표 36종 + 14일차 신규 1종 + 31일차 신규
+ * 1종). 근거: `docs/require/05-data-requirements.md` 5.12.1절 표(#1~#36). `sortOrder`는
+ * 표의 순번(#)이며, 37번째(`NATIONALITY_WEIGHT`)·38번째(`MANAGER_STYLE_XG`)는 표에 없어
+ * 표 다음 순번을 그대로 이었다(파일 상단 "37번째/38번째 그룹 추가" 절 참조).
  */
 export const COMMON_CODE_GROUP_CATALOG = [
   {
@@ -464,10 +500,26 @@ export const COMMON_CODE_GROUP_CATALOG = [
     relatedFr: ['FR-PL-014'],
     sortOrder: 37,
   },
+  {
+    groupCode: 'MANAGER_STYLE_XG',
+    groupName: '감독 성향 xG 배율',
+    description:
+      '감독 성향별 자팀(own)/피(conceded) xG 배율(FR-MT-009, I-119/I-160 반영 — 05문서 ' +
+      '5.12.1절 표에는 없던 그룹, 파일 상단 "38번째 그룹 추가" 절 참조) — 코드 예시(기본값): ' +
+      'ATTACKING={own:1.12,conceded:1.10}(FR-MT-009 명시값), BALANCED={own:1.00,conceded:1.00}, ' +
+      'DEFENSIVE={own:0.88,conceded:0.90}, COUNTER={own:1.06,conceded:0.94}, ' +
+      'POSSESSION={own:1.08,conceded:1.04}, HIGH_PRESS={own:1.10,conceded:1.12}. ' +
+      '값 산정 근거는 파일 상단 "38번째 그룹 추가" 절 참조 — ATTACKING만 FR 명시값이고 ' +
+      '나머지 5종은 3팀이 대칭·비대칭 설계로 산정한 잠정값(031b 밸런싱 튜닝 대상).',
+    valueType: 'JSON',
+    applyPolicy: 'NEXT_SEASON',
+    relatedFr: ['FR-MT-009'],
+    sortOrder: 38,
+  },
 ] as const satisfies readonly CommonCodeGroupCatalogEntry[];
 
-/** 카탈로그가 정확히 37개 그룹을 담고 있음을 모듈 로드 시점에 보증한다(14일차 37번째 그룹 추가 반영). */
-const _assertCatalogSize: 37 = COMMON_CODE_GROUP_CATALOG.length;
+/** 카탈로그가 정확히 38개 그룹을 담고 있음을 모듈 로드 시점에 보증한다(31일차 38번째 그룹 추가 반영). */
+const _assertCatalogSize: 38 = COMMON_CODE_GROUP_CATALOG.length;
 void _assertCatalogSize;
 
 /** 카탈로그에서 파생한 그룹 코드 유니온 — 신규 도메인 타입이 아니라 배열 리터럴의 파생값이다. */

@@ -57,6 +57,11 @@ export const enums: EnumsMessages = {
     MODERATE: "Moderate",
     SEVERE: "Severe",
   },
+  // 31일차 — H-10 §8 미착수 목록에 있던 `InjuryStatus`(2) 그룹, 5팀 제보로 오늘 채움.
+  injuryStatus: {
+    ACTIVE: "Injured",
+    RECOVERED: "Recovered",
+  },
   managerStyle: {
     ATTACKING: "Attacking",
     BALANCED: "Balanced",

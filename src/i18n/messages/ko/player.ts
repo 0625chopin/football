@@ -1,6 +1,11 @@
 // Task 011(16일차) 골격. avatar/ability/state 그룹은 Task 013A(28일차)
 // PlayerAvatar·AbilityRadar·ConditionGauge 컴포넌트에서 추가. 성장 곡선·부상
 // 타임라인·트로피 등 나머지 확장 키는 후속 013A 컴포넌트 구현 시 추가.
+//
+// 31일차(013B, 5팀): `growthChart`(`GrowthChart`)·`injuryTimeline`(`InjuryTimeline`)
+// 그룹 추가. 키 구조는 4팀 소유·콘텐츠 확장은 5팀 기여 몫 관례(`match.ts` 선례와 동일).
+// `injuryTimeline.status*`는 `InjuryStatus` enum 전용 카탈로그(`enums.ts`, 3팀 콘텐츠)가
+// 아직 없어 컴포넌트 로컬 키로 임시 처리했다 — 이슈 후보로 보고(팀 보고 참조).
 export const player = {
   list: {
     title: "선수 목록",
@@ -34,6 +39,22 @@ export const player = {
   },
   error: {
     loadFailed: "선수 정보를 불러오지 못했습니다.",
+  },
+  growthChart: {
+    empty: "표시할 성장 기록이 없습니다.",
+    error: "성장 곡선을 불러오지 못했습니다.",
+    // {min}/{max}는 시즌별 OVR 이력의 최솟값/최댓값(숫자)이 그대로 치환된다.
+    ariaLabel: "선수 OVR 성장 곡선 ({min}~{max})",
+  },
+  injuryTimeline: {
+    empty: "표시할 부상 기록이 없습니다.",
+    error: "부상 타임라인을 불러오지 못했습니다.",
+    // {round}는 라운드 번호(숫자)가 그대로 치환된다.
+    roundLabel: "R{round}",
+    // {start}/{end}는 라운드 번호(숫자)가 그대로 치환된다.
+    roundRangeFormat: "R{start}–R{end}",
+    statusActive: "부상 중",
+    statusRecovered: "복귀 완료",
   },
 };
 

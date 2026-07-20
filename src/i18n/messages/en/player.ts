@@ -32,4 +32,17 @@ export const player: PlayerMessages = {
   error: {
     loadFailed: "Failed to load player info.",
   },
+  growthChart: {
+    empty: "No growth history to display.",
+    error: "Failed to load growth curve.",
+    ariaLabel: "Player OVR growth curve ({min}–{max})",
+  },
+  injuryTimeline: {
+    empty: "No injury records to display.",
+    error: "Failed to load injury timeline.",
+    roundLabel: "R{round}",
+    roundRangeFormat: "R{start}–R{end}",
+    statusActive: "Injured",
+    statusRecovered: "Recovered",
+  },
 };

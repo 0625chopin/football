@@ -303,3 +303,125 @@ export function linkPenaltyOutcomes(events: readonly MatchEventDraft[]): MatchEv
     return event;
   });
 }
+
+/** `ensureStructuralMarkers`가 보장하는 4개 구조 마커 타입(I-65). */
+type StructuralMarkerType = 'KICKOFF' | 'HALF_TIME' | 'FULL_TIME' | 'EXTRA_TIME_START';
+
+interface StructuralMarkerRequirement {
+  readonly type: StructuralMarkerType;
+  readonly tick: MatchTick;
+}
+
+/**
+ * 마커 타입별 임시 정렬 우선순위(재정렬 후 `sequence`를 1부터 다시 부여하므로 값 자체는
+ * 의미가 없다 — 같은 minute·addedTime을 공유하는 기존 이벤트와의 **상대 순서**만 정한다).
+ * `KICKOFF`/`EXTRA_TIME_START`는 그 구간을 "여는" 마커라 같은 슬롯의 다른 이벤트보다
+ * 앞에 오고, `HALF_TIME`/`FULL_TIME`은 그 구간을 "닫는" 마커라 뒤에 온다.
+ */
+const STRUCTURAL_MARKER_TIEBREAK: Readonly<Record<StructuralMarkerType, number>> = {
+  KICKOFF: -2,
+  EXTRA_TIME_START: -1,
+  HALF_TIME: Number.MAX_SAFE_INTEGER - 1,
+  FULL_TIME: Number.MAX_SAFE_INTEGER,
+};
+
+/**
+ * `KICKOFF`/`HALF_TIME`/`FULL_TIME`/`EXTRA_TIME_START` 구조 마커 결정론적 보정 — I-65
+ * (`TIER_B_RESIM_DESIGN.md` §5, 31일차 착수 확정).
+ *
+ * ## 왜 필요한가
+ * `generateMatchEvents`는 구조 마커도 사건 이벤트(`SHOT_ON`/`GOAL` 등)와 **동일한 확률
+ * 가중치 풀**(`occursProbability` + `weights`)에서 뽑는다 — 낮은 확률로는 해당 틱에서
+ * 아무 이벤트도 발생하지 않을 수 있어(occurs 판정 실패), `FINISHED`인 경기인데도 이벤트
+ * 로그에 `KICKOFF`/`FULL_TIME`이 아예 없는 상태가 구조적으로 가능하다. 이러면 1팀
+ * `fetchListResult`가 "이벤트 0건"을 "잠재 버그 신호"로 안전하게 쓸 수 없다.
+ *
+ * ## 방식 — 추첨이 아니라 보정(AS-10과 무관)
+ * 무작위성이 전혀 없다. `ticks`에서 각 마커가 있어야 할 자리(틱)를 구조적으로 결정하고,
+ * `events`의 같은 `minute`·`addedTime`에 그 타입이 이미 있으면 그대로 두고, 없으면
+ * 결정론적으로 삽입한다 — "임의 배분"이 아니라 "있어야 할 자리에 없으면 채워 넣는" 구조
+ * 보정이라 AS-10 대상이 아니다.
+ *
+ * ## 마커 위치 결정 규칙
+ * - `KICKOFF`: `ticks[0]`(경기 최초 틱).
+ * - `HALF_TIME`: 전반(스토피지 포함)의 마지막 틱 — `FIRST_HALF`/`FIRST_HALF_STOPPAGE`
+ *   구간의 마지막 원소(스토피지가 0분이면 `FIRST_HALF`의 마지막 틱과 같아진다).
+ * - `FULL_TIME`: `ticks`의 마지막 원소(연장 포함 시 연장 후반 마지막 틱, 아니면 후반
+ *   스토피지 마지막 틱) — `MatchEventType`(23종, 폐쇄 집합)에 "정규 90분 종료" 전용
+ *   타입은 없으므로 연장 여부와 무관하게 항상 마지막 틱 하나에만 부여한다.
+ * - `EXTRA_TIME_START`: `ticks`에 `EXTRA_FIRST` 구간이 있을 때만 — 그 구간의 첫 틱.
+ *   연장이 없으면 삽입하지 않는다.
+ *
+ * ## 파이프라인 순서 — `linkPenaltyOutcomes`보다 반드시 먼저 호출
+ * 삽입 시 `sequence`를 1부터 다시 연속 부여한다("11일차 stats.ts와의 계약" — sequence
+ * 연속 규약 유지). `linkPenaltyOutcomes`는 `relatedEventSequence`에 특정 `sequence` 값을
+ * 그대로 저장하므로, 이 함수를 그 **뒤에** 돌리면 이미 만들어진 참조가 옛 sequence를 가리켜
+ * 깨진다. 호출 순서는 반드시 `generateMatchEvents` → `ensureStructuralMarkers` →
+ * `linkPenaltyOutcomes`.
+ *
+ * @param events `generateMatchEvents`가 만든(아직 `linkPenaltyOutcomes` 적용 전) 결과.
+ * @param ticks 같은 경기의 `buildTickSequence(...).ticks`(9일차 `tick.ts`).
+ * @returns 4개 마커가 전부 보장된 배열(항상 새 배열 — 이미 전부 있었어도 얕은 복사본을 반환해
+ *   호출부가 참조 동일성에 기대지 않게 한다). `ticks`가 빈 배열이면 마커 위치를 정할 수 없어
+ *   `events`의 얕은 복사만 반환한다.
+ */
+export function ensureStructuralMarkers(
+  events: readonly MatchEventDraft[],
+  ticks: readonly MatchTick[],
+): MatchEventDraft[] {
+  if (ticks.length === 0) {
+    return [...events];
+  }
+
+  const firstTick = ticks[0];
+  const lastTick = ticks[ticks.length - 1];
+
+  let halfTimeTick: MatchTick = firstTick;
+  for (const tick of ticks) {
+    if (tick.phase === 'FIRST_HALF' || tick.phase === 'FIRST_HALF_STOPPAGE') {
+      halfTimeTick = tick;
+    } else {
+      break;
+    }
+  }
+
+  const extraFirstTick = ticks.find((tick) => tick.phase === 'EXTRA_FIRST') ?? null;
+
+  const required: StructuralMarkerRequirement[] = [
+    { type: 'KICKOFF', tick: firstTick },
+    { type: 'HALF_TIME', tick: halfTimeTick },
+    { type: 'FULL_TIME', tick: lastTick },
+  ];
+  if (extraFirstTick) {
+    required.push({ type: 'EXTRA_TIME_START', tick: extraFirstTick });
+  }
+
+  const hasMarker = (requirement: StructuralMarkerRequirement): boolean =>
+    events.some(
+      (event) =>
+        event.type === requirement.type &&
+        event.minute === requirement.tick.minute &&
+        event.addedTime === requirement.tick.addedTime,
+    );
+
+  const missing = required.filter((requirement) => !hasMarker(requirement));
+  if (missing.length === 0) {
+    return [...events];
+  }
+
+  const inserted: MatchEventDraft[] = missing.map((requirement) => ({
+    sequence: STRUCTURAL_MARKER_TIEBREAK[requirement.type],
+    minute: requirement.tick.minute,
+    addedTime: requirement.tick.addedTime,
+    type: requirement.type,
+    teamId: null,
+    primaryPlayerId: null,
+    secondaryPlayerId: null,
+    xg: null,
+    relatedEventSequence: null,
+    detail: EMPTY_DETAIL,
+  }));
+
+  const merged = sortMatchEventsChronologically([...events, ...inserted]);
+  return merged.map((event, index) => ({ ...event, sequence: index + 1 }));
+}
