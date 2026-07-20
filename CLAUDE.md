@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - `SiteHeader`/`SideNav`/`SiteFooter`는 `src/components/`가 아직 없어 **루트 레이아웃의 로컬 함수**로 두었습니다(4팀 23일차 이후 분리 예정).
   - **최상단 `src/app/layout.tsx`는 없습니다.** `src/app/[lang]/layout.tsx`가 루트 레이아웃이며 `<html lang>`을 `params.lang`으로 동적 설정합니다. 레이아웃은 자기보다 상위 세그먼트의 `params`를 읽을 수 없어, 분리하면 로케일을 반영할 수 없기 때문입니다(10일차 결정). **최상단에 `layout.tsx`를 다시 만들지 마세요.**
   - 각 `page.tsx`는 `params`를 JSON으로 출력만 하는 **자리표시자**입니다. 화면 본문은 5팀이 28일차 이후 채웁니다.
-- **⚠️ WSL 마운트(`/mnt/...`)에서 `npm run dev` / `npm run build`가 실패합니다(I-62).** dev는 `npx next dev --webpack`으로 우회하세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npx tsc --noEmit` / `npm run lint` / `npm run test`로 판정하세요.
+- **⚠️ WSL 마운트(`/mnt/...`)에서 Turbopack이 실패합니다(I-62).** dev는 **`npm run dev`가 `next dev --webpack`으로 고정돼 있어 그대로 쓰면 됩니다**(13일차 조치). Turbopack으로 직접 띄우면(`npx next dev`) 청크 쓰기가 EPERM으로 죽어 모든 페이지가 500이 되니 쓰지 마세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npx tsc --noEmit` / `npm run lint` / `npm run test`로 판정하세요.
 - **이미 만들어진 코드가 있습니다. 새로 만들기 전에 반드시 확인하세요.**
   - `src/types/**` — 도메인 타입 **단일 소스**(1팀 소유). 11파일, E-01~E-08 정의 완료. **8일차(2026-07-30)에 동결**되며 이후 변경은 이슈 배치 반영만 가능합니다. **여기 있는 타입을 다른 곳에 다시 선언하지 마세요.** import는 배럴(`@/types`)로만 하고, `@/types/match` 같은 서브경로 직접 import는 쓰지 않습니다(체크리스트 C-5·C-6).
   - `src/lib/sim/rng/**` — 시드 PRNG·결정론 유틸(2팀 소유). `prng.ts`(xoshiro128\*\*) / `derive.ts`(시드 계층 파생) / `precision.ts`(확률 6자리 정수 비교). **난수와 확률 비교는 전부 이 모듈을 경유합니다.**
