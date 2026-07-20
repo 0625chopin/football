@@ -1,15 +1,16 @@
 /**
- * sponsor.ts 테스트 — Task 029 / 23일차 산출물.
+ * sponsor.ts 테스트 — Task 029 / 23~24일차 산출물.
  *
- * 수락 기준("팀당 활성 계약 ≤ 3")을 최우선으로 검증한다 — 이미 3건 활성 계약이 있는
+ * 23일차 수락 기준("팀당 활성 계약 ≤ 3")을 최우선으로 검증한다 — 이미 3건 활성 계약이 있는
  * 팀에 제안하면 반드시 던지는지 고정한다. 그 외 계약 기간 클램프(1~10시즌)·명성
- * 비례 제안 금액도 함께 검증한다.
+ * 비례 제안 금액도 함께 검증한다. 24일차분은 부도 판정("계약 전건 VOIDED")을 검증한다.
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Sponsor, SponsorContract, SponsorContractId, TeamId } from '@/types';
+import type { NewsFeedItemId, SeasonId, Sponsor, SponsorContract, SponsorContractId, TeamId, Timestamp } from '@/types';
 import {
   calculateSponsorIncome,
+  judgeSponsorBankruptcy,
   proposeSponsorContract,
   SponsorSlotLimitExceededError,
 } from './sponsor';
@@ -196,5 +197,75 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
     );
 
     expect(contract.sharePct).toBeLessThanOrEqual(30);
+  });
+});
+
+describe('judgeSponsorBankruptcy — 부도 시 계약 전건 VOIDED (24일차 수락 기준)', () => {
+  it('잔고가 음수면 부도 확정 — bankruptAtSeason이 채워지고 활성 계약이 전부 VOIDED된다', () => {
+    const contracts = [
+      activeContract({ id: 'c1' as SponsorContractId, sponsorId: 'sponsor-1' as Sponsor['id'], status: 'ACTIVE' }),
+      activeContract({ id: 'c2' as SponsorContractId, sponsorId: 'sponsor-1' as Sponsor['id'], status: 'ACTIVE' }),
+      activeContract({ id: 'c3' as SponsorContractId, sponsorId: 'sponsor-1' as Sponsor['id'], status: 'EXPIRED' }),
+    ];
+
+    const result = judgeSponsorBankruptcy({
+      sponsor: sponsor({ balance: -500 as Sponsor['balance'] }),
+      currentSeason: 6,
+      seasonId: 'season-6' as SeasonId,
+      contractsForSponsor: contracts,
+      newsFeedItemId: 'news-1' as NewsFeedItemId,
+      occurredAt: '2026-08-21T00:00:00.000Z' as Timestamp,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result?.sponsor.bankruptAtSeason).toBe(6);
+    expect(result?.voidedContracts).toHaveLength(2);
+    expect(result?.voidedContracts.every((contract) => contract.status === 'VOIDED')).toBe(true);
+    expect(result?.newsFeedItem.type).toBe('SPONSOR_BANKRUPT');
+    expect(result?.newsFeedItem.refId).toBe('sponsor-1');
+  });
+
+  it('만료(EXPIRED)·이미 해지(VOIDED)된 계약은 VOIDED 대상에서 제외한다', () => {
+    const contracts = [
+      activeContract({ id: 'c1' as SponsorContractId, status: 'EXPIRED' }),
+      activeContract({ id: 'c2' as SponsorContractId, status: 'VOIDED' }),
+    ];
+
+    const result = judgeSponsorBankruptcy({
+      sponsor: sponsor({ balance: -1 as Sponsor['balance'] }),
+      currentSeason: 6,
+      seasonId: 'season-6' as SeasonId,
+      contractsForSponsor: contracts,
+      newsFeedItemId: 'news-1' as NewsFeedItemId,
+      occurredAt: '2026-08-21T00:00:00.000Z' as Timestamp,
+    });
+
+    expect(result?.voidedContracts).toHaveLength(0);
+  });
+
+  it('잔고가 정상(≥0)이면 null을 반환하고 아무것도 바꾸지 않는다', () => {
+    const result = judgeSponsorBankruptcy({
+      sponsor: sponsor({ balance: 0 as Sponsor['balance'] }),
+      currentSeason: 6,
+      seasonId: 'season-6' as SeasonId,
+      contractsForSponsor: [],
+      newsFeedItemId: 'news-1' as NewsFeedItemId,
+      occurredAt: '2026-08-21T00:00:00.000Z' as Timestamp,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('이미 부도 처리된 스폰서(bankruptAtSeason 기록됨)는 재판정하지 않고 null을 반환한다', () => {
+    const result = judgeSponsorBankruptcy({
+      sponsor: sponsor({ balance: -9999 as Sponsor['balance'], bankruptAtSeason: 3 }),
+      currentSeason: 6,
+      seasonId: 'season-6' as SeasonId,
+      contractsForSponsor: [activeContract({ status: 'ACTIVE' })],
+      newsFeedItemId: 'news-1' as NewsFeedItemId,
+      occurredAt: '2026-08-21T00:00:00.000Z' as Timestamp,
+    });
+
+    expect(result).toBeNull();
   });
 });

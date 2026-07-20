@@ -1,4 +1,5 @@
 import type {
+  AwardScope,
   AwardType,
   BetMarketStatus,
   EnumTranslationCatalog,
@@ -22,6 +23,10 @@ import type {
 //
 // 22일차: `../index.ts`의 통합 `messages` 카탈로그에 합류했다(팀장 지시, Provider
 // 실배선과 동일 일차).
+//
+// 24일차(I-135): H-10 문서상 7그룹+AwardScope 별도 절(4종) 중 `AwardScope` 그룹
+// 골격이 누락돼 있던 것을 추가했다. 값은 19일차 골격과 동일한 관례로 **자리표시자**
+// (enum 리터럴 echo)이며, 실제 표시명은 3팀이 채운다(4팀은 값을 임의로 채우지 않는다).
 //
 // 도메인 enum 값은 `@/types` 배럴에서만 import한다(서브경로 `@/types/enums` 금지, C-5).
 
@@ -118,6 +123,13 @@ const betMarketStatus: EnumTranslationCatalog<BetMarketStatus> = {
   VOIDED: "무효",
 };
 
+const awardScope: EnumTranslationCatalog<AwardScope> = {
+  LEAGUE: "LEAGUE",
+  WORLD: "WORLD",
+  CUP: "CUP",
+  PLAYOFF: "PLAYOFF",
+};
+
 export const enums = {
   position,
   matchEvent,
@@ -126,6 +138,7 @@ export const enums = {
   seasonPhase,
   awardType,
   betMarketStatus,
+  awardScope,
 };
 
 export type EnumsMessages = typeof enums;

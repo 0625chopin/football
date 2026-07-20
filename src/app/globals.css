@@ -3,6 +3,17 @@
 @import "shadcn/tailwind.css";
 
 @theme inline {
+  /* Task 012(24일차) — NFR-RS-001 반응형 브레이크포인트 6종.
+     docs/wireframe/00-공통규약.md §5가 단일 소스(px 값 그대로 rem 환산, 16px 기준).
+     xs·sm은 Tailwind v4 기본값(40rem/48rem 시작)과 달라 전부 재정의한다.
+     2xl은 문서상 1920~2560 범위 중 하한(1920px)만 브레이크포인트로 쓰고,
+     그 이상은 최대폭 컨테이너 중앙 정렬로 처리한다(별도 브레이크포인트 아님). */
+  --breakpoint-xs: 20rem; /* 320px */
+  --breakpoint-sm: 23.4375rem; /* 375px */
+  --breakpoint-md: 48rem; /* 768px */
+  --breakpoint-lg: 64rem; /* 1024px */
+  --breakpoint-xl: 90rem; /* 1440px */
+  --breakpoint-2xl: 120rem; /* 1920px */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);

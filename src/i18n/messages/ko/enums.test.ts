@@ -26,10 +26,9 @@ describe('enums ko/en 표시명 — 키 대칭(H-10 7그룹 70리터럴)', () =>
     expect(enKeys).toEqual(koKeys);
   });
 
-  // H-10 문서는 "7그룹(+AwardScope 별도 절)=70리터럴"이지만, 4팀 Task 011 골격에
-  // `AwardScope`(4종) 그룹 자체가 없어(이슈 후보로 팀장 보고 완료) 현재 스캐폴드
-  // 카운트는 66이다. AwardScope가 추가되면 이 상수도 70으로 갱신해야 한다.
-  const EXPECTED_LITERAL_COUNT = 66;
+  // H-10 문서 "7그룹(+AwardScope 별도 절)=70리터럴". 24일차(I-135)에 `AwardScope`
+  // (4종) 그룹 골격을 추가해 66 → 70으로 갱신됐다.
+  const EXPECTED_LITERAL_COUNT = 70;
 
   it(`7그룹 ${EXPECTED_LITERAL_COUNT}개 코드 리터럴 전부가 ko/en 양쪽에서 빈 문자열 없이 채워져 있다`, () => {
     let total = 0;

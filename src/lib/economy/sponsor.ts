@@ -43,9 +43,42 @@
  * 단순 가정이며, 계수(`SPONSOR_SHARE_PCT_PER_SCALE`)는 공통코드로 올리지 않고 이 파일
  * 전용 상수로 둔다(`valuation.ts`의 `NEUTRAL_MULTIPLIER`와 동일하게 그룹 계수가 아닌
  * 로컬 상수 취급 — "명성 비례"라는 오늘의 결정 대상이 아니기 때문).
+ *
+ * ## 24일차(2026-08-21) 추가 — 스폰서 부도 판정 및 계약 일괄 VOIDED
+ * 부도 판정 자체는 새 파라미터가 필요 없다 — `Sponsor.balance`의 타입 주석("음수면
+ * 부도 상태", `economy.ts`)이 이미 임계값을 정해 뒀고 `src/lib/data/DataSource.ts`의
+ * `getSponsors` 주석도 같은 판정("`Sponsor.balance < 0` 또는 `bankruptAtSeason !==
+ * null`")을 전제한다. `judgeSponsorBankruptcy`는 그 판정을 한 곳에 모으고, 중복
+ * 판정을 막기 위해 `bankruptAtSeason`이 이미 채워진 스폰서는 다시 처리하지 않는다
+ * (`salary.ts`의 `hasWageBeenPaid`와 동일하게 "이미 반영됐는가"를 먼저 스캔하는
+ * 구조 — 다만 여기서는 던지지 않고 `null`을 반환한다. 이중 지급은 잘못된 *시도*라
+ * 에러지만, 이미 부도난 스폰서를 다시 조회하는 것은 정상 흐름이라 에러가 아니다).
+ *
+ * "관련 계약 일괄 VOIDED"(수락 기준 "계약 전건 VOIDED")는 그 스폰서의 **활성
+ * (`ACTIVE`) 계약 전부**를 예외 없이 `VOIDED`로 바꾼다는 뜻으로 해석했다 — 이미
+ * `EXPIRED`인 계약까지 상태를 덮어쓰면 "왜 만료된 계약이 부도 시점에 VOIDED로
+ * 바뀌었는가"라는 이력 왜곡이 생기므로 대상에서 제외한다(`proposeSponsorContract`가
+ * 슬롯 카운트에서 `EXPIRED`/`VOIDED`를 이미 제외하는 것과 같은 "ACTIVE만 유효한
+ * 상태"라는 전제를 여기서도 유지). 호출자는 이 스폰서의 계약 전체(팀 무관,
+ * `sponsorId`로 스캔한 결과)를 `contractsForSponsor`로 넘긴다 — `MAX_PER_TEAM`
+ * 슬롯 판정이 팀 축으로 스캔하는 것과 달리 부도는 스폰서 축 전역이므로 여러 팀에
+ * 걸친 계약이 한 번에 대상이 될 수 있다.
+ *
+ * 뉴스 피드 노출은 `NewsFeedItemType`에 이미 있는 `'SPONSOR_BANKRUPT'`(E-26,
+ * `enums.ts`)를 쓴다 — 오늘 새로 정의하지 않는다.
  */
 
-import type { Points, Sponsor, SponsorContract, SponsorContractId, TeamId } from '@/types';
+import type {
+  NewsFeedItem,
+  NewsFeedItemId,
+  Points,
+  SeasonId,
+  Sponsor,
+  SponsorContract,
+  SponsorContractId,
+  Timestamp,
+  TeamId,
+} from '@/types';
 import type { ConstantGroupValues } from '@/lib/config/loader';
 import { loadConstants } from '@/lib/config/loader';
 
@@ -173,4 +206,62 @@ export function proposeSponsorContract(
     sharePct,
     status: 'ACTIVE',
   };
+}
+
+export interface JudgeSponsorBankruptcyInput {
+  readonly sponsor: Sponsor;
+  /** 부도 판정 시점 시즌(정상이면 결과 없음, `bankruptAtSeason`에 기록될 값). */
+  readonly currentSeason: number;
+  readonly seasonId: SeasonId;
+  /** 이 스폰서의 계약 전체(팀 무관, `sponsorId`로 스캔한 결과) — VOIDED 대상 판정용. */
+  readonly contractsForSponsor: readonly SponsorContract[];
+  readonly newsFeedItemId: NewsFeedItemId;
+  readonly occurredAt: Timestamp;
+}
+
+export interface SponsorBankruptcyResult {
+  /** `bankruptAtSeason`이 `currentSeason`으로 채워진 스폰서. */
+  readonly sponsor: Sponsor;
+  /** `status: 'VOIDED'`로 바뀐 계약만(원래 `ACTIVE`였던 것) — 그 외는 결과에 담지 않는다. */
+  readonly voidedContracts: readonly SponsorContract[];
+  readonly newsFeedItem: NewsFeedItem;
+}
+
+/**
+ * 스폰서 부도를 판정한다(`Sponsor.balance < 0`). 이미 부도 처리된 스폰서
+ * (`bankruptAtSeason !== null`)나 정상 잔고(`balance >= 0`)면 아무것도 하지 않고
+ * `null`을 반환한다. 부도가 확정되면 `contractsForSponsor` 중 `ACTIVE`였던 계약
+ * 전부를 `VOIDED`로 바꾸고(파일 상단 "24일차 추가" 참조) `SPONSOR_BANKRUPT`
+ * 뉴스 피드 아이템 1건을 만든다. 원장은 건드리지 않는다 — 잔고를 바꾸는 유일한
+ * 경로는 `ledger.ts`(파일 상단 "20~21일차 관례 승계"와 동일 원칙).
+ */
+export function judgeSponsorBankruptcy(input: JudgeSponsorBankruptcyInput): SponsorBankruptcyResult | null {
+  if (input.sponsor.balance >= 0 || input.sponsor.bankruptAtSeason !== null) {
+    return null;
+  }
+
+  const bankruptSponsor: Sponsor = {
+    ...input.sponsor,
+    bankruptAtSeason: input.currentSeason,
+  };
+
+  const voidedContracts = input.contractsForSponsor
+    .filter((contract) => contract.status === 'ACTIVE')
+    .map((contract): SponsorContract => ({ ...contract, status: 'VOIDED' }));
+
+  const newsFeedItem: NewsFeedItem = {
+    id: input.newsFeedItemId,
+    seasonId: input.seasonId,
+    type: 'SPONSOR_BANKRUPT',
+    headline: `${input.sponsor.name}, 파산 선언`,
+    body:
+      voidedContracts.length > 0
+        ? `${input.sponsor.name}이(가) 재정 악화로 파산하며 진행 중이던 스폰서십 계약 ${voidedContracts.length}건이 전부 해지됩니다.`
+        : `${input.sponsor.name}이(가) 재정 악화로 파산을 선언했습니다.`,
+    refType: 'Sponsor',
+    refId: input.sponsor.id,
+    occurredAt: input.occurredAt,
+  };
+
+  return { sponsor: bankruptSponsor, voidedContracts, newsFeedItem };
 }

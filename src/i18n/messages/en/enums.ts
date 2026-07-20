@@ -5,6 +5,9 @@ import type { EnumsMessages } from "../ko/enums";
 //
 // 23일차: 3팀이 `docs/handoff/H-10-enum-display-names.md`의 잠정 영문 표시명으로 값을
 // 채웠다. ko와 동일하게 표시명 열에는 괄호·부연설명을 넣지 않았다.
+//
+// 24일차(I-135): `awardScope` 그룹 골격 추가. ko와 동일하게 값은 자리표시자(enum
+// 리터럴 echo)이며, 3팀이 실제 영문 표시명을 채운다.
 
 export const enums: EnumsMessages = {
   position: {
@@ -92,5 +95,11 @@ export const enums: EnumsMessages = {
     CLOSED: "Closed",
     SETTLED: "Settled",
     VOIDED: "Voided",
+  },
+  awardScope: {
+    LEAGUE: "LEAGUE",
+    WORLD: "WORLD",
+    CUP: "CUP",
+    PLAYOFF: "PLAYOFF",
   },
 };
