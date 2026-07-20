@@ -22,7 +22,26 @@ jobs:
 
       # scripts/gate.sh(I-117)의 3단 게이트를 그대로 실행한다 — CI와 로컬 게이트가
       # 갈라지지 않도록 npm run gate 하나만 호출한다(WSL EPERM 때문에 여기 next build는 넣지 않는다).
+      #
+      # 21일차(Task 044) 편입 판단:
+      # ① 시드 스냅샷 무단 갱신 방지 — vitest(4.1.10)는 std-env의 isCI 감지로 CI 환경에서
+      #    `--update` 미지정 시 자동으로 updateSnapshot="none"이 된다(node_modules/vitest/
+      #    dist/chunks/coverage.DM_a_rWm.js:369). 즉 GitHub Actions는 원래도 무단 -u가 안 먹는다
+      #    (로컬에서 스냅샷을 고의로 변조 후 `CI=true npx vitest run`으로 실측: 실패하고 파일도
+      #    안 바뀜). 아래 `UPDATE_SNAPSHOT: none`은 이 std-env 자동판별에 암묵적으로 기대지 않고
+      #    러너 종류가 바뀌어도 깨지지 않도록 명시적으로 고정한 것 — 동작 자체를 새로 넣은 게
+      #    아니라 기존 기본값을 하드코딩해 diff로 드러나게 한 것이다.
+      # ② 번역 키 누락 검사 — 별도 스크립트를 추가하지 않았다. `src/i18n/keys.ts`(4팀,
+      #    17일차)가 `messages.ko` 카탈로그로부터 재귀 조건부 타입(DotPath)으로 TranslationKey를
+      #    파생하고, `en/*.ts` 8파일 전부가 `: XMessages`(ko 파생 타입) 주석으로 선언돼 있어
+      #    tsc의 구조적 타입 검사(missing/excess property)가 이미 키 누락·오탈자를 잡는다 —
+      #    실측: en 쪽에서 키 1개를 지우면 TS2741, 남의 키를 끼워 넣으면 TS2353으로 즉시 실패
+      #    (아래 gate 1단계 `tsc --noEmit`이 그대로 검출). 이 검사는 en 파일이 `: XMessages`
+      #    주석을 유지한다는 관례에 의존하며, 그 관례 자체를 강제하는 중앙 장치는 없다 —
+      #    `src/i18n/**`는 4팀 소유 경로라 이 팀에서 직접 보강하지 않고 이슈로만 남긴다(I-120).
       - run: npm run gate
+        env:
+          UPDATE_SNAPSHOT: none
 
       # Task 024 수락 기준("숫자 리터럴 0건, CI 검증") 충족용 advisory 스텝.
       # 현재 55건은 전부 기존 파일(오늘 산출물 아님)이고 스크립트 자체가 휴리스틱 후보라고

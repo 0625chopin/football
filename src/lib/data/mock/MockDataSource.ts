@@ -70,7 +70,7 @@ import { COMMON_CODE_GROUP_CATALOG, type CommonCodeGroupCode } from '@/lib/confi
 import { loadConstants } from '@/lib/config/loader';
 import type { PublicPlayerProfile, FixtureRoundBounds, MatchTeamStatComparison, CronRunMetrics, PlayerStatRankingMetric, MultiAwardRankingEntry } from '@/lib/data/DataSource';
 import type { DataSource } from '@/lib/data/DataSource';
-import { toPublicProfile } from '@/lib/mock/fixtures/screens';
+import { toPublicProfile } from '@/lib/data/player-profile';
 import { CURRENT_ROUND, deriveStandingsFromFixtures, generateSeasonSchedule } from '@/lib/mock/fixtures/schedule';
 import type { MockSeasonSchedule } from '@/lib/mock/fixtures/schedule';
 import { generateMockProgress, MOCK_NOW } from '@/lib/mock/progress';

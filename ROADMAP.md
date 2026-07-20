@@ -323,7 +323,10 @@
     - [x] **골격 — 19일차 완료(4팀)**: `src/i18n/messages/{ko,en}/enums.ts` 신규. 3팀 H-10 목록 전량(포지션 11·이벤트 23·부상 4·전술 6·페이즈 6·수상 12·마켓 상태 4)을 `EnumTranslationCatalog<T>`(T12, `@/types`)로 감싸 **도메인 enum의 전 멤버가 매핑됐는지 tsc가 강제**한다 — 유니온 멤버가 늘거나 줄면 즉시 컴파일 오류로 드러난다. `enums.position.GK` 형태의 3단 구조(`keys.ts` 규약) 준수, `@/types` 배럴로만 import(C-5·C-6 위반 0건, 팀장 grep 실증). ko/en 키 수 동일(각 74), D-18 lint 경고 0. `../index.ts` 통합 `messages`에는 **미합류**(Provider 실배선 22일차 이후, 09문서 §4 방침 유지)
     - [ ] **실값 기입 — 3팀이 23일차 이후**: 현재 값은 전부 enum 리터럴을 echo하는 자리표시자다. 4팀은 값을 임의로 채우지 않는다
   - [x] **날짜·시각·숫자 서식** — 킥오프 시각(UTC 저장 → 로케일 로컬 변환, DC-07), 포인트 천단위 구분, 배당 소수 2자리 표기를 로케일별 포맷터로 단일화 — **20일차 완료**(`src/i18n/format.ts`, `format.test.ts` 신규). `formatKickoff`(style: `time`/`dateTime`/`date`) · `formatPoints` · `formatOdds` 3함수를 `Intl.*` 기반으로 구현. **포맷터 단일 소스 성립을 팀장이 실증** — `src/**`에서 `toLocaleString`/`Intl.*` 직접 호출이 `src/i18n/format.ts` 외 **0건**(각 화면이 직접 포맷하지 않음). 테스트 10케이스 통과, 전체 641 통과(회귀 0), **D-18 경고 신규 추가 0건**(기존 111건 불변). 소비는 5팀 28일차 이후
-  - [ ] **번역 대상 경계 명문화** — 번역함: UI 레이블, 열거형 표시명, 안내·에러 문구 / **번역하지 않음: 선수·클럽·감독·스폰서 이름(D-17에 따른 국적 기반 생성 고유명사), 구장명, 시드 값**
+  - [x] **번역 대상 경계 명문화** — 번역함: UI 레이블, 열거형 표시명, 안내·에러 문구 / **번역하지 않음: 선수·클럽·감독·스폰서 이름(D-17에 따른 국적 기반 생성 고유명사), 구장명, 시드 값** — **21일차 완료**(`src/i18n/README.md` 신규). 산문 나열에 그치지 않고 **판단이 갈리는 경계 사례 3종을 명문화**했다: ⓐ enum 표시명(유한 집합 → 번역함) vs 시드 고유명사(개방형 → 번역 안 함)를 국적코드 vs 구장명 대비로 구분 ⓑ 파라미터 치환 방향 — 템플릿만 번역하고 원문을 주입할지, 주입값도 번역할지(`seasonPhaseLabel {phase}` 사례) ⓒ 고유명사+수치가 섞인 완성 문장(headline)은 **카탈로그에 아예 넣지 않는다**
+    - **자동/사람 검출 구분표**를 함께 실었다 — `tsc`(키 구조·3단 경로·enum 멤버 커버)와 ESLint D-18(JSX 하드코딩 텍스트)이 각각 무엇을 잡고 **무엇을 못 잡는지**(고유명사 오탐, 속성값 사각지대, 콘텐츠 경계 미판별)를 구분해, 같은 날 1팀의 CI 번역 키 검사 편입 작업과 맞물린다
+    - `docs/devStep/09` §2가 계획한 "객체 프로퍼티 체인"과 실제 `keys.ts`(점 문자열 + `DotPath` 재귀 타입)가 어긋나 있어 README에 **코드가 옳다**고 명시 → I-125(09문서 최소 정정)
+    - `tsc` 0 error, lint **신규 경고 0건**(기존 111 불변)
   - [ ] 로케일 스위처 컴포넌트 + 선택 로케일 영속화(쿠키), 신규 로케일이 카탈로그 추가만으로 확장 가능함을 확인
 - **수락 기준**
   - ko/en 두 로케일로 전 라우트가 렌더되고 로케일 전환 시 새로고침 없이 문구가 바뀐다.
@@ -539,7 +542,10 @@
     - **파일 분리 판단(19일차 인계 사항 해소)** — **분리 확정**. 19일차 포지션 판단(그래프 BFS 복잡도)을 승계하지 않고 **"공통코드 로더 의존"이라는 별도 축**으로 재판단했다: `WEATHER_EFFECT`/`MANAGER_MATCHUP`은 `fallback.ts`의 `SAFE_DEFAULT_VALUES`에 구체 숫자·JSON 구조 자체가 아직 없어(36일차 031a 소관) **포지션처럼 안전 기본값을 선언할 수 없고**, 억측 금지 원칙상 로더를 반드시 거쳐야 한다. `options?.table ?? loadConstants(group)` 패턴으로 override 시 순수함수를 유지하고, 미지정 시에는 로더를 직접 호출한다(다른 레이어의 기존 방식과 동일). 미등록 시 `ConstantSourceUnavailableError`를 **삼키지 않고 전파** — 부트스트랩 누락을 조용한 폴백으로 숨기지 않기 위함
     - **⚠️ 실제 계수 값은 36일차(031a) 시드 이후 자동 반영**된다. 그전까지 이 경로는 로더 미등록 시 예외로 죽는 것이 정상 동작이다. `WEATHER_EFFECT[weather]` 안에서 이 체인이 읽는 키 `ABILITY_MULT`는 05문서에도 `fallback.ts`에도 없어 20일차 2팀이 처음 정한 것이므로 **시드 작성자와 키 이름 정렬 필요 → I-118**
     - **FR-MT-009의 "성향 자체 xG 배율"·"숙련도 실현율"은 이 Task 범위 밖**으로 판단해 남겼다 — 선수 능력치가 아니라 팀 단위 xG 조정이라 매치 엔진 소관이나, **`ROADMAP.md`에 "xG" 문자열이 0건이라 대응 Task 행 자체가 없다(스코프 누락 확정) → I-119, 팀장 배정 대기**
-  - [ ] 라인업 선정 — 가용성 × 컨디션 × 피로 × 포지션으로 선발 11 + 벤치 7(GK≥1), 로테이션 정책
+  - [x] 라인업 선정 — 가용성 × 컨디션 × 피로 × 포지션으로 선발 11 + 벤치 7(GK≥1), 로테이션 정책 — **21일차 완료(로테이션은 부분 충족)**(`src/lib/sim/lineup/select.ts`, `select.test.ts` 신규). `selectLineup()`이 가용성(부상·정지) 배제 후 컨디션×피로×포지션 합성 점수로 선발 11(그리디 슬롯 배정) + 벤치 7(GK 1명 우선 확정 후 점수순)을 **결정론적으로** 선정한다 — `modifiers.ts`·`position.ts`의 계수는 **재구현 없이 호출만** 한다. `npx vitest run src/lib/sim/` 316케이스 통과, `tsc --noEmit` 0 error. **수락 기준 "부상·정지 선수 선발 0건"은 테스트로 직접 고정**했다
+    - **정지 상태 처리**: 새 필드를 만들지 않고 기존 `PlayerState.suspensionRemainingLeague`/`Cup`을 사용하되, `CompetitionType` 4종 → 리그/컵 2분류 매핑은 **025·026 소관이라 추측하지 않고** 입력(`suspensionCompetition: 'LEAGUE' | 'CUP'`)으로 위임했다
+    - **⚠️ 로테이션 정책은 부분 충족 — 이력 기반 로테이션 미구현.** `PlayerState`(`src/types/person.ts:211`)에 최근 출전 이력 필드가 없고(8일차 동결 H-01), `PlayerSeasonStat.appearances`(`src/types/stat.ts:54`)는 시즌 누적이라 "최근 N경기" 판정에 쓸 수 없다 — **팀장이 타입 원본을 직접 확인**했다. 2팀은 억측으로 필드를 만들지 않고 `fitnessModifier` 페널티에 의한 **자연 유도** + 동점 시 `playerId` 오름차순 결정론까지만 적용했다(**판정: 멈춘 것이 옳다**). 이력 기반 로테이션이 실제로 필요한지는 **025·026 착수 시점에 판단** → **I-123**(필요 시 타입 필드 추가는 C-7 배치 선행)
+    - 슬롯 배정이 그리디라 전역 최적해와 다를 수 있으나 **결정론은 확보돼 재현성 문제는 없다** → I-124(밸런싱 검증 단계에서만 재검토). `LINEUP_STARTER_COUNT = 11`이 `check:literals`에 걸리나 `substitution.ts`의 5/3과 같은 **구조 상수**(축구 규칙)로 밸런싱 파라미터가 아니다(팀장 확인)
   - [ ] 카드 누적 5장 정지 / 퇴장 1~3경기 정지, 리그·컵 누적 분리
   - [ ] 감독 공석 시 BALANCED 폴백 지속 규칙 확정 후 I-03 해소
 - **수락 기준**: 전 계수를 1.0으로 강제 시 base와 일치. 핵심 9개 함수 커버리지 100% (NFR-QA-002).
@@ -613,7 +619,10 @@
 - **근거**: FR-EC-001·005~012, FR-TM-002·008, NFR-QA-005, KPI-9, DC-08
 - **구현 사항**
   - [x] 포인트 원장(`point_transaction`) — 모든 잔고 변동은 원장 레코드 필수, 잔고는 원장의 파생값 — **20일차 완료**(`src/lib/economy/ledger.ts`, `ledger.test.ts` 신규). **`postPointTransaction(currentBalance, input)` 단일 진입점만 잔고 변동을 만들고 항상 `PointTransaction` 레코드 + `balanceAfter`를 함께 반환한다 — 잔고를 직접 바꾸는 함수를 아예 만들지 않아 "원장 없는 잔고 변동 0건"을 구조적으로 강제**했다(런타임 검사가 아니라 API 표면으로 차단). `deriveBalance(transactions)`로 원장 합 = 잔고 항등식(NFR-QA-005)을 검증하고, DC-08(정수 고정) 위반 시 `NonIntegerPointsError`를 던진다. `PointTransaction`/`PointTransactionId`/`PointTransactionOwnerType`/`PointTransactionReasonCode`는 1팀 동결 타입을 `@/types` 배럴로 재사용(재선언 0건, C-5·C-6 준수). ID·Timestamp는 내부 생성이 아니라 **호출자 주입**(`crypto.randomUUID`/`Date.now` 미사용, NFR-DT-001 관례). 테스트 7케이스 통과, `tsc --noEmit`·`eslint` 0 error. **영속화(DB 반영)는 6팀 DataSource 경계 너머이며 아직 배선 없음**
-  - [ ] 몸값 공식(OVR·나이·잠재·명성·계약·티어), 하한 100pt 보장
+  - [x] 몸값 공식(OVR·나이·잠재·명성·계약·티어), 하한 100pt 보장 — **21일차 완료**(`src/lib/economy/valuation.ts`, `valuation.test.ts` 신규). `calculateMarketValue()`가 20일차 `ledger.ts` 관례(DC-08 정수 고정, `@/types` 배럴)와 2팀 `tactics.ts`의 `options?.table ?? loadConstants(group)` 패턴을 승계한다. 테스트 13케이스, 전체 689 통과(회귀 0), `tsc`·`eslint` 0 error
+    - **공통코드 처리**: `MARKET_VALUE_PARAM` 중 `OVR_DIVISOR`/`OVR_EXP`/`POT_STEP`/`REP_BASE`/`REP_STEP`/`FLOOR` 6개는 `fallback.ts`에 안전 기본값이 있어 그대로 쓰고, `AGE_*`/`CONTRACT_*`/`TIER_*`는 **05문서 원본부터 구체 숫자가 없어 폴백도 비어 있으므로**(억측 금지) 키 부재 시 중립값(배율 1)으로 처리한다. 새 키 이름은 이 파일이 처음 정한 것이라 36일차 시드와 정렬 필요 → **I-121**(20일차 I-118과 같은 패턴의 2회차라 구조적 문제로 승격)
+    - **수락 기준 "최저 몸값 ≥ 100pt"는 구조적으로 보장**한다 — 하한을 `Math.max(rounded, floor)`로 **배율 로직과 완전히 분리된 마지막 줄**에 두어 어떤 배율 조합으로도 뚫리지 않고, `ovr` 음수 입력 시 `NaN` 전파로 하한이 무력화되는 것을 `Math.max(0, ovr)`로 막았다. 최악 입력 조합(음수 OVR·명성·계약, OVR 0, 미정의 티어) 전수를 테스트로 고정
+    - 반올림은 `Math.round` — floor/ceil은 계통적 편향이 생기고 DC-08은 방향을 지정하지 않는다. `OVR_DIVISOR`가 이름과 달리 곱셈 스케일로 쓰이는 이름-용법 불일치 → I-122
   - [ ] 급여(몸값 × 비율 0.18) 차감, 성과 분배, 스폰서 수입
   - [ ] 스폰서 엔티티·계약(팀당 최대 3슬롯, 1~10시즌), 명성 비례 제안 금액
   - [ ] 스폰서 부도 판정 및 관련 계약 일괄 `VOIDED` + 뉴스 피드 노출
@@ -701,7 +710,10 @@
 - **구현 사항**
   - [ ] Task 004의 `DataSource` 인터페이스를 Supabase 구현체로 작성 (`src/lib/data/supabase/`)
     - [x] **034a 1/3 — 20일차 완료(6팀)**: `getStandings` / `getFixturesByRound` 2개 메서드(`SupabaseDataSource.ts`, `client.ts`, `SupabaseDataSource.test.ts` 신규). **`@supabase/*` 패키지가 미설치인 제약을 클라이언트 주입 인터페이스(`client.ts`)로 해소** — 기존 `supabase/**`에 선례가 없음을 확인하고 최초 설계했으며, `from`/`select`/`eq`/`order`/`limit`/`maybeSingle` + thenable을 duck-typing으로 최소 정의해 **실제 패키지 설치 후에도 구조적으로 호환**된다. `DataSource` 시그니처 불변, 2/3 잔여로 전체 implements가 불가해 `implements Pick<DataSource, 'getStandings'|'getFixturesByRound'>`이며 **`factory.ts` 미등록**(전체 구현 완료 후). Result 래핑 없음(Mock과 동일 패턴). `seasonId` 생략 시 `world.current_season_number`→season 해석, `round` 생략 시 standing `MAX(round)` 조회. **`mapper.ts` 재사용**(`mapStandingRow`/`mapFixtureRow`/`mapSeasonRow`), 새 매퍼 0개이며 브랜드 캐스트는 `mapper.ts`에만 국한. `npx vitest run src/lib/data/supabase/` 49 통과, `tsc --noEmit`·`eslint` 클린. **`client.ts`의 `select()` 컬럼 프로젝션 미지원은 범위 밖으로 헤더에 명시** — 2/3 착수 시 참고
-    - [ ] 034a 2/3 · 3/3 — 21일차 이후
+    - [x] **034a 2/3 — 21일차 완료(6팀)**: `getFixture` / `getPlayerProfile` / `getTeam` / `getPlayerStatRanking` 4개 구현(테스트 10케이스 추가, `src/lib/data/supabase/` 59 통과). **`client.ts` 미확장** — 4개 모두 `select('*')` 단건/전량 조회로 충분해 20일차에 "범위 밖"으로 남긴 컬럼 프로젝션이 필요 없었다. `getPlayerStatRanking`의 출전율 분모(시즌+대회 구분 범위 `MAX(appearances)`)·정렬을 Mock(H-07)과 동일하게 맞추고 `minAppearancePct` 기본값은 `loadConstants('UI_PARAM')` 경유. `Pick<DataSource, ...>` 목록 확장, `factory.ts` 미등록 유지
+      - **메서드 선정 기준** — 팀 일정표가 "4개 메서드"처럼 개수만 명시하고 메서드명을 지정하지 않아 6팀이 임의 판단해야 했다. **팀장이 "화면 구역별 진입점(루트 조회) 1개씩" 기준을 승인**(20일차 순위·일정 / 21일차 경기상세·선수·클럽·통계) → I-126
+      - **팀장 검증 결함 A — 프로덕션 어댑터가 Mock 스택에 의존(해소)**: `getPlayerProfile`이 `pa`→`scoutRating` 변환을 재구현하지 않으려 `@/lib/mock/fixtures/screens`의 `toPublicProfile`을 import했는데, `screens.ts`가 `generateMockWorld`·`generateMockProgress`·`generateSeasonSchedule`을 정적 import해 **프로덕션 어댑터 모듈 그래프에 Mock 월드 생성기 전체가 들어왔다** — 이 Task의 존재 이유(플래그로 Mock↔실데이터 교체, 최종적으로 Mock 분리)와 정면 충돌. 6팀이 인용한 `screens.ts` 주석("18일차 `MockDataSource`가 그대로 재사용한다")은 **Mock 어댑터**를 가리키지 프로덕션을 덮지 않으며, 6팀이 그 차이를 감지해 **스스로 판단을 물어온 것이라 절차는 정확했다**(재구현 대신 재사용한 판단도 옳았고, 문제는 함수의 **위치**였다). **조치**: 팀장이 교차 경로 편집을 승인해 1팀이 `toScoutRating`+`toPublicProfile`을 Mock 비의존 신규 모듈 **`src/lib/data/player-profile.ts`로 추출**하고 `screens.ts`에서 제거(**재export를 남기지 않음** — 남기면 결합이 그대로다). **재검증**: `grep -rn "lib/mock" src/lib/data/supabase/` **0건**, `player-profile.ts`의 import는 `@/types`·`./DataSource` 2개뿐, `screens.ts`가 반대로 `@/lib/data/player-profile`을 import해 **의존 방향이 `data → mock`에서 `mock → data`로 뒤집혔다**
+    - [ ] 034a 3/3 — 22일차. 잔여 구역을 같은 기준으로 채우고 **`factory.ts` 등록 + `implements Pick<...>` → `implements DataSource` 전체 전환을 함께** 한다
   - [ ] `match_event` 경과 시간 필터를 뷰 또는 보안 함수로 강제 (DC-05, NFR-SEC-004)
   - [ ] 플래그 전환(`NEXT_PUBLIC_DATA_SOURCE`)으로 Mock↔실데이터 즉시 교체
   - [ ] 폴링 훅을 실데이터에 연결, 이후 Realtime 교체 가능하도록 훅 레이어 유지
@@ -856,7 +868,11 @@
   - [ ] CI 파이프라인 — `tsc --noEmit` + `lint` + `test` + coverage 임계 + 시드 스냅샷 검증 + **번역 키 누락 검사**
     - [x] **3단 게이트 CI 실행 — 20일차 완료(1팀)**: `.github/workflows/ci.yml` 신규. push·PR(master) → ubuntu-latest → `checkout@v4` → `setup-node@v4`(node 20, npm 캐시) → `npm ci` → **`npm run gate` 단일 호출**. 로컬 게이트와 CI가 갈라지지 않도록 스텝을 개별 나열하지 않고 `scripts/gate.sh`(I-117)를 그대로 재사용한다. WSL EPERM(I-62) 때문에 `next build`는 미포함. 로컬 `npm run gate` 통과 확인 — tsc 0 error / lint 0 error(경고 111건은 D-18 기지 상태, I-116) / coverage **lines 98.05%·branches 92.14%**(임계 80/70 상회)
       - **팀장 검증 결함 A — `check:literals` 게이트 미연결(해소)**: Task 024 수락 기준이 "숫자 리터럴 0건 **(CI 검증)**"인데 `gate.sh`·`ci.yml` 어디에도 `npm run check:literals`가 없어, **19일차에 막 해소한 I-117과 같은 결함 계열**(스크립트는 있는데 게이트가 안 부름)이었다. 다만 현재 exit 1·후보 55건이 **전부 기존 파일**이고 스크립트 자신이 휴리스틱 후보라고 명시하므로 blocking은 오답 — `ci.yml`에 **비차단 advisory 스텝**(`check literals (advisory)`, `continue-on-error: true`)으로 추가하고 **`gate.sh`는 미변경**(로컬 머지 게이트는 fail-fast 3단이 정본). I-115 allowlist 정리 후 blocking 승격이 최종 목표임을 주석에 명시. **⚠️ CI는 아직 GitHub Actions 러너에서 실행된 적이 없다** — 로컬 검증은 YAML 파싱 + `npm run gate`까지이며 첫 실행 결과 확인은 21일차 몫
-    - [ ] 시드 스냅샷 검증 · 번역 키 누락 검사 · 시크릿 스캔은 21~23일차
+    - [x] **시드 스냅샷 갱신 차단 + 번역 키 누락 검사 — 21일차 완료(1팀). 스크립트 신설 없이 기존 게이트 강화로 충족**
+      - **번역 키 누락 검사: 별도 스크립트를 만들지 않았다.** 4팀 `keys.ts`의 재귀 조건부 타입 + en 8파일의 `: XMessages` 타입 주석 덕분에 **`tsc`가 이미 missing/excess 키를 잡는다**는 것을 실측으로 확인했다(en에서 키 삭제 → **TS2741**, 없는 키 추가 → **TS2353**). gate 1단계(`tsc --noEmit`)가 이미 커버하므로 중복 구현을 회피한 판단이다. 다만 이 검사가 "en 파일이 `: XMessages` 주석을 유지한다"는 **관례에만 의존하고 중앙 강제 장치가 없다**는 구멍이 남아 있고, `src/i18n/**`가 4팀 소유라 직접 반영하지 않고 제보만 했다 → **I-120**
+      - **시드 스냅샷**: vitest 4.1.10이 std-env `isCI` 감지로 CI에서 이미 `updateSnapshot="none"`이 기본값임을 `node_modules` 소스로 확인하고, 스냅샷을 고의 변조한 뒤 `CI=true npx vitest run`으로 **실패 + 파일 미변경을 재현**했다. 이 **암묵적 기본값에 의존하지 않도록** `ci.yml`의 gate 스텝에 `env: UPDATE_SNAPSHOT: none`을 명시 고정했다(신규 로직이 아니라 기존 동작을 diff로 드러낸 것)
+    - [ ] 시크릿 스캔 · Edge Function 배포·롤백 문서화 · 환경 분리는 22~23일차
+    - **⚠️ CI 첫 실행 결과가 2일째 미확인** — 이 환경에 `gh` CLI가 없어 GitHub Actions 러너 결과를 조회할 수단이 없다. 확인 수단 결정이 선행돼야 한다
   - [ ] 위반 시 머지 차단, 스냅샷 무단 갱신이 diff로 드러나도록 구성
   - [ ] 시크릿 스캔(커밋 히스토리 포함) 및 클라이언트 번들 서비스롤 키 grep 검사
   - [ ] Edge Function 배포·롤백 절차 문서화, Supabase 요금제·크론 주기 비용 산정(팀원 3 예산안 입력)

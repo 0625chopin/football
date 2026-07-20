@@ -1,12 +1,18 @@
 /**
- * `SupabaseDataSource`(20일차, Task 034a 1/3) 자기검증 — 실제 Supabase 접속 없이
- * `SupabaseQueryClient`를 인메모리 페이크로 구현해 `getStandings`/`getFixturesByRound`의
- * 시즌·라운드 기본값 해석과 필터링을 오프라인으로 검증한다.
+ * `SupabaseDataSource`(20~21일차, Task 034a 1~2/3) 자기검증 — 실제 Supabase 접속 없이
+ * `SupabaseQueryClient`를 인메모리 페이크로 구현해 `getStandings`/`getFixturesByRound`
+ * (20일차)와 `getFixture`/`getPlayerProfile`/`getTeam`/`getPlayerStatRanking`(21일차)의
+ * 시즌 기본값 해석·필터링·정렬을 오프라인으로 검증한다.
+ *
+ * `getPlayerStatRanking`은 `loadConstants('UI_PARAM')`을 거치므로 테스트 스위트 실행 전
+ * `setGlobalDefaultSource`로 `LEADERBOARD_MIN_APPEARANCE_PCT` 값을 주입해야 로더가
+ * `ConstantSourceUnavailableError`를 던지지 않는다(2팀 `tactics.test.ts`와 동일 패턴).
  */
 
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import type { LeagueId, SeasonId } from '@/types';
+import { setGlobalDefaultSource } from '@/lib/config/loader';
+import type { LeagueId, PlayerId, SeasonId, TeamId } from '@/types';
 
 import type { Database } from '../database.types';
 import type { SupabaseFilterBuilder, SupabaseQueryClient, SupabaseQueryResult } from './client';
@@ -59,8 +65,16 @@ function createFakeClient(tables: {
   readonly season: readonly Tables['season']['Row'][];
   readonly standing: readonly Tables['standing']['Row'][];
   readonly fixture: readonly Tables['fixture']['Row'][];
+  readonly player?: readonly Tables['player']['Row'][];
+  readonly team?: readonly Tables['team']['Row'][];
+  readonly player_season_stat?: readonly Tables['player_season_stat']['Row'][];
 }): SupabaseQueryClient {
-  const byTable: Record<string, readonly Record<string, unknown>[]> = tables;
+  const byTable: Record<string, readonly Record<string, unknown>[]> = {
+    player: [],
+    team: [],
+    player_season_stat: [],
+    ...tables,
+  };
   return {
     from: (table: string) => ({
       select: (_columns: string) => new FakeFilterBuilder(byTable[table] ?? []),
@@ -143,6 +157,122 @@ function fixtureRow(overrides: Partial<Tables['fixture']['Row']>): Tables['fixtu
     simulated_at: null,
     snapshot_id: 'snapshot-1',
     status: 'SCHEDULED',
+    ...overrides,
+  };
+}
+
+function playerRow(overrides: Partial<Tables['player']['Row']>): Tables['player']['Row'] {
+  return {
+    age: 25,
+    birth_season: -22,
+    id: 'player-1',
+    market_value: 1_000_000,
+    name: '테스트 선수',
+    nationality: 'KOR',
+    pa: 20,
+    preferred_foot: 'RIGHT',
+    preferred_position: 'ST',
+    reputation: 50,
+    retired_at_season: null,
+    taste_tags: [],
+    world_id: 'world-1',
+    ...overrides,
+  };
+}
+
+function teamRow(overrides: Partial<Tables['team']['Row']>): Tables['team']['Row'] {
+  return {
+    academy_level: 1,
+    balance: 0,
+    color_primary: '#000000',
+    color_secondary: '#ffffff',
+    crest_seed: 1,
+    crisis_consecutive_seasons: 0,
+    fan_base: 0,
+    financial_crisis: false,
+    founded_season: -50,
+    id: 'team-1',
+    name: '테스트 FC',
+    reputation: 50,
+    short_name: 'TFC',
+    stadium_capacity: 10000,
+    stadium_name: '테스트 스타디움',
+    world_id: 'world-1',
+    ...overrides,
+  };
+}
+
+function playerSeasonStatRow(
+  overrides: Partial<Tables['player_season_stat']['Row']>,
+): Tables['player_season_stat']['Row'] {
+  return {
+    aerial_duels_attempted: 0,
+    aerial_duels_won: 0,
+    appearances: 0,
+    assists: 0,
+    avg_condition: 80,
+    big_chances_created: 0,
+    big_chances_missed: 0,
+    blocks: 0,
+    catches: 0,
+    clean_sheets: 0,
+    clearances: 0,
+    competition_type: 'LEAGUE',
+    contribution_score: 0,
+    crosses_attempted: 0,
+    crosses_completed: 0,
+    dispossessed: 0,
+    dribbles_attempted: 0,
+    dribbles_completed: 0,
+    errors_leading_to_goal: 0,
+    errors_leading_to_shot: 0,
+    fouls_committed: 0,
+    fouls_drawn: 0,
+    free_kick_goals: 0,
+    goals: 0,
+    goals_conceded: 0,
+    ground_duels_attempted: 0,
+    ground_duels_won: 0,
+    headed_goals: 0,
+    injuries_count: 0,
+    interceptions: 0,
+    key_passes: 0,
+    league_id: 'league-1',
+    long_balls_attempted: 0,
+    long_balls_completed: 0,
+    matches_suspended: 0,
+    minutes_played: 0,
+    motm_awards: 0,
+    offsides: 0,
+    own_goals: 0,
+    passes_attempted: 0,
+    passes_completed: 0,
+    penalties_faced: 0,
+    penalties_saved: 0,
+    penalties_scored: 0,
+    penalties_taken: 0,
+    player_id: 'player-1',
+    punches: 0,
+    red_cards: 0,
+    rounds_injured: 0,
+    saves: 0,
+    season_id: 'season-3',
+    second_yellows: 0,
+    shots: 0,
+    shots_faced: 0,
+    shots_on_target: 0,
+    starts: 0,
+    sub_appearances: 0,
+    sweeper_actions: 0,
+    tackles_attempted: 0,
+    tackles_won: 0,
+    team_id: 'team-1',
+    through_balls: 0,
+    touches: 0,
+    xa: 0,
+    xg: 0,
+    xg_prevented: 0,
+    yellow_cards: 0,
     ...overrides,
   };
 }
@@ -285,6 +415,165 @@ describe('SupabaseDataSource.getFixturesByRound', () => {
     const ds = new SupabaseDataSource(client);
 
     const result = await ds.getFixturesByRound({ leagueId: 'league-1' as LeagueId, round: 99 });
+
+    expect(result).toEqual([]);
+  });
+});
+
+describe('SupabaseDataSource.getFixture', () => {
+  it('id로 단건 조회한다', async () => {
+    const client = createFakeClient({
+      world: [],
+      season: [],
+      standing: [],
+      fixture: [fixtureRow({ id: 'fixture-1' }), fixtureRow({ id: 'fixture-2' })],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getFixture('fixture-1' as never);
+
+    expect(result?.id).toBe('fixture-1');
+  });
+
+  it('일치하는 경기가 없으면 null을 반환한다', async () => {
+    const client = createFakeClient({ world: [], season: [], standing: [], fixture: [] });
+    const ds = new SupabaseDataSource(client);
+
+    expect(await ds.getFixture('no-such-fixture' as never)).toBeNull();
+  });
+});
+
+describe('SupabaseDataSource.getPlayerProfile', () => {
+  it('pa를 구조적으로 노출하지 않고 scoutRating을 포함한다(I-38)', async () => {
+    const client = createFakeClient({
+      world: [],
+      season: [],
+      standing: [],
+      fixture: [],
+      player: [playerRow({ id: 'player-1', pa: 25 })],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const profile = await ds.getPlayerProfile('player-1' as PlayerId);
+
+    expect(profile?.id).toBe('player-1');
+    expect(profile).not.toHaveProperty('pa');
+    expect(profile?.scoutRating).toBeGreaterThanOrEqual(1);
+    expect(profile?.scoutRating).toBeLessThanOrEqual(5);
+  });
+
+  it('일치하는 선수가 없으면 null을 반환한다', async () => {
+    const client = createFakeClient({ world: [], season: [], standing: [], fixture: [] });
+    const ds = new SupabaseDataSource(client);
+
+    expect(await ds.getPlayerProfile('no-such-player' as PlayerId)).toBeNull();
+  });
+});
+
+describe('SupabaseDataSource.getTeam', () => {
+  it('id로 단건 조회한다', async () => {
+    const client = createFakeClient({
+      world: [],
+      season: [],
+      standing: [],
+      fixture: [],
+      team: [teamRow({ id: 'team-1', name: '테스트 FC' })],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getTeam('team-1' as TeamId);
+
+    expect(result?.name).toBe('테스트 FC');
+  });
+
+  it('일치하는 팀이 없으면 null을 반환한다', async () => {
+    const client = createFakeClient({ world: [], season: [], standing: [], fixture: [] });
+    const ds = new SupabaseDataSource(client);
+
+    expect(await ds.getTeam('no-such-team' as TeamId)).toBeNull();
+  });
+});
+
+describe('SupabaseDataSource.getPlayerStatRanking', () => {
+  beforeAll(() => {
+    setGlobalDefaultSource({
+      name: 'test-ui-param',
+      getGroupConstants: (group) => (group === 'UI_PARAM' ? { LEADERBOARD_MIN_APPEARANCE_PCT: 50 } : undefined),
+    });
+  });
+
+  afterAll(() => {
+    setGlobalDefaultSource(null);
+  });
+
+  it('leagueId로 필터하고 metric 내림차순으로 정렬한다', async () => {
+    const client = createFakeClient({
+      world: [WORLD_ROW],
+      season: [SEASON_ROW],
+      standing: [],
+      fixture: [],
+      player_season_stat: [
+        playerSeasonStatRow({ player_id: 'p1', league_id: 'league-1', goals: 10, appearances: 10 }),
+        playerSeasonStatRow({ player_id: 'p2', league_id: 'league-1', goals: 20, appearances: 10 }),
+        playerSeasonStatRow({ player_id: 'p3', league_id: 'league-2', goals: 30, appearances: 10 }),
+      ],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getPlayerStatRanking({
+      leagueId: 'league-1' as LeagueId,
+      competitionType: 'LEAGUE',
+      metric: 'goals',
+    });
+
+    expect(result.map((r) => r.playerId)).toEqual(['p2', 'p1']);
+  });
+
+  it('minAppearancePct 미지정 시 UI_PARAM 기본값(여기선 50%)으로 대체해 미달 선수를 제외한다', async () => {
+    const client = createFakeClient({
+      world: [WORLD_ROW],
+      season: [SEASON_ROW],
+      standing: [],
+      fixture: [],
+      player_season_stat: [
+        playerSeasonStatRow({ player_id: 'full', league_id: 'league-1', goals: 5, appearances: 10 }),
+        playerSeasonStatRow({ player_id: 'low', league_id: 'league-1', goals: 99, appearances: 4 }),
+      ],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getPlayerStatRanking({
+      leagueId: 'league-1' as LeagueId,
+      competitionType: 'LEAGUE',
+      metric: 'goals',
+    });
+
+    expect(result.map((r) => r.playerId)).toEqual(['full']);
+  });
+
+  it('leagueId가 null이면 전 리그 통합 랭킹을 반환한다', async () => {
+    const client = createFakeClient({
+      world: [WORLD_ROW],
+      season: [SEASON_ROW],
+      standing: [],
+      fixture: [],
+      player_season_stat: [
+        playerSeasonStatRow({ player_id: 'p1', league_id: 'league-1', goals: 10, appearances: 10 }),
+        playerSeasonStatRow({ player_id: 'p2', league_id: 'league-2', goals: 20, appearances: 10 }),
+      ],
+    });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getPlayerStatRanking({ leagueId: null, competitionType: 'LEAGUE', metric: 'goals' });
+
+    expect(result.map((r) => r.playerId)).toEqual(['p2', 'p1']);
+  });
+
+  it('통계 데이터가 없으면(basis 해석 불가) 빈 배열을 반환한다', async () => {
+    const client = createFakeClient({ world: [WORLD_ROW], season: [SEASON_ROW], standing: [], fixture: [] });
+    const ds = new SupabaseDataSource(client);
+
+    const result = await ds.getPlayerStatRanking({ leagueId: null, competitionType: 'LEAGUE', metric: 'goals' });
 
     expect(result).toEqual([]);
   });

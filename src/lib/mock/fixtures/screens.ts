@@ -47,6 +47,7 @@
  */
 
 import type { PublicPlayerProfile, FixtureRoundBounds } from '@/lib/data/DataSource';
+import { toPublicProfile } from '@/lib/data/player-profile';
 import { deriveMatchSeed, deriveSeasonSeed, stateForSeed } from '@/lib/sim/rng/derive';
 import type {
   Fixture,
@@ -54,7 +55,6 @@ import type {
   MatchEvent,
   MatchSeed,
   NewsFeedItem,
-  Player,
   PlayerAttribute,
   PlayerPosition,
   PlayerSeasonStat,
@@ -118,55 +118,6 @@ export interface PlayerDetailScreenData {
 /* ────────────────────────────────────────────────────────────────────────
  * 파생 헬퍼
  * ──────────────────────────────────────────────────────────────────────── */
-
-/**
- * `Player.pa`(잠재능력 원값, 1~30)를 1~5 스카우트 등급으로 환산한다 — 이 계약의 산출식
- * 소유는 `DataSource.ts` I-38 판정에 따라 Mock Task 007(이 팀)에 있다. 등급 구간은 6점
- * 단위 균등 분할(1~6→1, 7~12→2, …, 25~30→5)이며, 실제 스카우팅 밸런스 튜닝(031b)이
- * 이 상수를 대체할 수 있다 — 오늘은 화면 표본에 필요한 최소 규칙만 정의한다.
- */
-function toScoutRating(pa: number): 1 | 2 | 3 | 4 | 5 {
-  const rating = Math.ceil(pa / 6);
-  return Math.min(5, Math.max(1, rating)) as 1 | 2 | 3 | 4 | 5;
-}
-
-/**
- * `Player` → `PublicPlayerProfile` 변환. **18일차 `MockDataSource`가 그대로 재사용한다**
- * (export) — `getPlayerProfile`/`getTeamSquad` 등 여러 메서드가 같은 `pa` 제외 규칙을
- * 따라야 해서 어댑터 쪽에서 재구현하지 않는다.
- */
-export function toPublicProfile(player: Player): PublicPlayerProfile {
-  // `pa`를 구조적으로 제외한다(I-38) — 구조분해 rest 패턴은 미사용 변수 lint 경고가 남아
-  // 필드를 전부 나열하는 쪽을 택한다(Player 필드 목록은 world.ts가 이미 동결 타입 그대로
-  // 채우고 있어 이 목록도 함께 검증됨 — 필드 추가/삭제 시 여기서 타입 에러로 드러난다).
-  const {
-    id,
-    name,
-    nationality,
-    birthSeason,
-    age,
-    preferredFoot,
-    preferredPosition,
-    reputation,
-    marketValue,
-    tasteTags,
-    retiredAtSeason,
-  } = player;
-  return {
-    id,
-    name,
-    nationality,
-    birthSeason,
-    age,
-    preferredFoot,
-    preferredPosition,
-    reputation,
-    marketValue,
-    tasteTags,
-    retiredAtSeason,
-    scoutRating: toScoutRating(player.pa),
-  };
-}
 
 /* ────────────────────────────────────────────────────────────────────────
  * 진입점
