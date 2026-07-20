@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TeamId } from '@/types';
-import { generateBergerDoubleRoundRobin } from './berger';
+import { detectVenueStreaks, generateBergerDoubleRoundRobin } from './berger';
 
 const teams = (count: number): TeamId[] =>
   Array.from({ length: count }, (_, i) => `team-${i}` as TeamId);
@@ -119,5 +119,66 @@ describe('generateBergerDoubleRoundRobin — Task 025', () => {
   it('팀 수 2 미만은 예외를 던진다', () => {
     expect(() => generateBergerDoubleRoundRobin(teams(0))).toThrow();
     expect(() => generateBergerDoubleRoundRobin(teams(1))).toThrow();
+  });
+});
+
+describe('detectVenueStreaks — FR-LG-003 ② (26일차)', () => {
+  it.each([[24], [20], [16]])(
+    'teamCount=%i(실전 규모) → 3연속 이상 동일 장소 위반이 0건이다',
+    (teamCount) => {
+      const all = teams(teamCount);
+      const fixtures = generateBergerDoubleRoundRobin(all);
+      expect(detectVenueStreaks(all, fixtures)).toEqual([]);
+    },
+  );
+
+  it('teamCount=4 → 1차전이 3라운드뿐이라 3연속 스트릭이 수학적으로 불가피하다(전수 탐색 확인, 위반 반환)', () => {
+    const all = teams(4);
+    const fixtures = generateBergerDoubleRoundRobin(all);
+    const streaks = detectVenueStreaks(all, fixtures);
+
+    expect(streaks.length).toBeGreaterThan(0);
+    for (const streak of streaks) {
+      expect(streak.length).toBeGreaterThanOrEqual(3);
+      expect(all).toContain(streak.teamId);
+    }
+  });
+
+  it('빈 대진표는 위반 없이 빈 배열을 반환한다', () => {
+    expect(detectVenueStreaks(teams(4), [])).toEqual([]);
+  });
+
+  it('2연속 동일 장소는 위반으로 잡히지 않는다(경계값)', () => {
+    // team-0: H,H,A,A (2연속 두 번, 3연속 없음) / team-1: A,A,H,H
+    const fixtures = [
+      { round: 1, homeTeamId: 'team-0' as TeamId, awayTeamId: 'team-1' as TeamId },
+      { round: 2, homeTeamId: 'team-0' as TeamId, awayTeamId: 'team-1' as TeamId },
+      { round: 3, homeTeamId: 'team-1' as TeamId, awayTeamId: 'team-0' as TeamId },
+      { round: 4, homeTeamId: 'team-1' as TeamId, awayTeamId: 'team-0' as TeamId },
+    ];
+    expect(detectVenueStreaks(['team-0' as TeamId, 'team-1' as TeamId], fixtures)).toEqual([]);
+  });
+
+  it('정확히 3연속이면 위반 1건을 정확한 시작 라운드·길이로 보고한다', () => {
+    const fixtures = [
+      { round: 1, homeTeamId: 'team-0' as TeamId, awayTeamId: 'team-1' as TeamId },
+      { round: 2, homeTeamId: 'team-0' as TeamId, awayTeamId: 'team-1' as TeamId },
+      { round: 3, homeTeamId: 'team-0' as TeamId, awayTeamId: 'team-1' as TeamId },
+      { round: 4, homeTeamId: 'team-1' as TeamId, awayTeamId: 'team-0' as TeamId },
+    ];
+    const streaks = detectVenueStreaks(['team-0' as TeamId, 'team-1' as TeamId], fixtures);
+
+    expect(streaks).toContainEqual({
+      teamId: 'team-0',
+      venue: 'HOME',
+      startRound: 1,
+      length: 3,
+    });
+    expect(streaks).toContainEqual({
+      teamId: 'team-1',
+      venue: 'AWAY',
+      startRound: 1,
+      length: 3,
+    });
   });
 });

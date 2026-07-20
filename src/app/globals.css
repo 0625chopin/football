@@ -14,6 +14,21 @@
   --breakpoint-lg: 64rem; /* 1024px */
   --breakpoint-xl: 90rem; /* 1440px */
   --breakpoint-2xl: 120rem; /* 1920px */
+  /* Task 012(26일차) — 타이포그래피·간격 스케일 확정.
+     결정: Tailwind v4 기본 스케일(node_modules/tailwindcss/theme.css의 --text-*·--spacing:
+     0.25rem)을 그대로 채택하고 커스텀 오버라이드를 두지 않는다. 근거:
+       ① 이 스케일을 달리할 요구사항이 없다(docs/wireframe/00-공통규약.md는
+          "색상·간격·타이포 등 시각 토큰은 4팀 H-11 인계 후 결정 — 여기서 정하지 않는다"고
+          명시해 이 팀의 재량이며, 별도 축소·확대 근거가 없으면 기본값이 최선).
+       ② 4px 그리드(--spacing 0.25rem 배수)와 1.125~1.333 비율의 type scale은 013A/013B
+          컴포넌트(33일차 이후)가 Tailwind 유틸리티 클래스(text-sm, p-4 등)로 바로 소비할 수
+          있어 별도 매핑 문서가 필요 없다.
+       ③ 오버라이드가 없으므로 회귀 테스트 대상도 없다 — 이 주석이 "결정을 내렸다"는 기록의
+          단일 소스다(브레이크포인트처럼 값을 재정의한 경우가 아니라 "기본값 채택"이 결정 그
+          자체). 필요해지면(예: 특정 화면이 4xl 이상의 헤딩을 요구) 그때 @theme inline에
+          --text-*를 추가하고 이 주석을 갱신한다.
+     27일차 잔여: 013A 컴포넌트 8종 실사용 시 라인하이트·자간이 실제로 충분한지 확인(현재는
+     선언 없이 Tailwind 기본값 신뢰만 한 상태), 필요 시 --tracking-*/--leading-* 조정. */
   /* Task 012(25일차) — 시맨틱 컬러 토큰 5종(승격·플레이오프·강등·LIVE·경고).
      NFR-A11Y-002: 색상 단독으로 의미를 전달하지 않는다 — 소비 컴포넌트(013A, 33일차)는
      반드시 아이콘·라벨을 색상과 함께 병기할 것. 아래 값은 그 전제 위에서 "보조 신호"로서의
@@ -98,7 +113,10 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  --muted-foreground: oklch(0.52 0 0); /* Task 012(26일차) — WCAG 실측 결과 create-next-app
+    기본값(L=0.556)이 --muted 배경 위에서 텍스트 대비 4.339:1로 4.5:1 미달(WCAG 1.4.3) —
+    L=0.52로 낮춰 --muted 위 5.051:1·--background 위 5.509:1로 통과시킴. 실측:
+    src/lib/a11y/contrast.test.ts "텍스트 대비 4.5:1" 블록. */
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);

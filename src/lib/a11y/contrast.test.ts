@@ -1,5 +1,5 @@
 /**
- * globals.css 시맨틱 컬러 토큰(승격·플레이오프·강등·LIVE·경고) 회귀 가드 — Task 012 / 25일차.
+ * globals.css 컬러 토큰 회귀 가드 — Task 012 / 25일차(시맨틱 5색) + 26일차(텍스트 대비 4.5:1 전건).
  * (src/app/globals.color.test.ts와 중복 생성되어 이 파일로 통합됨 — I-138 계열 조율 착오.)
  *
  * CSS 파일을 직접 파싱해 실제 배포되는 값으로 검증한다(하드코딩된 사본이 아님). 4개 축:
@@ -201,5 +201,51 @@ describe.each([
     const fg = oklchToLinearSrgb(tokens.warningForeground);
     const fill = oklchToLinearSrgb(tokens.warning);
     expect(contrastRatio(fg, fill)).toBeGreaterThanOrEqual(BADGE_TEXT_CONTRAST_MIN);
+  });
+});
+
+/**
+ * Task 012(26일차) — 라이트/다크 모드 텍스트 대비 4.5:1(WCAG 1.4.3) 전건 실측.
+ * 위 시맨틱 5색과 달리, 여기서는 shadcn 관례상 실제 텍스트로 쓰이는 foreground/background
+ * 페어(create-next-app 기본 토큰 포함)를 전수 실측한다. CSS를 직접 파싱하므로 값이 바뀌면
+ * 이 테스트가 그대로 회귀 가드가 된다.
+ *
+ * 실측 중 --muted-foreground(라이트)가 --muted 배경 위에서 4.339:1로 미달(4.5:1) 발견 →
+ * globals.css에서 L=0.556→0.52로 조정해 통과시킴(다크 모드는 원래 5.829:1로 통과 상태라
+ * 미변경). 조정 근거·재실측 수치는 globals.css의 --muted-foreground 옆 주석 참고.
+ */
+function extractTokenOrNull(block: string, name: string): Oklch | null {
+  try {
+    return extractToken(block, name);
+  } catch {
+    return null;
+  }
+}
+
+const TEXT_ON_BG_PAIRS: readonly [string, string][] = [
+  ["foreground", "background"],
+  ["card-foreground", "card"],
+  ["popover-foreground", "popover"],
+  ["primary-foreground", "primary"],
+  ["secondary-foreground", "secondary"],
+  ["muted-foreground", "muted"],
+  ["muted-foreground", "background"],
+  ["accent-foreground", "accent"],
+  ["sidebar-foreground", "sidebar"],
+  ["sidebar-primary-foreground", "sidebar-primary"],
+  ["sidebar-accent-foreground", "sidebar-accent"],
+];
+
+describe.each([
+  ["light", rootBlock],
+  ["dark", darkBlock],
+])("텍스트 대비 4.5:1 — %s 모드", (_mode, block) => {
+  it.each(TEXT_ON_BG_PAIRS)("%s on %s: 대비 4.5:1 이상", (fgName, bgName) => {
+    const fg = extractTokenOrNull(block, fgName);
+    const bg = extractTokenOrNull(block, bgName);
+    expect(fg, `토큰 없음: --${fgName}`).not.toBeNull();
+    expect(bg, `토큰 없음: --${bgName}`).not.toBeNull();
+    const ratio = contrastRatio(oklchToLinearSrgb(fg as Oklch), oklchToLinearSrgb(bg as Oklch));
+    expect(ratio).toBeGreaterThanOrEqual(BADGE_TEXT_CONTRAST_MIN);
   });
 });
