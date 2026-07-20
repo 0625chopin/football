@@ -370,8 +370,9 @@ export const COMMON_CODE_GROUP_CATALOG = [
     groupCode: 'ODDS_PARAM',
     groupName: '배당 산출',
     description:
-      '배당 산출(그룹 내 INT·DECIMAL 혼재 — DECIMAL로 표현) — 코드 예시(기본값): MC_N_MATCH=3000, MC_N_SEASON=1500, REFRESH_ROUND_INTERVAL=5, OVERROUND=1.06, MIN_ODDS=1.01, MAX_ODDS=500. ' +
-      '27일차(Task 035 착수 — V-02 차단성 검증 통과 후 "모델 확정" 시점)에 `docs/ISSUES.md` I-08 권고(배당오차 ±11.5% 문제로 MC_N_SEASON 300→1,500 상향 + 재산출 주기 매라운드→5라운드)를 반영했다. 9일차 카탈로그·11일차 폴백의 300은 이 시점까지의 잠정값이었다.',
+      '배당 산출(그룹 내 INT·DECIMAL 혼재 — DECIMAL로 표현) — 코드 예시(기본값): MC_N_MATCH=3000, MC_N_SEASON=1500, REFRESH_ROUND_INTERVAL=5, OVERROUND=1.06, MIN_ODDS=1.01, MAX_ODDS=500, INITIAL_LEAD_MIN=30, PARTITION_COUNT=8. ' +
+      '27일차(Task 035 착수 — V-02 차단성 검증 통과 후 "모델 확정" 시점)에 `docs/ISSUES.md` I-08 권고(배당오차 ±11.5% 문제로 MC_N_SEASON 300→1,500 상향 + 재산출 주기 매라운드→5라운드)를 반영했다. 9일차 카탈로그·11일차 폴백의 300은 이 시점까지의 잠정값이었다. ' +
+      '33일차(I-167 반영): `INITIAL_LEAD_MIN`(킥오프 T-분, `schedule.ts`의 최초 산출 리드타임) 신설 — 32일차 `schedule.ts`가 "리드타임 30은 호출자가 주입"이라고 명시적으로 남긴 값을 리터럴로 두지 않고 이 그룹에 정식 등록했다(NFR-CFG-001). 같은 날 `PARTITION_COUNT`(NFR-SC-004, V-02 결과에 따른 8분할 처리)도 함께 신설 — `worker.ts`가 몬테카를로 반복을 이 개수만큼 파티션으로 나눠 "단일 호출 시간 한도" 수락 기준을 충족한다.',
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_MARKET',
     relatedFr: ['FR-BT-005'],

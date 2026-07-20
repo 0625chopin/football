@@ -29,11 +29,5 @@ export const team: TeamMessages = {
     countFormat: "×{count}",
     seasonsFormat: "({seasons})",
     awardsTitle: "Individual awards",
-    type: {
-      LEAGUE_TITLE: "League Title",
-      PLAYOFF_TITLE: "Playoff Title",
-      CUP_TITLE: "Cup Title",
-      PROMOTION: "Promotion",
-    },
   },
 };

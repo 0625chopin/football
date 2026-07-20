@@ -20,11 +20,10 @@ import type { CompositeViewState } from "./types"
 // 이유로, `TrophyCaseTrophyRow`/`TrophyCaseAwardRow`는 원본 엔티티 + 이미 해석된
 // `seasonLabel: string`을 함께 받는다(리스트 컨테이너/소비처가 시즌 조회 후 조립).
 //
-// **`TrophyType`(E-32, 4종) 카탈로그 부재.** `AwardType`(E-31, 12종)은 `enums.ts`에
-// 이미 표시명 카탈로그가 있어 그대로 경유하지만, `TrophyType`은 카탈로그 자체가 없다
-// (3팀 콘텐츠 소유 파일이라 이번 범위에서 신설하지 않음) — `InjuryTimeline`이
-// `injuryStatus` 부재 시 로컬 키로 임시 처리했던 것과 동일한 패턴으로
-// `team.trophy.type.*` 로컬 키를 쓰고 이슈 후보로 보고한다.
+// **`TrophyType`(E-32, 4종) 카탈로그.** `AwardType`(E-31, 12종)과 동일하게 `enums.ts`
+// 표시명 카탈로그를 그대로 경유한다. 32일차에는 카탈로그 부재로 `team.trophy.type.*`
+// 로컬 키(이슈 후보)를 임시로 썼으나, 33일차 3팀이 I-166으로 `enums.trophyType`
+// 정본 카탈로그를 신설·납품해 그쪽으로 교체했다(`awardType`과 동일 소비 패턴).
 //
 // 그룹핑(`buildTrophyCaseGroups`)은 React/DOM에 의존하지 않는 순수 함수로 분리했다 —
 // PitchLineup·BracketTree·GrowthChart·InjuryTimeline 선례와 동일한 이유(jsdom 미설치)로
@@ -156,7 +155,7 @@ export function TrophyCase({ locale, state, className }: TrophyCaseProps) {
               className="flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-sm"
             >
               <span aria-hidden="true">🏆</span>
-              <Badge variant="secondary">{t(locale, `team.trophy.type.${group.type}`)}</Badge>
+              <Badge variant="secondary">{t(locale, `enums.trophyType.${group.type}`)}</Badge>
               <span className="tabular-nums text-muted-foreground">
                 {t(locale, "team.trophy.countFormat", { count: group.count })}
               </span>

@@ -5,15 +5,11 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { DomainViewState } from "./types";
+import { clampFitness } from "./fitness";
 
 /** `condition`(1.0~10.0, person.ts PlayerState 참고)을 Progress 표시용 0~100으로 정규화한다. */
 function normalizeCondition(condition: number): number {
   return Math.min(Math.max(condition * 10, 0), 100);
-}
-
-/** `fitness`(0~100)를 Progress 표시 범위로 clamp한다. */
-function normalizeFitness(fitness: number): number {
-  return Math.min(Math.max(fitness, 0), 100);
 }
 
 export interface ConditionGaugeProps {
@@ -65,7 +61,7 @@ export function ConditionGauge({ locale, state, className }: ConditionGaugeProps
           <span>{t(locale, "player.state.fitness")}</span>
           <span>{Math.round(fitness)}</span>
         </div>
-        <Progress value={normalizeFitness(fitness)} />
+        <Progress value={clampFitness(fitness)} />
       </div>
     </div>
   );

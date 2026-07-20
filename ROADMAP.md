@@ -408,9 +408,13 @@
     - `CountdownTimer`는 client 컴포넌트이며 `Date.now()`를 **렌더 중에 직접 호출하지 않고** `useEffect`로 미뤄 SSR/하이드레이션 mismatch를 회피한다. `isPaused` 시 정지 표기, 재동기화는 props 갱신에 위임. `formatCountdownClock`을 `src/i18n/format.ts`에 추가
   - [x] 전 컴포넌트는 **도메인 타입 props만 받고 데이터 페칭을 하지 않는다** — **32일차 감사 완료(4팀 013A 25종 + 5팀 013B 7종), 위반 0건·리팩터 불필요.** 팀장 재현: `grep -rnE "\b(fetch|axios|createClient|supabase)\b" src/components/` **0건**, `grep -rn 'from "@/types/' src/` **0건**(C-5·C-6 배럴 준수)
   - [x] 모든 표시 문구는 번역 키 경유, 숫자·시각은 로케일 포맷터 사용 (D-18) — **32일차 감사 완료, 하드코딩 표시 문자열 0건 / `toLocaleString`·`Intl` 직접 호출 0건**(팀장 grep 재현). **판단으로 종결한 3건**: ⓐ `ConditionGauge`/`FitnessBar`/`StatBar`의 `toFixed(1)`·`Math.round` — `format.ts`는 ko/en 표기가 실제로 갈리는 값(천단위·소수 2자리)만 경유지로 설계됐고 0~100 범위 값은 양 로케일 렌더링이 동일하므로 위반 아님 ⓑ `[lang]/layout.tsx`의 `await bootstrapApp()` — 데이터 페칭이 아닌 1팀 소관 부트스트랩(I-72)이며 재사용 컴포넌트가 아님 ⓒ `global-not-found.tsx`의 `metadata.description` — SEO 메타 필드로 JSX 텍스트 노드가 아님(I-89 10일차 결정)
-  - [ ] React Compiler 전제 — `useMemo`/`useCallback` 미사용, 예외 시 정당화 주석
-  - [ ] 넓은 콘텐츠는 자체 `overflow-x: auto` 컨테이너 적용
+  - [x] React Compiler 전제 — `useMemo`/`useCallback` 미사용, 예외 시 정당화 주석 — **33일차 감사 완료(4팀 013A 14종 + 5팀 013B 7종)**. 전수 grep 결과 **사용처 0건**이라 제거 대상도 정당화 주석 대상도 없었다(양 팀 독립 실측, 팀장 재확인). 즉 이 항목은 위반을 고친 것이 아니라 **처음부터 준수돼 있었음을 실증**한 것이다
+  - [x] 넓은 콘텐츠는 자체 `overflow-x: auto` 컨테이너 적용 — **33일차 완료**. 대상은 013B `BracketTree` 하나뿐이며 로딩 skeleton·ready 렌더 양쪽에 이미 적용돼 있다(5팀). 013A 14종은 전부 고정크기·반응형 소형 위젯(SVG 140px 레이더, w-full 피치맵, 배지·게이지)이라 **대상 없음**으로 판정했고, 나머지 013B 6종도 svg viewBox·flex-wrap으로 자체 스케일된다. 불필요한 wrapper를 일괄 삽입하지 않은 판단이 옳다
+    - **I-159 해소(33일차, 4팀)** — `FitnessBar`·`ConditionGauge`에 중복돼 있던 clamp 수식을 `src/components/domain/fitness.ts`의 `clampFitness`로 추출하고 양쪽을 import로 전환(`fitness.test.ts` 4케이스 신설). 29일차에 "세 번째 소비처가 생기는 시점을 트리거로 삼아도 된다"고 유예했던 항목을 013A 종료 구간에서 정리했다
+    - **I-166 해소(33일차, 3팀→5팀→4팀)** — 32일차에 카탈로그 부재로 `team.trophy.type.*` 로컬 키를 쓰던 `TrophyCase`가, 3팀이 같은 날 신설한 `enums.trophyType`(ko/en 4종) 소비로 교체됐고(`TrophyCase.tsx:158`) 사장된 로컬 키는 4팀이 제거했다. **소유 경계에 따라 5팀은 4팀 소유 `team.ts`를 직접 지우지 않고 판단만 회신**했으며, I-165와 동일 구조의 재발이라 "신규 enum 표시명은 로컬 키 우회 대신 3팀에 카탈로그를 먼저 요청한다"가 관례로 확립됐다
 - **수락 기준**: 22종 전부가 4상태를 지원하고, ko/en 전환 시 하드코딩 문자열 0건. (27일차 SP-2에서 `MatchCard` 승격으로 21→22종). **32일차 진행 21/22** (도메인 8/8 종결, **복합 7/7 종결**, **상태·유틸 6/6 종결**) — 잔여 1종은 `MatchCard`(5팀, 33일차). **규약 2항목(페칭 0·번역 키/포맷터)은 32일차 전수 감사로 위반 0건 확정** — 4상태 판별 규약은 `state: DomainViewState|CompositeViewState<T>` 단일 prop + 리터럴 `loading|empty|error|ready`로 양 팀 통일(28일차 팀장 판정, I-156), 인터랙션 없는 컴포넌트는 서버 컴포넌트 + `t(locale, …)` 직접 호출.
+  - **33일차 정정(I-168) — "전부 4상태"의 분모에는 예외가 있다.** 상태·유틸 6종(`SkeletonBlock`·`EmptyState`·`ErrorState`·`CountdownTimer`·`PhaseIndicator`·`OddsButton`)은 **4상태 비대상**이다. 앞의 3종은 4상태를 **표현하는 쪽**의 프리미티브라 자기 자신에게 4상태를 요구하는 것이 성립하지 않고(30일차 결정), 뒤의 3종도 31일차 표가 애초에 요구하지 않았다. 따라서 4상태 실측 분모는 **도메인 8 + 복합 7 + `MatchCard` 1 = 16종**이며, 33일차 시점 15/16(잔여 `MatchCard`)이다. 33일차 4팀 감사에서 이 면제가 "8/14 미달"로 오독될 뻔해 팀 md 수락 문구를 정정했다 — **총량 표현("전부/전 종")을 쓸 때는 분모의 예외를 같은 줄에 명시할 것**.
+  - **33일차 하드코딩 실측**: 013A 14종은 주석 제외 JSX 렌더 텍스트 0건(perl로 주석 제거 후 재grep), 013B 7종은 JSX 텍스트노드·`title`/`aria-label` 속성 전수 grep 0건 — 양 팀 모두 전부 `t(locale, …)` 경유 또는 데이터 prop.
 
 ### Task 014: `/sample` 컴포넌트 쇼케이스를 구축한다 - 우선순위
 
@@ -633,7 +637,7 @@
 - **일정**: 31일차 ~ 37일차 (2026-09-01 ~ 2026-09-09) / 추정 5.5인일 / 담당 2팀 시뮬레이션엔진팀 / **준크리티컬 · M-2 게이트**
 - **근거**: FR-MT-010, FR-LG-004~006, FR-ST-001~005, NFR-PF-011, NFR-CR-002
 - **구현 사항**
-  - [ ] 후처리 7종을 단일 트랜잭션으로 — 스코어 확정 / 순위 갱신 / 스탯 누적 / 컨디션·피로 / 부상 판정 / 카드·정지 / 정산 트리거
+  - [~] 후처리 7종을 단일 트랜잭션으로 — 스코어 확정 / 순위 갱신 / 스탯 누적 / 컨디션·피로 / 부상 판정 / 카드·정지 / 정산 트리거 *(33일차 골격 완료 — `sim/postmatch/pipeline.ts`의 `POST_MATCH_STAGE_ORDER`가 순서 단일 소스, `executedStages` 런타임 트레이스로 순서 증명. **4종 실배선**(스코어 확정·스탯 누적·카드 정지·정산 트리거) / **3종 `implemented:false` 계약뿐**(순위 갱신·컨디션 피로·부상 판정 — 하위 모듈 부재, 실산식 착수 일차 미배정). 실패 시 throw 전파로 원자성 확보)*
   - [ ] 실패 시 전체 롤백 + 최대 3회 재시도 + 알림, 재실행 멱등(중복 누적 0)
   - [ ] 7단계 타이브레이커 — 승점 → 골득실 → 다득점 → 승자승 미니리그 → 다승 → 페어플레이 → 시드 추첨
   - [ ] 승강 경계 동률 시 `competition_type = TIEBREAK` Fixture 자동 생성
@@ -840,7 +844,11 @@
     - **수락 기준 "킥오프 후 재산출 0건" 충족 근거는 단일 지점이다** — 최초 산출·재산출·트리거 종류를 불문하고 전 경로가 `hasKickoffPassed(now >= kickoffAt)`를 거쳐 차단된다. **등호를 포함**해 킥오프 정각부터 막는다(그 순간부터는 "경기 전 사전 정보로 확률을 조정한다"는 전제가 성립하지 않음). 결정 결과는 `skipReason: 'BEFORE_INITIAL_WINDOW' | 'KICKOFF_PASSED'`로 관측 가능
     - `Date.now()` 미사용 — "지금"은 전부 `now: Timestamp` 인자 주입(NFR-DT-001). 리드타임도 리터럴을 박지 않고 `leadMinutes` 파라미터로 받는다(NFR-CFG-001, 27일차 `kickoff.ts` 관례). **다만 그 결과 정책값 30이 코드베이스 어디에도 없다 — I-167**: 33일차 `worker.ts`가 config 카탈로그에 30을 등록해 주입해야 하며 리터럴을 박아서는 안 된다
     - **판단 지점(팀장 타당 판정)**: `decideRecompute`는 트리거가 T−30 윈도 이전(예: T−45분 조기 라인업 확정)이어도 킥오프 전이면 재산출을 허용한다 — 그 시점 최선 정보로 즉시 갱신하는 편이 낫기 때문. **최초 산출이 아직 없는 상태에서 재산출 트리거만 먼저 온 케이스**의 구분은 "이미 산출된 적 있는지" 상태가 필요해 순수 함수 밖(`worker.ts`) 몫으로 남겼다 — **33일차에 반드시 처리할 것**(누락 시 재산출이 최초 산출을 대신 여는 경로가 열린다)
-  - [ ] 워커·큐로 분리 가능한 인터페이스 구조 (NFR-SC-004)
+  - [x] 워커·큐로 분리 가능한 인터페이스 구조 (NFR-SC-004) — **33일차 완료(3팀)**. `src/lib/odds/worker.ts`(신규) + `worker.test.ts`(17 tests), `runner.ts`에 `runIndexOffset` 파라미터 추가
+    - **8분할이 결정론을 깨지 않는 것이 핵심 근거다** — `ODDS_PARAM.PARTITION_COUNT`(=8)로 MC 반복을 나누되 파티션마다 `runIndexOffset`을 누적해 시드 구간이 겹치지 않게 하고, `worker.test.ts:155`가 **"8분할 결과와 단일 호출 결과의 확률이 완전히 같다"**를 단언한다(팀장 직접 확인). 나머지는 앞쪽 파티션부터 1씩 분배해 합계가 항상 원래 총량과 같다
+    - **큐 전환 지점을 `executeJob` 주입 하나로 좁혔다** — `runOddsComputeMatchMarket`이 잡 실행기를 주입받으므로 호출부 수정만으로 인프로세스→큐 컨슈머 전환이 가능하다(NFR-SC-004). 비동기 큐를 흉내낸 커스텀 `executeJob` 테스트가 동작 동일성을 보증한다
+    - **32일차 `schedule.ts`가 남긴 상태 구분 몫을 흡수했다** — `decideOddsComputeAction` + `OddsComputeStateStore`가 "최초 산출이 아직 없는 대진에 재산출 트리거가 먼저 온" 케이스를 `INITIAL_VIA_RECOMPUTE`로 별도 판정한다(`schedule.ts`는 순수 함수라 상태를 못 들고 있었다)
+    - **I-167 해소** — 리드타임 30을 리터럴로 박지 않고 `ODDS_PARAM.INITIAL_LEAD_MIN`(30)·`PARTITION_COUNT`(8)로 `catalog.ts`·`fallback.ts`에 정식 등록한 뒤 worker가 읽어 `schedule.ts`에 주입한다(NFR-CFG-001)
   - [ ] 1차 표시 전용 모드 — 경기 카드·상세에 1X2 배당 표시, 베팅 버튼 비활성 (FR-BT-014)
   - [ ] 표시 형식은 decimal 고정(Q-03 기본 가정) + **로케일 숫자 서식 적용**(D-18), 2차 착수 전 Q-03 재확인
 - **수락 기준**: 경기당 산출 ≤ 10초, 라운드 전체 ≤ 60초. KPI-4 — 1X2 Brier Score ≤ 0.21(1,000경기 누적).

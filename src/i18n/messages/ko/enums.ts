@@ -9,6 +9,7 @@ import type {
   MatchEventType,
   Position,
   SeasonPhase,
+  TrophyType,
 } from "@/types";
 
 // Task 011(19일차) — enum 표시명 카탈로그 골격 (3팀 H-10 목록: 포지션 11군·이벤트 23종·
@@ -139,6 +140,19 @@ const awardScope: EnumTranslationCatalog<AwardScope> = {
   PLAYOFF: "PLAYOFF",
 };
 
+// 33일차(I-166): `TrophyType`(E-32, 4종) 정본 표시명 카탈로그 신설. `TrophyCase.tsx`
+// (5팀, Task 013B 32일차)가 `AwardType`은 이 파일의 `awardType`을 그대로 경유하면서도
+// `TrophyType`은 카탈로그가 없어 `team.trophy.type.*` 로컬 키로 임시 처리하고 있었다
+// (그 파일 헤더 "TrophyType(E-32, 4종) 카탈로그 부재" 절 — 이슈 후보로 남겨 둔 항목).
+// 이 그룹이 그 공백을 메운다 — 5팀은 `enums.trophyType.${type}` 키로 그대로 소비하면 된다
+// (`awardType`과 동일한 소비 패턴, `t(locale, \`enums.trophyType.${row.trophy.type}\`)`).
+const trophyType: EnumTranslationCatalog<TrophyType> = {
+  LEAGUE_TITLE: "리그 우승",
+  PLAYOFF_TITLE: "플레이오프 우승",
+  CUP_TITLE: "컵대회 우승",
+  PROMOTION: "승격",
+};
+
 export const enums = {
   position,
   matchEvent,
@@ -149,6 +163,7 @@ export const enums = {
   awardType,
   betMarketStatus,
   awardScope,
+  trophyType,
 };
 
 export type EnumsMessages = typeof enums;

@@ -5,12 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { DomainViewState } from "./types";
-
-/** `fitness`(0~100)를 Progress 표시 범위로 clamp한다(ConditionGauge.normalizeFitness와 동일 수식,
- * 각 컴포넌트가 독립적으로 유지하는 사소한 로컬 헬퍼라 공유 유틸 추출은 하지 않는다). */
-function clampFitness(fitness: number): number {
-  return Math.min(Math.max(fitness, 0), 100);
-}
+import { clampFitness } from "./fitness";
 
 export interface FitnessBarProps {
   readonly locale: SupportedLocale;

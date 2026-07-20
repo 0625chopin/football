@@ -107,4 +107,11 @@ export const enums: EnumsMessages = {
     CUP: "CUP",
     PLAYOFF: "PLAYOFF",
   },
+  // 33일차(I-166) — `trophyType` 그룹 신설, ko와 동일한 4종.
+  trophyType: {
+    LEAGUE_TITLE: "League Title",
+    PLAYOFF_TITLE: "Playoff Title",
+    CUP_TITLE: "Cup Title",
+    PROMOTION: "Promotion",
+  },
 };

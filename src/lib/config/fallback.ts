@@ -212,6 +212,10 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
   // I-08 반영(27일차, Task 035 착수 — V-02 차단성 검증 통과 후 "모델 확정" 시점): 배당오차
   // ±11.5% 문제로 MC_N_SEASON 300→1,500 상향. 재산출 주기(매라운드→5라운드)는 수치가 아니라
   // 호출 빈도 정책이라 REFRESH_ROUND_INTERVAL로 별도 등록해 스케줄러(후속 일차)가 참조하게 한다.
+  // 33일차 추가(I-167): INITIAL_LEAD_MIN(킥오프 T-분, schedule.ts 최초 산출 리드타임 —
+  // 32일차 ROADMAP 행 정책값 30을 리터럴로 두지 않고 이 그룹에 등록, worker.ts가 주입)·
+  // PARTITION_COUNT(NFR-SC-004, V-02 결과에 따른 8분할 처리 — worker.ts가 몬테카를로
+  // 반복을 이 개수로 나눠 "단일 호출 시간 한도" 수락 기준을 충족).
   ODDS_PARAM: {
     MC_N_MATCH: 3000,
     MC_N_SEASON: 1500,
@@ -219,6 +223,8 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
     OVERROUND: 1.06,
     MIN_ODDS: 1.01,
     MAX_ODDS: 500,
+    INITIAL_LEAD_MIN: 30,
+    PARTITION_COUNT: 8,
   },
   BET_LIMIT: {
     STAKE_MIN: 100,

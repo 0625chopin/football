@@ -103,6 +103,14 @@ export interface RunOddsPresimOptions {
   readonly includeExtraTime?: boolean;
   /** 몬테카를로 반복 횟수. 기본값은 `ODDS_PARAM.MC_N_MATCH`(공통코드, 27일차 I-08 반영). */
   readonly runCount?: number;
+  /**
+   * 이 호출이 담당하는 반복이 전체 시퀀스에서 시작하는 `runIndex`. 기본 0(전량 단일 호출).
+   * 33일차 `worker.ts`가 `MC_N_MATCH`를 `ODDS_PARAM.PARTITION_COUNT`(NFR-SC-004, V-02 결과에
+   * 따른 8분할)만큼 파티션으로 나눠 호출할 때, 파티션마다 서로 다른 오프셋을 넘겨 `runIndex`
+   * 구간이 겹치지 않게 한다(겹치면 `deriveMatchSeed`가 같은 시드를 두 번 뽑아 몬테카를로
+   * 독립성이 깨진다). 단일 호출(오프셋 생략)은 기존 동작과 완전히 동일하다.
+   */
+  readonly runIndexOffset?: number;
 }
 
 export interface OddsPresimRunResult {
@@ -144,9 +152,11 @@ export function runOddsPresimMatch(options: RunOddsPresimOptions): OddsPresimMat
   assertNamespace(seasonSeed, SEED_NAMESPACE.ODDS_PRESIM);
 
   const runCount = options.runCount ?? loadConstants('ODDS_PARAM').MC_N_MATCH;
+  const runIndexOffset = options.runIndexOffset ?? 0;
 
   const runs: OddsPresimRunResult[] = [];
-  for (let runIndex = 0; runIndex < runCount; runIndex += 1) {
+  for (let i = 0; i < runCount; i += 1) {
+    const runIndex = runIndexOffset + i;
     const matchSeed = deriveMatchSeed(seasonSeed, matchKey, runIndex) as MatchSeed;
     assertNamespace(matchSeed, SEED_NAMESPACE.ODDS_PRESIM);
 
