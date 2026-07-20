@@ -8,6 +8,10 @@
 // 29일차(013B, 5팀): `lineup`(`PitchLineup`) 그룹 추가. `unsupportedFormation`은
 // `Formation`(src/types/enums.ts)이 아직 값 목록 미확정인 `string`이라, 이 컴포넌트가
 // 로컬로 정의한 7종 코드 밖의 값이 들어왔을 때의 방어 상태 문구.
+//
+// 30일차(013B, 5팀): `bracket`(`BracketTree`) 그룹 추가. 넉아웃 트리는 플레이오프·컵
+// 공용이라 특정 화면 전용 네임스페이스가 아직 없어, 기존 5팀 기여분과 같은 파일에
+// 얹었다(전용 네임스페이스 분리는 4팀과 협의 필요 — `news`와 동일 판단).
 export const match = {
   list: {
     title: "경기 목록",
@@ -44,6 +48,11 @@ export const match = {
     unsupportedFormation: "지원하지 않는 포메이션입니다.",
     captainLabel: "주장",
     captainAbbr: "(C)",
+  },
+  bracket: {
+    empty: "표시할 대진표가 없습니다.",
+    error: "대진표를 불러오지 못했습니다.",
+    tbd: "미정",
   },
 };
 

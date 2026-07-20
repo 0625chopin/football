@@ -37,4 +37,9 @@ export const match: MatchMessages = {
     captainLabel: "Captain",
     captainAbbr: "(C)",
   },
+  bracket: {
+    empty: "No bracket to display.",
+    error: "Failed to load bracket.",
+    tbd: "TBD",
+  },
 };

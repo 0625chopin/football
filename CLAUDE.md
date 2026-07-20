@@ -85,9 +85,14 @@ npm run test    # Vitest 1회 실행 (vitest run)
 다음은 **설치/작성되어 있지 않습니다.** 있는 것처럼 가정하고 코드를 작성하지 마세요. 필요해지면 그때 새로 도입합니다.
 
 - Supabase 클라이언트 코드 (`@supabase/*` 패키지 자체가 미설치), 인증 라우트, 미들웨어(`proxy.ts`), DB 타입(`lib/database.types.ts`)
-- shadcn/ui (`components.json` 없음), `cn()` 헬퍼 (clsx / tailwind-merge 미설치)
 - `next-themes` 다크모드 Provider
-- 현재 `package.json` 런타임 의존성은 `next`, `react`, `react-dom` **3개뿐**입니다.
+
+### ✅ 이미 도입된 것 (23일차 — 위 목록에서 빠졌던 항목)
+
+**shadcn/ui와 `cn()`은 23일차에 도입됐습니다.** 이 문서가 30일차까지 "미설치"로 잘못 적고 있었습니다(30일차 팀장 검증에서 적발). 다시 만들지 마세요.
+
+- `components.json` **있음**, `cn()` 헬퍼는 **`src/lib/utils.ts`**에 있습니다 — `@/lib/utils`에서 import 하세요.
+- 런타임 의존성은 3개가 아니라 **8개**입니다: `next`, `react`, `react-dom`, `clsx`, `tailwind-merge`, `class-variance-authority`, `radix-ui`, `tw-animate-css`.
 
 다만 **`.env.local`에는 Supabase 값이 이미 있고**, supabase MCP도 연결되어 있습니다:
 

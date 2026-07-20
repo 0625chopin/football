@@ -38,11 +38,12 @@
 import type { LeagueKickoffSchedule } from './kickoff';
 import type { Timestamp } from '@/types';
 
-/** `World.speedMultiplier`(E-01)와 동일한 배속 하한/상한. */
-const MIN_SPEED_MULTIPLIER = 0.25;
-const MAX_SPEED_MULTIPLIER = 20;
+/** `World.speedMultiplier`(E-01)와 동일한 배속 하한/상한. `worldclock.ts`(H-24)가 재사용한다. */
+export const MIN_SPEED_MULTIPLIER = 0.25;
+export const MAX_SPEED_MULTIPLIER = 20;
 
-function assertValidSpeedMultiplier(value: number, label: string): void {
+/** 배속 유효 범위(0.25~20) 검증. `worldclock.ts`(H-24)가 재사용해 이 파일과 동일한 규약을 유지한다. */
+export function assertValidSpeedMultiplier(value: number, label: string): void {
   if (!(value >= MIN_SPEED_MULTIPLIER && value <= MAX_SPEED_MULTIPLIER)) {
     throw new Error(
       `${label}는 ${MIN_SPEED_MULTIPLIER}~${MAX_SPEED_MULTIPLIER} 사이여야 합니다 (받은 값: ${value}).`,

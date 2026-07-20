@@ -392,8 +392,14 @@
 - **근거**: FR-UI-021, FR-UI-000, FR-UI-024, NFR-RS-002, D-18
 - **구현 사항**
   - [x] 도메인 표현 컴포넌트: ~~`TeamBadge`~~, ~~`PlayerAvatar`~~, ~~`AbilityRadar`~~, ~~`ConditionGauge`~~ (28일차 완료), ~~`FitnessBar`~~, ~~`FormStrip`~~, ~~`PositionMap`~~, ~~`StatBar`~~ (29일차 완료) — **8/8 종결**
-  - [ ] 복합 컴포넌트: ~~`EventTimelineItem`~~, ~~`NewsItem`~~ (28일차 완료), ~~`PitchLineup`(7 포메이션)~~ (29일차 완료 — 7종 렌더 검증), `BracketTree`, `TrophyCase`, `GrowthChart`, `InjuryTimeline`, **`MatchCard`**(27일차 SP-2 승격 — `density:"card"|"row"` 단일 통합, +0.6~0.7인일 증분)
-  - [ ] 상태·유틸 컴포넌트: `SkeletonBlock`, `EmptyState`(메시지 키 주입), `ErrorState`(재시도 액션), `CountdownTimer`, `PhaseIndicator`, `OddsButton`(1차 비활성 모드)
+  - [ ] 복합 컴포넌트: ~~`EventTimelineItem`~~, ~~`NewsItem`~~ (28일차 완료), ~~`PitchLineup`(7 포메이션)~~ (29일차 완료 — 7종 렌더 검증), ~~`BracketTree`~~ (**30일차 완료**), `TrophyCase`, `GrowthChart`, `InjuryTimeline`, **`MatchCard`**(27일차 SP-2 승격 — `density:"card"|"row"` 단일 통합, +0.6~0.7인일 증분)
+    - **`BracketTree` 30일차 완료(5팀)** — `src/components/composite/BracketTree.tsx`(+test). 플레이오프·컵 공용이며 **라운드 배열 길이로 컬럼 수를 결정**해 가변 라운드 수에 대응한다(부전승 = 라운드 간 매치 수 불일치 케이스도 테스트 커버). 차트 라이브러리가 아직 미도입이라(I-152, 31일차 판정) 자체 DOM/CSS 커넥터로 1차 구현했다
+    - **D-19(승부차기 별도 표기) 준수** — 정규 스코어와 승부차기 스코어를 **분리 필드**로 받아 합산 없이 별도 표시하고, 승자 판정은 순수 함수 `resolveBracketWinnerSide`가 우선순위(명시 `winnerTeamId` → 정규 스코어 → PSO 스코어)로 결정한다
+    - 도메인에 브래킷 전용 타입이 없어(8일차 동결) `TeamId`/`FixtureId`만 재사용하고 트리 구조는 로컬 타입으로 뒀다. 문구는 `src/i18n/messages/{ko,en}/match.ts`의 `bracket` 그룹 경유 — 전용 네임스페이스 분리는 020 시점 판정(**I-161**)
+  - [~] 상태·유틸 컴포넌트: ~~`SkeletonBlock`~~, ~~`EmptyState`(메시지 키 주입)~~, ~~`ErrorState`(재시도 액션)~~ (**30일차 완료 3/6**), `CountdownTimer`, `PhaseIndicator`, `OddsButton`(1차 비활성 모드)
+    - **30일차 완료(4팀)** — `src/components/state/{SkeletonBlock,EmptyState,ErrorState}.tsx`. **수락 기준(메시지가 번역 키 경유) 충족**: `titleKey`/`descriptionKey`가 `TranslationKey` 타입이고 렌더는 전부 `t(locale, key, params)`를 지난다. 팀장이 하드코딩 표시 문자열 0건을 grep으로 확인했다. `ErrorState`는 `onRetry` 액션 + `error.generic.*` 기본 키
+    - 이들은 **라우트 레벨 공용 컴포넌트라 자체 4상태(`DomainViewState`)를 갖지 않는다** — 4상태를 표현하는 쪽이 아니라 그 상태를 *렌더하는* 쪽이기 때문. 기존 domain 카탈로그 관례(`locale` prop, `cn()`, `t()`)는 그대로 따랐다
+    - 잔여 3종(`CountdownTimer`·`PhaseIndicator`·`OddsButton`)은 33일차 구간. `CountdownTimer`는 2팀 H-24 환산 계약(30일차 인계)을 소비한다
   - [ ] 전 컴포넌트는 **도메인 타입 props만 받고 데이터 페칭을 하지 않는다**
   - [ ] 모든 표시 문구는 번역 키 경유, 숫자·시각은 로케일 포맷터 사용 (D-18)
   - [ ] React Compiler 전제 — `useMemo`/`useCallback` 미사용, 예외 시 정당화 주석
@@ -604,8 +610,12 @@
   - [x] 배속(0.25×~20×) 비례 재계산 및 정지/재개 오프셋 처리 — 동시 종료 정렬 유지 — **29일차 완료(2팀)**. `src/lib/sim/schedule/speed.ts`(신규) + `speed.test.ts`(10 tests). 배속 변경은 **비례(곱셈)** 재계산(`rescaleKickoffsForSpeedChange`), 정지/재개는 **오프셋(덧셈)** 재계산(`rescheduleKickoffsForPauseResume`)으로 분리했고 둘 다 "기준 시각 이전 킥오프는 불변" 규칙을 공유한다
     - **AS-16(동시 종료 정렬)은 리그 일괄 적용으로 보존된다** — `rescaleLeagueKickoffsForSpeedChange`/`rescheduleLeagueKickoffsForPauseResume`가 여러 리그에 동일 context/window를 적용하므로, `kickoff.ts`가 만든 리그 간 정렬이 재계산 후에도 **구조적으로** 유지된다(개별 리그를 따로 재계산하면 깨진다)
     - **월드시계 실시간↔월드분 적분 일반식(H-24)은 여기서 구현하지 않았다** — 이 모듈은 스케줄 재계산만 좁게 담당하고, 적분식은 30일차 인계 소관이다
+  - [x] **월드시간↔실시간 환산 계약(H-24) — 30일차 완료(2팀), Task 025 종료.** `src/lib/sim/schedule/worldclock.ts`(신규) + `worldclock.test.ts`. 3요소 전부 구현: ⓐ 진행 중 경기 경과분 산출식 `worldMinutesAt`/`matchElapsedMinutesAt` — **순수 함수이며 "지금"은 호출자가 `now`로 주입**한다(이 파일에 `Date.now()` 호출 0건, NFR-DT-001) ⓑ 배속·정지 상태 구독 및 재동기화 신호 — `clockRevision` 비교 기반 `shouldResyncWorldClock`/`classifyWorldClockTransition` ⓒ 정지 구간 오프셋 규약 — `applyPause`/`applyResume`가 정지 구간을 동결하고 `pausedTotalMinutes`에 가산. `speed.ts`와 전이 시각 앵커를 공유한다(상수 export 정합)
+    - **구독 메커니즘 자체는 포함하지 않는다** — `src/lib/sim/**`는 `react` import가 금지된 순수 계층이므로 React 훅·Realtime 구독·폴링 타이머는 5팀이 자기 계층에서 구현하고, 이 모듈의 순수 함수를 호출한다. 인계 문서 `docs/handoff/H-24-worldclock-realtime-contract.md`(35일차 Task 015에서 소비)
 - **수락 기준**: 세 리그 최종 라운드 킥오프 차이 ≤ 30분. 동일 시드 재생성 시 대진표 100% 동일. 리터럴 `24/20/16` 0건(NFR-SC-003).
+  - **[x] 30일차 실측 — 충족.** 최종 라운드 킥오프이 세 리그 전부 `2026-08-28T09:30:00.000Z`로 **완전 동일(드리프트 0분)**, 4리그 확장에서도 0분(기준 ≤ 30분). 동일 입력 재생성 `toEqual` 100% 동일. 검증 지점 `four-league-scale.test.ts:97`
 - **테스트**: Vitest — 대진 완전성(모든 팀 쌍 홈·원정 각 1), 배속 변경 시 정렬 유지, 4리그 확장 설정 성공.
+  - **[x] 30일차 완료(2팀)** — 대진 완전성·배속 정렬은 기존 테스트 유지, **4리그 확장은 신규** `src/lib/sim/schedule/four-league-scale.test.ts`(가상 4번째 리그 12팀·130분 간격 합성으로 NFR-SC-003 검증 — 리그 수를 리터럴로 갖지 않고 입력 배열 길이에서 도출함을 확인)
 
 ### Task 026: 경기 후처리·순위·타이브레이커를 구현한다
 
@@ -810,7 +820,10 @@
     - **28일차분(확률 산출)**: `src/lib/odds/match-market.ts`(신규) + `match-market.test.ts`(16 tests). 27일차 `runner.ts`를 이어받아 `tallyMatchOutcomes`(승/무/패 정수 카운트) → `computeMatchOutcomeProbabilities` → `computeMatchOutcomeMarket`(원스톱) 3계층
     - **수락 기준 "확률 합 = 1"은 근사가 아니라 항상 정확히 성립한다** — `rng/precision.ts`의 `normalizeWeights`가 6자리 고정 정밀도 정수 잔차를 최대 항에 흡수시켜 합계가 언제나 `PROBABILITY_UNIT_MAX`(1,000,000)다. 부동소수 누적합을 쓰지 않는다
     - 기본 N은 리터럴이 아니라 공통코드 `ODDS_PARAM.MC_N_MATCH`(3,000, 27일차 I-08 반영분)를 `runner.ts`가 읽는다. R-10에 따라 오늘은 1X2만 다룬다
-  - [ ] 시즌 마켓 N=300(우승·승격·강등·득점왕), 토너먼트 마켓 브래킷 기반
+  - [~] 시즌 마켓 N=300(우승·승격·강등·득점왕), 토너먼트 마켓 브래킷 기반 — **확률 산출 계층 30일차 완료(3팀), 러너(호출부)·토너먼트 마켓 잔여.** `src/lib/odds/season-market.ts`(신규) + `season-market.test.ts`. 반복 결과 `SeasonMarketOutcome[]`를 받아 4개 마켓 확률로 정규화하며, 산출 타입이 `overround.ts`의 `SelectionProbabilityUnits`라 `computeMarketOdds`가 1X2와 **동일 함수로** 배당 변환한다
+    - **N은 300이 아니라 1,500이다** — 위 27일차 항목의 I-08 반영으로 `ODDS_PARAM.MC_N_SEASON`이 300→**1,500**, 재산출 주기가 매라운드→**5라운드**로 이미 바뀌었다(공통코드 `catalog.ts`/`fallback.ts`). 이 수락 기준 문구의 "N=300"은 **I-08 이전 값이며 갱신되지 않은 것**이니 코드 기준(1,500)을 따를 것. 30일차 산출물은 그 값을 소비하는 첫 구현물이다
+    - **정규화 방식을 마켓 성격에 따라 나눈 것이 핵심 설계다** — 우승·득점왕은 반복당 승자가 정확히 1이라 상호배타 다항이므로 `normalizeWeights`로 합=1을 정확히 맞춘다(1X2와 동일 원리). 반면 **승격·강등은 한 반복에 여러 팀이 동시에 해당되는 팀별 독립 이진 마켓**이라 `toUnits(count/totalRuns)`를 그대로 쓰고 **합이 1이 아닌 것이 정상**이다(승격 2자리면 합은 슬롯 수 ≈ 2에 수렴). 이를 합=1로 강제하면 "두 팀이 동시에 오르는데 그 반복엔 한 팀만 오른다"는 왜곡된 분포가 된다
+    - **실제 몬테카를로 러너는 이 파일에 없다** — 잔여 시즌 대진 순회·순위표 갱신·타이브레이크를 돌려 `SeasonMarketOutcome[]`를 만드는 호출부는 **별도 일차 소관이며 아직 미배정**이다. `match-market.ts`가 `runner.ts`의 `runs[]`를 입력받는 것과 동일한 분리 구조
   - [ ] 킥오프 T−30분 산출, 라인업 확정·부상 발생 시 재산출(킥오프 이후 미수행)
   - [ ] 워커·큐로 분리 가능한 인터페이스 구조 (NFR-SC-004)
   - [ ] 1차 표시 전용 모드 — 경기 카드·상세에 1X2 배당 표시, 베팅 버튼 비활성 (FR-BT-014)
