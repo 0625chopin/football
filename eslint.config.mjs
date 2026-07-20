@@ -27,6 +27,53 @@ const eslintConfig = defineConfig([
             "src/lib/sim/**는 결정론이 필요합니다. Date.now() 사용을 금지합니다 (NFR-DT-001).",
         },
       ],
+      // NFR-DT-001: src/lib/sim/**는 react 훅·Supabase 클라이언트에 의존할 수 없는 순수 함수 도메인이다.
+      // Task 023(16일차)의 perf-bench.test.ts 런타임 정규식 검사와 이중으로, 여기서는 정적으로 잡는다.
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "react",
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. react를 import할 수 없습니다 (NFR-DT-001).",
+            },
+            {
+              name: "react-dom",
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. react-dom을 import할 수 없습니다 (NFR-DT-001).",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@supabase/*"],
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. @supabase/*를 import할 수 없습니다 (NFR-DT-001).",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Task 010(17일차): src/components/**에서 Supabase 클라이언트를 직접 import하는 것을 금지한다.
+    // Mock First Development 원칙상 컴포넌트는 src/lib/data의 DataSource 어댑터만 거쳐야 하며,
+    // Supabase 클라이언트를 직접 물면 Mock↔실 데이터 교체 시 컴포넌트까지 고쳐야 한다.
+    // src/components/**는 4팀이 23일차 이후 만들 예정이라 아직 없지만, 규칙은 선제적으로 넣어둔다.
+    files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@supabase/*"],
+              message:
+                "src/components/**에서 Supabase 클라이언트를 직접 import할 수 없습니다. src/lib/data의 DataSource 어댑터를 거치세요.",
+            },
+          ],
+        },
+      ],
     },
   },
   // Override default ignores of eslint-config-next.
