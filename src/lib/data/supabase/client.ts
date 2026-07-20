@@ -74,8 +74,13 @@ interface RestFilter {
   readonly value: string;
 }
 
-function encodeFilterValue(value: string | number | boolean): string {
-  return typeof value === 'string' ? encodeURIComponent(value) : String(value);
+// `buildUrl()`이 `URLSearchParams`로 직렬화하는 시점에 퍼센트 인코딩을 1회 수행하므로,
+// 여기서는 원본 문자열을 그대로 넘긴다 — 미리 `encodeURIComponent`로 인코딩해 두면
+// `URLSearchParams`가 그 결과물(리터럴 `%`)을 다시 인코딩해 이중 인코딩이 발생한다
+// (예: 공백 1글자가 `%2520`으로 전송되어 PostgREST가 값을 원복하지 못한다 — 23일차
+// `client.test.ts` 작성 중 실측 발견, 그전까지 커버리지 0%라 미검출).
+function stringifyFilterValue(value: string | number | boolean): string {
+  return String(value);
 }
 
 class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
@@ -102,11 +107,11 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
   }
 
   eq(column: string, value: string | number | boolean): SupabaseFilterBuilder<Row> {
-    return this.withFilter({ column, op: 'eq', value: encodeFilterValue(value) });
+    return this.withFilter({ column, op: 'eq', value: stringifyFilterValue(value) });
   }
 
   in(column: string, values: readonly (string | number)[]): SupabaseFilterBuilder<Row> {
-    const joined = values.map((v) => encodeFilterValue(v)).join(',');
+    const joined = values.map((v) => stringifyFilterValue(v)).join(',');
     return this.withFilter({ column, op: 'in', value: `(${joined})` });
   }
 

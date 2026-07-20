@@ -353,7 +353,9 @@
 - **일정**: 23일차 ~ 27일차 (2026-08-20 ~ 2026-08-26) / 추정 4.0인일 / 담당 4팀 UI기반·i18n팀 / **크리티컬 패스**
 - **근거**: NFR-RS-003·005, NFR-A11Y-002, D-18, CLAUDE.md(Tailwind v4 CSS-first)
 - **구현 사항**
-  - [ ] shadcn MCP로 레지스트리 확인 후 필요한 프리미티브만 선별 도입 (`components.json` 생성, `cn()` 헬퍼)
+  - [x] shadcn MCP로 레지스트리 확인 후 필요한 프리미티브만 선별 도입 (`components.json` 생성, `cn()` 헬퍼) — **23일차 완료(4팀)**. `components.json`(신규, base=radix / preset=nova), `src/lib/utils.ts`(`cn()` = clsx + tailwind-merge), `src/components/ui/{badge,button,card,separator,skeleton,table,tabs,tooltip}.tsx` **8종**. 나머지(select·dialog·nav-menu 등)는 **013A 확정 후 24~27일차에 필요한 것만** 추가한다. `tsc`·`lint`·816 tests 통과, `npm run dev`(webpack)로 `/ko`·`/ko/sample` 200 확인
+    - **shadcn init 기본값 2건이 이 프로젝트 규약과 충돌해 4팀이 직접 교정**했다: ⓐ `.dark` 클래스 기반 다크모드(`@custom-variant dark (&:is(.dark *))`)를 심는데 이 프로젝트는 **클래스 토글러가 없어** 그대로 두면 다크모드가 죽는다 → `prefers-color-scheme` 미디어쿼리 기반으로 교체(CLAUDE.md 규약, `globals.css:84`) ⓑ 내부 `npm install`이 WSL `/mnt`에서 하위 패키지 chmod EPERM으로 실패(I-62 계열) → 임시 `.npmrc`의 `--no-bin-links`로 우회 후 **제거 확인**. 재초기화하는 팀원은 이 둘을 주의
+    - **팀장 검증 결함 — `lucide-react` import 0건(해소)**: shadcn init 표준 흐름대로 런타임 의존성 6개가 추가됐으나 프리미티브 8종 중 아이콘을 쓰는 것이 없어 `lucide-react`만 소비처가 없었다. 수락 기준 "근거와 함께 최소로(NFR-MT-008)"를 팀장이 **"마감 시점 `src/` 내 import 0건인 런타임 의존성은 남기지 않는다"**는 판정 규칙으로 구체화 → 4팀이 제거. 최종 6개(cva 3 / radix-ui 5 / tw-animate-css 1 / clsx 1 / tailwind-merge 1) **전부 import 근거 확보**
   - [ ] `tailwind.config.ts`를 만들지 않고 `src/app/globals.css`의 `@theme inline`에 토큰 확장
   - [ ] 시맨틱 컬러 토큰 — 승격(초록)/플레이오프(파랑)/강등(빨강)/LIVE/경고, **색상 단독 금지 → 아이콘·라벨 병기** (NFR-A11Y-002)
   - [ ] 라이트/다크 모드 대응 및 대비 4.5:1 검증
@@ -552,7 +554,8 @@
   - [x] 카드 누적 5장 정지 / 퇴장 1~3경기 정지, 리그·컵 누적 분리 — **22일차 완료**(`src/lib/sim/discipline/suspension.ts`, `suspension.test.ts` 신규, 단독 21케이스). 리그/컵을 **축으로 완전 분리**해 한쪽 누적이 다른 쪽에 영향을 주지 않음을 테스트로 직접 고정(수락 기준 "리그·컵 카드가 섞이지 않음" 충족). 21일차 `select.ts`의 `SuspensionCompetition`과 `stats.ts`의 `PlayerMatchStatTierAFold`를 **재구현 없이 소비**한다
     - **퇴장 정지 경기 수(1~3)를 이 파일이 확정하지 않았다** — CardReason taxonomy가 I-41로 보류 중이라 억측 대신 호출자가 `dismissalSuspensionGames`로 명시하게 하고 파일은 범위 검증(fail-fast)만 한다. 21일차 로테이션 판단(타입에 없는 필드를 만들지 않고 멈춤)과 같은 원칙
   - [x] 감독 공석 시 BALANCED 폴백 지속 규칙 확정 후 I-03 해소 — **22일차 완료**(D-23: 공석 0라운드·즉시 대행). `resolveManagerStyle(manager: Pick<Manager,'teamId'|'style'> | null)` — 인자가 `null`이면 BALANCED. **배치 판정(팀장)**: 카드 정지와 별개 관심사임에도 `suspension.ts`에 함께 둔 것을 **승인·유지** — ⓐ 22일차 행이 산출물 경로를 이 파일 하나로 명시했고 ⓑ 의존성 없는 순수 함수 1개라 이관 비용이 사실상 0이며 ⓒ 분리 여부는 025·026(감독·전술) 착수 시점에 함께 판단하는 것이 맞다(그때 재판단하도록 22일차 로그 §7에 예약)
-- **수락 기준**: 전 계수를 1.0으로 강제 시 base와 일치. 핵심 9개 함수 커버리지 100% (NFR-QA-002).
+- **수락 기준**: 전 계수를 1.0으로 강제 시 base와 일치. 핵심 9개 함수 커버리지 100% (NFR-QA-002). — **23일차 충족(2팀)**. `src/lib/sim/ability/` 4파일 75케이스, Stmt/Branch/Func/Line **전부 100%**(`vitest run --coverage`로 실측).
+  - **"전 계수 1.0 강제 시 base 일치" — 23일차 완료(2팀, `modifier-chain.test.ts` 신규)**. 기존 테스트는 **리터럴 배열만 `combineAbilityModifiers`에 넣어 검증**하고 있어 개별 함수 → 합성으로 이어지는 실제 경로가 비어 있었다. 8개 계수 함수를 각각 **중립 입력으로 실제 호출**해 얻은 값을 합성한 결과가 base(1.0)와 일치함을 고정했다 — 계수 하나가 중립 입력에서 1.0을 벗어나면 이제 이 테스트가 잡는다
 - **테스트**: Vitest — 경계값(C=1→0.70, C=10→1.00 등) 전건, 부상·정지 선수 선발 0건.
 
 ### Task 025: 대진표 생성과 라운드 킥오프 스케줄링을 구현한다
@@ -631,7 +634,10 @@
     - **수락 기준 "급여 이중 차감 0건"은 구조적으로 보장**한다 — 별도 "이미 지급함" 플래그를 만들지 않고, `postSalaryPayment`가 매 호출 시 원장(`existingTransactions`)을 스캔해 `reasonCode: 'WAGE'` + `refType: 'Contract'` + `refId: contract.id` + `seasonId`가 모두 일치하는 레코드가 있으면 `DuplicateSalaryPaymentError`를 던진다. **원장이 유일한 근거**라는 20일차 `ledger.ts` 단일 소스 원칙의 연장이며, 상태 플래그를 추가했다면 원장과 이중 소스가 됐을 지점이다
     - 성과 분배는 `LEAGUE_FINISH_POINT`(BASE/RANGE/EXP)를 "1등=BASE+RANGE, 꼴찌=BASE, 사이는 EXP로 휘는 곡선"으로 해석해 `progress = (teamCount − rank)/max(1, teamCount − 1)`를 EXP 지수로 휜다. `teamCount ≤ 1` 분모 0과 범위 밖 `rank`를 clamp로 방어(`valuation.ts`의 구조적 불변식 방어와 동일 성격)
     - 스폰서 수입은 **zero-sum 2건 기록** — 팀 잔고 +, 스폰서 잔고 − 를 같은 `refType: 'SponsorContract'`/`refId`로 함께 남긴다. 팀 한 건만 기록하면 NFR-QA-005(원장 합 = 잔고)가 스폰서 쪽에서 깨진다
-  - [ ] 스폰서 엔티티·계약(팀당 최대 3슬롯, 1~10시즌), 명성 비례 제안 금액
+  - [x] 스폰서 엔티티·계약(팀당 최대 3슬롯, 1~10시즌), 명성 비례 제안 금액 — **23일차 완료(3팀)**(`src/lib/economy/sponsor.ts`, `sponsor.test.ts` 신규, 8케이스). `proposeSponsorContract()`가 ⓐ 팀당 활성 계약 **≤ 3 위반 시 `SponsorSlotLimitExceededError`**(수락 기준을 예외로 강제, 테스트로 고정) ⓑ 계약 기간 **1~10시즌 클램프** ⓒ 명성(`Team.reputation`)×스폰서 규모 비례 `incomePerSeason`을 산출한다. **Sponsor 엔티티 자체는 19일차 `mock/world.ts`에 이미 있어 재작성하지 않았다**. 20~22일차 `ledger.ts`/`valuation.ts` 관례(DC-08 정수 고정, `@/types` 배럴 import) 승계
+    - 제안 금액 계수 `INCOME_BASE`/`INCOME_REP_STEP`이 05문서·`fallback.ts` 어디에도 없어 **이 파일이 처음 정의**했다(`valuation.ts`의 `AGE_STEP_PCT`, 20일차 `ABILITY_MULT`와 같은 계열) → **I-136**, 36일차(031a) 시드 정리 시 실값 정렬
+  - [x] **`src/i18n/messages/{ko,en}/enums.ts` 실값 기입 — 23일차 완료(3팀)**. 4팀 Task 011 골격(22일차 종료)에 H-10 확정 표시명으로 **7그룹 66리터럴**(포지션 11·이벤트 23·부상 4·전술 6·페이즈 6·수상 12·마켓 상태 4)을 ko/en 양쪽 기입. ko는 그룹별 `const`, en은 ko에서 유도한 `EnumsMessages` 리터럴이라 **키 대칭을 tsc가 강제**(누락=TS2741, 초과=TS2353)한다. 추가로 `enums.test.ts`(17케이스)로 그룹·키 대조 + **빈 문자열 없음**을 고정했다 — 후자는 타입이 잡지 못하는 "값 미기입"을 잡는다
+    - H-10 문서의 **70리터럴 중 66만** 채워졌다. `AwardScope`(4종, §6-1) 그룹이 **4팀 스캐폴드에 통째로 없어** 값을 넣을 자리가 없었고, 구조는 4팀 소관이라 3팀이 임의 추가하지 않고 넘겼다(절차 정확) → **I-135**, Task 019 착수 전 4팀 조치 필요
   - [ ] 스폰서 부도 판정 및 관련 계약 일괄 `VOIDED` + 뉴스 피드 노출
   - [ ] 재정 위기 상태 — 음수 잔고 팀의 프리시즌 강제 매각 트리거
 - **수락 기준**: 3시즌 시뮬에서 회계 항등식 오차 0 (수입 − 지출 = 잔고 변화). 이적료·스폰서 분배 zero-sum.
@@ -724,7 +730,11 @@
       - **`factory.ts` 등록 완료** — `src/lib/data/supabase/index.ts` 신규가 `registerDataSource('supabase', ...)`를 부수효과로 1회 수행하고, `bootstrap.ts`가 이 모듈을 동적 로드한다(`factory.ts` 헤더 규약대로 `factory.ts` 자체는 무수정). 프로바이더 함수로 **지연 생성** — `NEXT_PUBLIC_DATA_SOURCE=mock` 구동 중에는 Supabase 환경변수 부재로 인한 에러가 나지 않는다(`mock/index.ts`와 동일 원칙). **팀장이 런타임으로 직접 검증** — `kind=supabase` + `bootstrapDataSource()` 후 `getDataSource()`가 정상 인스턴스를 반환함을 임시 테스트로 확인(커밋하지 않음)
       - `@supabase-js` 미설치 제약은 `client.ts`에 **PostgREST fetch 브리지**(`createSupabaseRestQueryClient`)를 두어 해소했다 — 생성자가 `SupabaseQueryClient` 구조적 타입만 요구하므로 패키지 설치 후 `index.ts` **1줄 교체**로 실클라이언트 전환된다. `client.ts`에 `eq` boolean 확장 + `in()` 추가
       - `getMatchPlayerRatings`/`getMatchTeamStats`는 2팀 **Tier B 재시뮬 컴포넌트 미도착(H-14, 27일차)**으로 Mock과 동일하게 빈 배열을 반환하되 **사유가 다름을 JSDoc에 명시**했다(오늘 결함 아님, 27일차 이후 채움)
-  - [ ] `match_event` 경과 시간 필터를 뷰 또는 보안 함수로 강제 (DC-05, NFR-SEC-004)
+      - **23일차 결함 수정(6팀) — `client.ts`의 이중 URL 인코딩**: `eq()`/`in()`이 값을 `encodeURIComponent`로 미리 인코딩한 뒤 `URLSearchParams`가 직렬화하며 한 번 더 인코딩해 **공백 1글자가 `%2520`으로 전송**됐다. 팀명처럼 공백·한글·특수문자가 든 값의 PostgREST 필터가 **항상 불일치**했을 결함으로, 실데이터 전환 후에야 드러났을 종류다. 원본 문자열을 그대로 넘겨 `URLSearchParams`가 1회만 인코딩하도록 수정. **커버리지 임계를 채우려 테스트를 붙이는 과정에서 발견**됐다
+      - **커버리지 0% 해소(6팀 23일차)** — `client.test.ts`·`index.test.ts` 신규로 `client.ts` 100%(47/47 stmt, 27/27 branch)·`index.ts` 100% 달성. 이 두 파일이 22일차에 테스트 없이 들어와 **CI를 3일간 레드로 만든 원인**이었다(Task 044 참조)
+  - [ ] **[034-E] `match_event` 경과 시간 필터를 뷰 또는 보안 함수로 강제 (DC-05, NFR-SEC-004)** — **034a/034b와 무관한 별도 항목이다**(라벨 없이 034a 3/3 바로 아래 붙어 있어 034a의 연장으로 오독됐다 → I-130, 23일차 라벨 부여). **완료 기한은 30일차**
+    - **23일차 재검증(6팀)**: `match_event_visible` 뷰 + `current_world_minute()`/`is_event_elapsed()` 함수가 원격에 실존함을 확인했다. 다만 `is_event_elapsed()`는 아직 **`SELECT true` 스텁**이다 — `schema-design.md §6.3.1`·`src/types/world.ts:56-61`에 "최종식은 2팀 H-24 인계 후 30일차 확정, 여기선 골격만"으로 명시된 **의도된 placeholder**이며 결함이 아니다(I-102). 따라서 NFR-SEC-004 수락 기준 중 **②(원시 테이블 RLS 차단)만 구조적으로 충족**이고, **①(경과 시간 이후 이벤트 반환 0건)·③(침투 테스트)은 미충족** — 30일차 실측 대상. **이 항목을 지금 체크하지 말 것**
+    - `match_event_visible`이 `get_advisors(security)`에서 `security_definer_view` ERROR로 남는다 — 클라이언트 시계 미신뢰라는 설계상 의도이나 **의도적 수용 기록이 없어** advisor 출력만으로는 미해소 결함과 구분되지 않는다 → **I-137**
   - [ ] 플래그 전환(`NEXT_PUBLIC_DATA_SOURCE`)으로 Mock↔실데이터 즉시 교체
   - [ ] 폴링 훅을 실데이터에 연결, 이후 Realtime 교체 가능하도록 훅 레이어 유지
   - [ ] 전환 전후 화면 스냅샷 비교 — **UI 컴포넌트 코드 변경 0줄** 확인
@@ -882,14 +892,14 @@
       - **번역 키 누락 검사: 별도 스크립트를 만들지 않았다.** 4팀 `keys.ts`의 재귀 조건부 타입 + en 8파일의 `: XMessages` 타입 주석 덕분에 **`tsc`가 이미 missing/excess 키를 잡는다**는 것을 실측으로 확인했다(en에서 키 삭제 → **TS2741**, 없는 키 추가 → **TS2353**). gate 1단계(`tsc --noEmit`)가 이미 커버하므로 중복 구현을 회피한 판단이다. 다만 이 검사가 "en 파일이 `: XMessages` 주석을 유지한다"는 **관례에만 의존하고 중앙 강제 장치가 없다**는 구멍이 남아 있고, `src/i18n/**`가 4팀 소유라 직접 반영하지 않고 제보만 했다 → **I-120**
       - **시드 스냅샷**: vitest 4.1.10이 std-env `isCI` 감지로 CI에서 이미 `updateSnapshot="none"`이 기본값임을 `node_modules` 소스로 확인하고, 스냅샷을 고의 변조한 뒤 `CI=true npx vitest run`으로 **실패 + 파일 미변경을 재현**했다. 이 **암묵적 기본값에 의존하지 않도록** `ci.yml`의 gate 스텝에 `env: UPDATE_SNAPSHOT: none`을 명시 고정했다(신규 로직이 아니라 기존 동작을 diff로 드러낸 것)
     - [x] **시크릿 스캔 — 22일차 완료(1팀)**. 잔여(Edge Function 배포·롤백 문서화 · 환경 분리)는 23일차
-    - **⚠️ CI 첫 실행 결과가 2일째 미확인** — 이 환경에 `gh` CLI가 없어 GitHub Actions 러너 결과를 조회할 수단이 없다. 확인 수단 결정이 선행돼야 한다
-  - [ ] 위반 시 머지 차단, 스냅샷 무단 갱신이 diff로 드러나도록 구성
+    - [x] **CI 첫 실행 결과 확인 — 23일차 완료(1팀). 3일간의 블로커 해소** — `gh` CLI가 없어도 **repo가 public이라 `curl https://api.github.com/repos/0625chopin/football/actions/runs`로 실행 상태를 조회할 수 있다**(로그 다운로드만 admin 토큰 필요, 403 실측). 확인 결과 **CI가 3회 연속 failure**(`3500814`/`f3d2f47`/`d30da33`)였고, 로컬 `npm run gate` 재현으로 원인을 3단계(`test:coverage`)의 `src/lib/data/supabase/client.ts`·`index.ts` **커버리지 0%**(6팀 22일차 034a 산출물)로 특정했다. 절차는 `deploy-runbook.md` §4.2에 기록
+  - [x] 위반 시 머지 차단, 스냅샷 무단 갱신이 diff로 드러나도록 구성 — 스냅샷 부분은 21일차 완료. **머지 차단은 미충족**: 브랜치 보호 규칙이 없어 위 3회 실패가 머지를 막지 못하고 master에 누적됐다 → **I-131(사용자 판단 대기)**. 게이트 자체는 정상 동작했다(회귀를 정확히 지목)
   - [x] 시크릿 스캔(커밋 히스토리 포함) 및 클라이언트 번들 서비스롤 키 grep 검사 — **22일차 완료**(`.github/workflows/secret-scan.yml` 신규, push·PR(master) 트리거 2 job). job1: **gitleaks CLI 바이너리를 직접 설치**해 `detect --source . --log-opts="--all" --redact --exit-code 1` + `fetch-depth: 0`으로 커밋 히스토리 전체 스캔 — 마켓플레이스 액션(`gitleaks-action` v2)은 조직 사용 시 `GITLEAKS_LICENSE`를 요구하나 스캐너 본체는 MIT라 **라이선스 의존을 회피**했다. job2: `npm run build` 후 `.next/static`을 `SUPABASE_SERVICE_ROLE_KEY|service_role`로 grep. 로컬 gitleaks 실행 **35 commits 스캔 0건**(수락 기준 "시크릿 스캔 0건" 충족), `.env.local` gitignore 적용 확인(팀장)
     - **`SUPABASE_SERVICE_ROLE_KEY`는 `NEXT_PUBLIC_` 접두사가 없어 정상 경로로는 클라이언트에 인라인되지 않는다** — job2는 실수로 접두사를 붙이거나 값을 하드코딩하는 **회귀를 잡는 방어용**이다. WSL은 `next build` 최종 `copyfile`이 EPERM으로 죽지만(I-62) 정적 청크는 그 이전에 생성돼 grep 로직 자체는 로컬 확인했고, 실제 게이트 판정은 ubuntu-latest 러너가 한다
     - **추가(팀장 지시, 21일차 결함 A 재발 방지)**: `eslint.config.mjs`에 `no-restricted-imports`로 **프로덕션 코드의 `@/lib/mock/**` import를 정적 차단**. 예외는 `src/lib/mock/**` 자신·`src/lib/data/mock/**`(DataSource 계약상 Mock 구현)·테스트 파일뿐이다. Mock↔실데이터 교체(Task 034)의 전제가 "Mock을 걷어내도 프로덕션 어댑터가 안 깨진다"이므로 문서가 아니라 룰로 고정했다. 팀장 확인: 프로덕션 코드의 `@/lib/mock` import **잔존 0건**
-  - [ ] Edge Function 배포·롤백 절차 문서화, Supabase 요금제·크론 주기 비용 산정(팀원 3 예산안 입력)
-  - [ ] 환경 분리(로컬/스테이징/프로덕션) 및 마이그레이션 적용 순서 규약
-- **수락 기준**: CI에서 3단 게이트가 실제로 실패를 잡아낸다. 시크릿 스캔 0건.
+  - [x] Edge Function 배포·롤백 절차 문서화, Supabase 요금제·크론 주기 비용 산정(팀원 3 예산안 입력) — **23일차 완료(1팀, 6팀 입력)**. `docs/deploy-runbook.md` §3. 요금제는 **Pro $25 + Vercel Hobby $0**로 시작(Free는 DB 500MB가 ~25일차에 소진되고 크론 상시 실행 D-04 때문에 개발 단계에서도 불가), 승급 트리거 3단계, 단계별 총액 $26→$51→$120. **핵심 제약은 요금이 아니라 Edge Function CPU 2초/호출**(요금제 무관 하드 리밋)이며 NFR-PF-003이 이미 75%를 소모해 catch-up 상한 **50→30경기 하향**을 문서에 반영했다(코드 반영 미착수 → **I-134**)
+  - [x] 환경 분리(로컬/스테이징/프로덕션) 및 마이그레이션 적용 순서 규약 — **23일차 완료(1팀)**. `deploy-runbook.md` §1·§2. 실측으로 두 가지 전제가 뒤집혔다: **① 스테이징 미구축**(`list_branches` 실패, Supabase 브랜칭 미가용 → I-133)이라 §1.1 임시 규약을 정규 절차로 격상했고, **② 로컬 마이그레이션 2파일 vs 원격 19건 적용**(17건 미커밋)이라 **git으로 스키마 재현이 불가**해 §2 절차의 신뢰 범위를 "신규 마이그레이션 한정"으로 명시했다(→ I-132, 동기화에 자격증명 필요)
+- **수락 기준**: CI에서 3단 게이트가 실제로 실패를 잡아낸다. 시크릿 스캔 0건. — **23일차 충족(실측)**. 게이트가 6팀 커버리지 0% 회귀를 실제로 잡아냈고(위 CI 첫 실행 확인 참조), 해소 후 `npm run gate` 전체 통과를 팀장이 재현했다. **Task 044 종료.**
 
 ### Task 045: 3차 확장 지점을 준비한다
 
