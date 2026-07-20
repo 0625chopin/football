@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import type { SeasonPhase } from "@/types";
+import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -83,23 +86,46 @@ export async function generateStaticParams() {
 export default async function RootLayout(props: LayoutProps<"/[lang]">) {
   const { lang } = await props.params;
 
+  // 15일차 2차 수정(팀장 검증) — `proxy.ts`의 matcher는 일부 경로(`_next`/`api`/확장자
+  // 있는 파일)를 의도적으로 매치하지 않고, 그런 경로는 정규화 없이 라우터에 그대로
+  // 도달해 `[lang]`에 임의 문자열이 바인딩될 수 있다(`/nonexistent.txt` 등). 프록시가
+  // 무엇을 매치하든/안 하든 무효 lang이 렌더되지 않도록 여기서 2중으로 검증한다.
+  //
+  // `notFound()`는 이 함수(루트 레이아웃 자신) 최상단에서 직접 던지지 않는다 — 그러면
+  // `<html>`을 반환하기 전에 렌더가 통째로 중단돼, 그 세그먼트를 감싸줄 상위 레이아웃이
+  // 없는 루트에서는 Next가 `[lang]/not-found.tsx`도 `global-not-found`도 거치지 못하고
+  // 내부 최소 폴백(`__next_error__`, lang 속성 없음)으로 떨어진다(직접 실측 확인). 대신
+  // `<html lang>`엔 항상 유효한 값(무효 시 기본 로케일)을 쓰고, `notFound()` 호출은
+  // `{children}` 자리에 배치한 `LocaleGate`로 옮겨 — 그 슬롯을 감싸는 세그먼트 경계가
+  // `[lang]/not-found.tsx`를 정상적으로 띄우게 한다.
+  const htmlLang = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
+
   return (
     <html
-      lang={lang}
+      lang={htmlLang}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <div className="flex min-h-full flex-col">
-          <SiteHeader lang={lang} />
+          <SiteHeader lang={htmlLang} />
           <div className="flex flex-1">
-            <SideNav lang={lang} />
-            <main className="flex-1">{props.children}</main>
+            <SideNav lang={htmlLang} />
+            <main className="flex-1">
+              <LocaleGate lang={lang}>{props.children}</LocaleGate>
+            </main>
           </div>
           <SiteFooter />
         </div>
       </body>
     </html>
   );
+}
+
+function LocaleGate({ lang, children }: { lang: string; children: ReactNode }) {
+  if (!isSupportedLocale(lang)) {
+    notFound();
+  }
+  return <>{children}</>;
 }
 
 // mock — 시즌/페이즈 인디케이터 자리. 실제 값은 DataSource 연결(28일차 이후) 시 교체.

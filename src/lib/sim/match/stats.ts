@@ -536,11 +536,15 @@ export function accumulatePlayerMatchStats(
       case 'EXTRA_TIME_START':
       case 'PENALTY_SHOOTOUT':
         break;
+      // MatchEventType이 23종을 넘어서면(향후 enums.ts 변경) 여기서 tsc가 즉시 오류를 낸다.
+      // 구조적으로 런타임에 도달 불가능한 case arm이라 v8 커버리지 분모에서 제외한다(15일차,
+      // 1팀 perFile 임계 채택에 따른 조정 — 테스트로 덮을 대상이 아니라 컴파일 타임 가드).
+      /* v8 ignore start */
       default: {
-        // MatchEventType이 23종을 넘어서면(향후 enums.ts 변경) 여기서 tsc가 즉시 오류를 낸다.
         const exhaustiveCheck: never = type;
         void exhaustiveCheck;
       }
+      /* v8 ignore stop */
     }
   }
 
