@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 10일차 진행 완료(2026-08-03 기준).**
+`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 12일차 진행 완료(2026-08-05 기준).**
 
-- **화면 코드가 생겼습니다(10일차).** `src/app/[lang]/`에 **루트 레이아웃 1개 + 빈 라우트 8개**가 있습니다. 나머지 9개 라우트는 11일차, 전역 레이아웃 골격(헤더·내비·푸터)은 12일차 예정입니다(Task 005, 4팀).
+- **화면 코드가 생겼습니다(10~12일차).** `src/app/[lang]/`에 **루트 레이아웃 1개 + 빈 라우트 17개**(정규 14 + 2차 예약 3)가 있고, **전역 레이아웃 골격(헤더·사이드 내비·푸터)은 12일차에 루트 레이아웃 안에 들어갔습니다**(Task 005, 4팀). 남은 것은 각 라우트의 `loading`/`error`/`not-found` 3종(13일차)입니다.
+  - 헤더의 4개 자리(리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머·로케일 스위처)는 전부 **비활성 placeholder**입니다. 데이터소스·i18n이 붙는 시점(013A 28일차 이후 / 011 22일차)에 교체되니 임의로 채우지 마세요.
+  - `SiteHeader`/`SideNav`/`SiteFooter`는 `src/components/`가 아직 없어 **루트 레이아웃의 로컬 함수**로 두었습니다(4팀 23일차 이후 분리 예정).
   - **최상단 `src/app/layout.tsx`는 없습니다.** `src/app/[lang]/layout.tsx`가 루트 레이아웃이며 `<html lang>`을 `params.lang`으로 동적 설정합니다. 레이아웃은 자기보다 상위 세그먼트의 `params`를 읽을 수 없어, 분리하면 로케일을 반영할 수 없기 때문입니다(10일차 결정). **최상단에 `layout.tsx`를 다시 만들지 마세요.**
   - 각 `page.tsx`는 `params`를 JSON으로 출력만 하는 **자리표시자**입니다. 화면 본문은 5팀이 28일차 이후 채웁니다.
 - **⚠️ WSL 마운트(`/mnt/...`)에서 `npm run dev` / `npm run build`가 실패합니다(I-62).** dev는 `npx next dev --webpack`으로 우회하세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npx tsc --noEmit` / `npm run lint` / `npm run test`로 판정하세요.
@@ -47,7 +49,9 @@ npm run lint    # ESLint (eslint.config.mjs, flat config)
 npm run test    # Vitest 1회 실행 (vitest run)
 ```
 
-- **Vitest는 5일차에 선도입됐습니다** (2팀이 PRNG 결정론 검증에 필요해 devDependency로 추가). 다만 **`vitest.config.ts`·coverage 임계·`test:watch`/`test:coverage` 스크립트는 아직 없습니다** — 정식 정비는 1팀 Task 008(12~15일차)입니다. 그때까지 `@/*` 별칭은 테스트에서 해석되지 않으므로 테스트 코드는 상대경로 import를 쓰세요.
+- **Vitest는 5일차에 선도입**됐고(2팀 PRNG 결정론 검증용), **12일차에 `vitest.config.ts`가 생겼습니다**(1팀 Task 008). 정식 정비(coverage 임계·`test:watch`/`test:coverage` 스크립트)는 15일차까지 이어집니다.
+  - **`@/*` 별칭이 테스트에서도 해석됩니다** (`resolve.tsconfigPaths: true` — Vite 8 네이티브 옵션, `tsconfig.json`이 단일 소스). 기존 테스트의 상대경로 import도 그대로 유효하니 일괄 전환하지 마세요.
+  - **타입 레벨 테스트(`*.type-test.ts`)는 런타임 `include`가 아니라 `typecheck` 모드로 실행됩니다.** vitest는 esbuild 트랜스폼만 하므로 런타임 include에 넣으면 `expectTypeOf` 단언이 소거돼 **항상 통과하는 무의미한 테스트**가 됩니다(I-46·I-84). `test.typecheck.enabled: true`가 실제 `tsc`를 띄워 검증하며, 이 때문에 `npm run test`가 약 5초 느립니다. **`*.type-test.ts`를 `test.include`에 추가하지 마세요.**
 - **Prettier / typecheck 스크립트 / pre-commit 훅 없습니다.** (Husky, lint-staged 미설치)
   - 타입체크가 필요하면 `npx tsc --noEmit`을 직접 실행하세요.
 
@@ -115,7 +119,7 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 ### 개발중 이슈 관련사항 (결정 X, 개선사항)
 
-- `docs/ISSUES.md`에 기록합니다. 현재 I-35까지 등재되어 있으며 **제보는 전원, 반영(파일 편집)은 1팀 코어·품질팀**이 합니다.
+- `docs/ISSUES.md`에 기록합니다. 현재 **I-87**까지 등재되어 있으며 **제보는 전원, 반영(파일 편집)은 1팀 코어·품질팀**이 합니다(일차 마감 교차 점검에서 나온 항목은 팀장이 직접 등재하기도 합니다).
 - **확정된 결정**은 ISSUES가 아니라 `docs/require/06-prioritization-and-risks.md` 6.3절 결정 기록(D-\*)이 단일 소스입니다. 결정과 미결을 같은 곳에 쓰지 마세요.
 
 ### 테스트계정 (계정/비밀번호)

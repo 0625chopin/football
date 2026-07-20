@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import Link from "next/link";
+import type { SeasonPhase } from "@/types";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -61,6 +63,23 @@ export async function generateStaticParams() {
   return [{ lang: "ko" }, { lang: "en" }];
 }
 
+/**
+ * 12일차(2026-08-05) Task 005 산출물 — 전역 레이아웃 골격(FR-UI-020).
+ *
+ * `docs/team-schedule/04-UI기반i18n팀.md` 12일차 표는 산출물을 `src/app/layout.tsx`로
+ * 표기하지만, 10일차 결정(위 JSDoc)에 따라 최상단 `layout.tsx`는 만들지 않으므로 헤더/
+ * 사이드 내비/푸터를 이 루트 레이아웃(`[lang]/layout.tsx`)의 `<body>`에 둔다.
+ *
+ * `src/components/**`는 아직 없다(4팀 23일차 이후 생성 — `docs/team-schedule/
+ * 04-UI기반i18n팀.md` 소유 경로 절). 그래서 `SiteHeader`/`SideNav`/`SiteFooter`는 별도
+ * 파일로 분리하지 않고 이 파일의 로컬 함수로 둔다 — 013A(28~33일차)에서 실제 도메인
+ * 컴포넌트가 생기면 이 자리들을 교체한다.
+ *
+ * 헤더의 4개 자리(리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머·로케일 스위처)는
+ * 아직 데이터소스도 i18n도 없어 전부 비활성 placeholder다. 실제 구현 시점: 리그 스위처·
+ * 킥오프 타이머는 013A/019~020 화면 연결(28일차 이후), 로케일 스위처는 011의 22일차
+ * (`LocaleSwitcher.tsx`), 여기 하드코딩된 한국어 라벨도 그때 번역 키로 교체된다.
+ */
 export default async function RootLayout(props: LayoutProps<"/[lang]">) {
   const { lang } = await props.params;
 
@@ -69,7 +88,91 @@ export default async function RootLayout(props: LayoutProps<"/[lang]">) {
       lang={lang}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{props.children}</body>
+      <body className="min-h-full flex flex-col">
+        <div className="flex min-h-full flex-col">
+          <SiteHeader lang={lang} />
+          <div className="flex flex-1">
+            <SideNav lang={lang} />
+            <main className="flex-1">{props.children}</main>
+          </div>
+          <SiteFooter />
+        </div>
+      </body>
     </html>
+  );
+}
+
+// mock — 시즌/페이즈 인디케이터 자리. 실제 값은 DataSource 연결(28일차 이후) 시 교체.
+const mockSeasonPhase: SeasonPhase = "REGULAR";
+
+function SiteHeader({ lang }: { lang: string }) {
+  return (
+    <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
+      {/* 서비스명 — 011에서 번역 키로 교체 예정 */}
+      <span className="font-semibold">football4</span>
+      <div className="flex items-center gap-2 text-sm">
+        <button
+          type="button"
+          disabled
+          className="rounded border border-foreground/20 px-2 py-1 text-foreground/60"
+        >
+          리그 선택 (준비 중)
+        </button>
+        <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
+          시즌 페이즈: {mockSeasonPhase} (준비 중)
+        </span>
+        <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
+          다음 킥오프까지 -- (준비 중)
+        </span>
+        <button
+          type="button"
+          disabled
+          className="rounded border border-foreground/20 px-2 py-1 text-foreground/60"
+        >
+          {lang.toUpperCase()} (준비 중)
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// 11일차까지 생성된 실제 라우트만 연결한다. admin/bet/my는 2차 대비 예약(플래그 비활성)이라 제외.
+const NAV_ITEMS: { label: string; path: string }[] = [
+  { label: "리그", path: "leagues" },
+  { label: "경기", path: "matches" },
+  { label: "선수", path: "players" },
+  { label: "팀", path: "teams" },
+  { label: "통계", path: "stats" },
+  { label: "플레이오프", path: "playoffs" },
+  { label: "컵", path: "cup" },
+  { label: "이적", path: "transfers" },
+  { label: "수상", path: "awards" },
+  { label: "아카이브", path: "archive" },
+  { label: "스폰서", path: "sponsors" },
+];
+
+function SideNav({ lang }: { lang: string }) {
+  return (
+    <nav className="w-48 shrink-0 border-r border-foreground/10 p-4">
+      <ul className="flex flex-col gap-1 text-sm">
+        <li>
+          <Link href={`/${lang}`}>홈</Link>
+        </li>
+        {NAV_ITEMS.map((item) => (
+          <li key={item.path}>
+            <Link href={`/${lang}/${item.path}`}>{item.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="border-t border-foreground/10 px-4 py-3 text-sm text-foreground/60">
+      {/* 개발 진행 상태 표기 — 011에서 번역 키로 교체 예정 */}
+      football4 · 개발 진행 중
+    </footer>
   );
 }
