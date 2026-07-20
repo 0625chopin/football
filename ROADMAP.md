@@ -412,7 +412,7 @@
   - [x] 넓은 콘텐츠는 자체 `overflow-x: auto` 컨테이너 적용 — **33일차 완료**. 대상은 013B `BracketTree` 하나뿐이며 로딩 skeleton·ready 렌더 양쪽에 이미 적용돼 있다(5팀). 013A 14종은 전부 고정크기·반응형 소형 위젯(SVG 140px 레이더, w-full 피치맵, 배지·게이지)이라 **대상 없음**으로 판정했고, 나머지 013B 6종도 svg viewBox·flex-wrap으로 자체 스케일된다. 불필요한 wrapper를 일괄 삽입하지 않은 판단이 옳다
     - **I-159 해소(33일차, 4팀)** — `FitnessBar`·`ConditionGauge`에 중복돼 있던 clamp 수식을 `src/components/domain/fitness.ts`의 `clampFitness`로 추출하고 양쪽을 import로 전환(`fitness.test.ts` 4케이스 신설). 29일차에 "세 번째 소비처가 생기는 시점을 트리거로 삼아도 된다"고 유예했던 항목을 013A 종료 구간에서 정리했다
     - **I-166 해소(33일차, 3팀→5팀→4팀)** — 32일차에 카탈로그 부재로 `team.trophy.type.*` 로컬 키를 쓰던 `TrophyCase`가, 3팀이 같은 날 신설한 `enums.trophyType`(ko/en 4종) 소비로 교체됐고(`TrophyCase.tsx:158`) 사장된 로컬 키는 4팀이 제거했다. **소유 경계에 따라 5팀은 4팀 소유 `team.ts`를 직접 지우지 않고 판단만 회신**했으며, I-165와 동일 구조의 재발이라 "신규 enum 표시명은 로컬 키 우회 대신 3팀에 카탈로그를 먼저 요청한다"가 관례로 확립됐다
-- **수락 기준**: 22종 전부가 4상태를 지원하고, ko/en 전환 시 하드코딩 문자열 0건. (27일차 SP-2에서 `MatchCard` 승격으로 21→22종). **32일차 진행 21/22** (도메인 8/8 종결, **복합 7/7 종결**, **상태·유틸 6/6 종결**) — 잔여 1종은 `MatchCard`(5팀, 33일차). **규약 2항목(페칭 0·번역 키/포맷터)은 32일차 전수 감사로 위반 0건 확정** — 4상태 판별 규약은 `state: DomainViewState|CompositeViewState<T>` 단일 prop + 리터럴 `loading|empty|error|ready`로 양 팀 통일(28일차 팀장 판정, I-156), 인터랙션 없는 컴포넌트는 서버 컴포넌트 + `t(locale, …)` 직접 호출.
+- **수락 기준**: 22종 전부가 4상태를 지원하고, ko/en 전환 시 하드코딩 문자열 0건. (27일차 SP-2에서 `MatchCard` 승격으로 21→22종). **32일차 진행 21/22** (도메인 8/8 종결, **복합 7/7 종결**, **상태·유틸 6/6 종결**) — 잔여 1종은 `MatchCard`(5팀). **34일차 22/22 종결** — `MatchCard`가 33일차가 아니라 **34일차 Task 015 착수와 함께** 생성됐다(홈 카드 그리드의 실제 소비처가 생기는 시점에 맞춘 것). I-156 단일 prop 규약을 따르며 4상태 실측 분모는 16종(도메인 8 + 복합 7 + `MatchCard` 1)으로 **16/16**. **규약 2항목(페칭 0·번역 키/포맷터)은 32일차 전수 감사로 위반 0건 확정** — 4상태 판별 규약은 `state: DomainViewState|CompositeViewState<T>` 단일 prop + 리터럴 `loading|empty|error|ready`로 양 팀 통일(28일차 팀장 판정, I-156), 인터랙션 없는 컴포넌트는 서버 컴포넌트 + `t(locale, …)` 직접 호출.
   - **33일차 정정(I-168) — "전부 4상태"의 분모에는 예외가 있다.** 상태·유틸 6종(`SkeletonBlock`·`EmptyState`·`ErrorState`·`CountdownTimer`·`PhaseIndicator`·`OddsButton`)은 **4상태 비대상**이다. 앞의 3종은 4상태를 **표현하는 쪽**의 프리미티브라 자기 자신에게 4상태를 요구하는 것이 성립하지 않고(30일차 결정), 뒤의 3종도 31일차 표가 애초에 요구하지 않았다. 따라서 4상태 실측 분모는 **도메인 8 + 복합 7 + `MatchCard` 1 = 16종**이며, 33일차 시점 15/16(잔여 `MatchCard`)이다. 33일차 4팀 감사에서 이 면제가 "8/14 미달"로 오독될 뻔해 팀 md 수락 문구를 정정했다 — **총량 표현("전부/전 종")을 쓸 때는 분모의 예외를 같은 줄에 명시할 것**.
   - **33일차 하드코딩 실측**: 013A 14종은 주석 제외 JSX 렌더 텍스트 0건(perl로 주석 제거 후 재grep), 013B 7종은 JSX 텍스트노드·`title`/`aria-label` 속성 전수 grep 0건 — 양 팀 모두 전부 `t(locale, …)` 경유 또는 데이터 prop.
 
@@ -422,7 +422,11 @@
 - **일정**: 34일차 ~ 38일차 (2026-09-04 ~ 2026-09-10) / 추정 4.0인일 / 담당 4팀 UI기반·i18n팀
 - **근거**: FR-UI-001, FR-UI-000, KPI-6, UC-601, D-18
 - **구현 사항**
-  - [ ] 카테고리별 섹션 레이아웃(도메인 / 복합 / 상태 / 차트 / 어드민)과 앵커 네비게이션
+  - [x] 카테고리별 섹션 레이아웃(도메인 / 복합 / 상태 / 차트 / 어드민)과 앵커 네비게이션 — **34일차 완료(4팀)**. `src/app/[lang]/sample/page.tsx`(549줄) + `src/i18n/messages/{ko,en}/sample.ts`(신규 네임스페이스)
+    - **21종 전량 등록·실렌더** — domain 8 + composite 7 + state 6. 팀장이 JSX 사용을 전수 grep해 **import만 하고 미사용인 컴포넌트 0건** 확인. 하드코딩 문자열도 0건(주석 제거 후 JSX 텍스트노드 + `title`/`aria-label`/`alt`/`placeholder` 전수 grep 무히트)
+    - **chart·admin 섹션은 골격 + "미구현" 표기** — 해당 카테고리 컴포넌트가 아직 없다. `MatchCard`는 같은 날 5팀이 신규 생성했으므로 **35일차에 등록해 22종으로 맞춘다**
+    - 데이터는 `getDataSource()` 어댑터만 경유한다. 어댑터가 아직 빈 배열만 반환하는 4종(Injury·Trophy·Award·PlayerAttributeHistory)은 **쇼케이스 전용 인라인 표본**으로 처리해 `no-restricted-imports` 가드레일(21일차 결함 A)을 우회하지 않았다
+    - ⚠️ **수락 기준의 Playwright 스크린샷 검증은 I-128(Chromium 미설치)로 여전히 불가.** 34일차 판정은 팀장이 dev 서버(webpack, 재기동 후) 실응답을 curl로 받아 `/ko/sample`·`/en/sample` 200 + 에러 마커 0건 + 앵커 5종을 확인한 것으로 갈음했다
   - [ ] 컴포넌트별 4상태 토글 컨트롤 + 뷰포트 프리뷰 전환(모바일/태블릿/데스크톱)
   - [ ] **로케일 전환 컨트롤** — 각 컴포넌트를 ko/en으로 즉시 비교 확인 (D-18)
   - [ ] 개별 컴포넌트를 `ErrorBoundary`로 격리해 하나가 깨져도 쇼케이스가 살아있게 구성
@@ -437,7 +441,10 @@
 - **일정**: 34일차 ~ 38일차 (2026-09-04 ~ 2026-09-10) / 추정 4.0인일 / 담당 5팀 화면·배팅UX팀 / **크리티컬 패스**
 - **근거**: FR-UI-002, FR-UI-020, FR-UI-022, NFR-PF-009, NFR-RS-001
 - **구현 사항**
-  - [ ] 3리그 진행 중 경기 카드 그리드 — 실시간 스코어·경과분·LIVE 배지
+  - [~] 3리그 진행 중 경기 카드 그리드 — 실시간 스코어·경과분·LIVE 배지 — **34일차 스코어·LIVE 배지 완료(5팀), 경과분만 잔여.** `src/components/composite/MatchCard.tsx`(신규 — **013B 잔여 1종 종결, 이로써 22종 전량 완료**) + `src/app/[lang]/page.tsx`(자리표시자 → 카드 그리드) + `src/i18n/messages/{ko,en}/match.ts`(`card` 그룹)
+    - `MatchCard`는 named export·서버 컴포넌트·**I-156 단일 prop 규약 준수**(`state: CompositeViewState<MatchCardData>`, 리터럴 `loading|empty|error|ready`). `density:"card"|"row"`로 목록형 재사용 여지를 열어 뒀다(오늘은 card만 사용)
+    - 데이터는 `getDataSource()`(`getLiveFixtures`/`getTeamsByIds`/`getLeagues`)만 경유 — Mock 팩토리 직접 호출 0건
+    - **경과분은 의도적으로 미표시(`elapsedMinutes: null`)** — H-24 계약대로 UI가 `(now − kickoff)`를 계산하지 않는데, 정작 `now`의 출처가 없다. `DataSource`에 시각 메서드가 없고, `MOCK_NOW` 직접 import는 `eslint.config.mjs:82` 가드레일 위반이며, `Date.now()`는 Mock 세계 시각(2026-08월 고정)과 어긋나 음수가 된다. **가드레일을 뚫는 대신 기능을 축소한 판단을 팀장이 지지**했다. 순수 함수 `computeElapsedMinutes`는 테스트까지 완비되어 `now` 소스가 생기면 즉시 연결 가능 → **I-169(1팀 판정, 35일차 폴링 훅 차단성 있음)**
   - [ ] 다음 킥오프 카운트다운, 시즌·페이즈 인디케이터, 주요 뉴스 요약, 로케일 스위처
   - [ ] 폴링 훅 적용(기본 5초, 공통코드 주기, 탭 비활성 시 중단)
   - [ ] 4상태 — 카드 스켈레톤 6개 / "진행 중 경기 없음 + 다음 킥오프 시각" 빈 상태 / 재시도 에러
@@ -638,7 +645,7 @@
 - **근거**: FR-MT-010, FR-LG-004~006, FR-ST-001~005, NFR-PF-011, NFR-CR-002
 - **구현 사항**
   - [~] 후처리 7종을 단일 트랜잭션으로 — 스코어 확정 / 순위 갱신 / 스탯 누적 / 컨디션·피로 / 부상 판정 / 카드·정지 / 정산 트리거 *(33일차 골격 완료 — `sim/postmatch/pipeline.ts`의 `POST_MATCH_STAGE_ORDER`가 순서 단일 소스, `executedStages` 런타임 트레이스로 순서 증명. **4종 실배선**(스코어 확정·스탯 누적·카드 정지·정산 트리거) / **3종 `implemented:false` 계약뿐**(순위 갱신·컨디션 피로·부상 판정 — 하위 모듈 부재, 실산식 착수 일차 미배정). 실패 시 throw 전파로 원자성 확보)*
-  - [ ] 실패 시 전체 롤백 + 최대 3회 재시도 + 알림, 재실행 멱등(중복 누적 0)
+  - [x] 실패 시 전체 롤백 + 최대 3회 재시도 + 알림, 재실행 멱등(중복 누적 0) *(34일차 — `runPostMatchPipelineWithRetry()` 기본 3회·첫 성공 즉시 반환, 전부 실패 시 throw 없이 `ok:false` + 알림 페이로드(발송은 오케스트레이션 계층). **실패 분기가 `PostMatchPipelineResult`의 어떤 필드도 담지 않는 유니온 타입**이라 "전체 롤백"이 구조적으로 강제된다. 멱등: `computePostMatchIdempotencyKey()` + 파이프라인 무상태성(매 호출 새 `Map`)으로 스탯 이중 누적 0. **단 이 키는 `fixtureId` 단독이라 Tier B 재시뮬레이션 구분자가 아니다 — I-171**)*
   - [ ] 7단계 타이브레이커 — 승점 → 골득실 → 다득점 → 승자승 미니리그 → 다승 → 페어플레이 → 시드 추첨
   - [ ] 승강 경계 동률 시 `competition_type = TIEBREAK` Fixture 자동 생성
   - [ ] 사전 집계 `standing` 테이블 갱신(라운드별 스냅샷), 경기 평점 산출(FR-ST-003)
@@ -849,7 +856,10 @@
     - **큐 전환 지점을 `executeJob` 주입 하나로 좁혔다** — `runOddsComputeMatchMarket`이 잡 실행기를 주입받으므로 호출부 수정만으로 인프로세스→큐 컨슈머 전환이 가능하다(NFR-SC-004). 비동기 큐를 흉내낸 커스텀 `executeJob` 테스트가 동작 동일성을 보증한다
     - **32일차 `schedule.ts`가 남긴 상태 구분 몫을 흡수했다** — `decideOddsComputeAction` + `OddsComputeStateStore`가 "최초 산출이 아직 없는 대진에 재산출 트리거가 먼저 온" 케이스를 `INITIAL_VIA_RECOMPUTE`로 별도 판정한다(`schedule.ts`는 순수 함수라 상태를 못 들고 있었다)
     - **I-167 해소** — 리드타임 30을 리터럴로 박지 않고 `ODDS_PARAM.INITIAL_LEAD_MIN`(30)·`PARTITION_COUNT`(8)로 `catalog.ts`·`fallback.ts`에 정식 등록한 뒤 worker가 읽어 `schedule.ts`에 주입한다(NFR-CFG-001)
-  - [ ] 1차 표시 전용 모드 — 경기 카드·상세에 1X2 배당 표시, 베팅 버튼 비활성 (FR-BT-014)
+  - [x] 1차 표시 전용 모드 — 경기 카드·상세에 1X2 배당 표시, 베팅 버튼 비활성 (FR-BT-014) — **34일차 완료(3팀)**. `src/lib/odds/display.ts`(신규) + `display.test.ts`(9 tests). `toOddsDisplayPanel`(범용, 입력 키 순서 유지) / `toMatchOddsDisplayPanel`(1X2 전용, HOME→DRAW→AWAY 고정 순서). 반환 `OddsDisplayPanel = { format:'decimal', bettingEnabled:false, selections }`
+    - **`bettingEnabled`를 리터럴 타입 `false`로 고정하고 override 파라미터 자체를 두지 않았다** — FR-BT-014 수용 기준 ②(베팅 제출 API 비노출)를 모듈 경계에서 타입으로 강제한다. `format`도 `'decimal'` 리터럴 고정(Q-03, 분수·미국식은 2차)
+    - 확률 0으로 제외된 셀렉션은 `selectionOdds`에 키 자체가 없어 그대로 누락된다 — 0이나 placeholder로 채우지 않는다(FR-BT-005 일관)
+    - **팀장 검증 지적 → 재수정**: 최초 구현이 `toFixed(2)`로 표시 문자열을 자체 생성했으나, 4팀 H-09 인계물 `src/i18n/format.ts:53`의 `formatOdds(odds, locale)`가 이미 있고 같은 파일이 "포인트/배당 단일 경유지 원칙"을 명시한다. ko/en 모두 소수점이 `.`이라 **자체 테스트 9건이 전부 통과했고 육안으로도 잡히지 않았다.** `display` 필드를 제거해 원시값만 반환하고 문자열화는 소비 측(컴포넌트)이 `formatOdds`로 수행하도록 전환 — `src/lib/odds/**`가 로케일을 모르는 순수 계층으로 남는다. 유한 양수 검증은 `assertValidDecimalOdds`로 분리 유지
   - [ ] 표시 형식은 decimal 고정(Q-03 기본 가정) + **로케일 숫자 서식 적용**(D-18), 2차 착수 전 Q-03 재확인
 - **수락 기준**: 경기당 산출 ≤ 10초, 라운드 전체 ≤ 60초. KPI-4 — 1X2 Brier Score ≤ 0.21(1,000경기 누적).
 - **테스트**: Vitest — 프리시뮬 시드 ≠ 본경기 시드, 확률 합 = 1, 오버라운드 검증. Playwright MCP — 경기 상세 배당 패널 표시 및 버튼 비활성 확인.

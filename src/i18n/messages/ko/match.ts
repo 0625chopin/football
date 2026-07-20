@@ -12,6 +12,9 @@
 // 30일차(013B, 5팀): `bracket`(`BracketTree`) 그룹 추가. 넉아웃 트리는 플레이오프·컵
 // 공용이라 특정 화면 전용 네임스페이스가 아직 없어, 기존 5팀 기여분과 같은 파일에
 // 얹었다(전용 네임스페이스 분리는 4팀과 협의 필요 — `news`와 동일 판단).
+//
+// 34일차(Task 015, 5팀): `card`(`MatchCard`) 그룹 추가. LIVE 배지 라벨은 기존 `live.label`을
+// 재사용하고(중복 선언 금지), 이 그룹은 카드 자체의 4상태 문구 + 점수/경과분 서식만 담는다.
 export const match = {
   list: {
     title: "경기 목록",
@@ -53,6 +56,13 @@ export const match = {
     empty: "표시할 대진표가 없습니다.",
     error: "대진표를 불러오지 못했습니다.",
     tbd: "미정",
+  },
+  card: {
+    gridTitle: "실시간 경기",
+    empty: "표시할 경기가 없습니다.",
+    error: "경기 정보를 불러오지 못했습니다.",
+    scoreFormat: "{home} - {away}",
+    elapsedFormat: "{minute}'",
   },
 };
 

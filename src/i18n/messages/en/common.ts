@@ -4,6 +4,7 @@ export const common: CommonMessages = {
   app: {
     name: "football4",
     devStatus: "In development",
+    description: "Virtual football league simulation · In development",
   },
   header: {
     leagueSwitcherPlaceholder: "Select league (coming soon)",

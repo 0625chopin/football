@@ -12,9 +12,11 @@ import { describe, expect, it } from 'vitest';
 import {
   POST_MATCH_STAGE_ORDER,
   buildSettlementTrigger,
+  computePostMatchIdempotencyKey,
   confirmMatchScore,
   runCardSuspensionStage,
   runPostMatchPipeline,
+  runPostMatchPipelineWithRetry,
   runStatAccumulationStage,
   type PlayerCardSuspensionInput,
   type PostMatchPipelineInput,
@@ -212,5 +214,74 @@ describe('runPostMatchPipeline — 오케스트레이터', () => {
   it('스코어가 유효하지 않으면 스테이지 1에서 던지고 이후 스테이지는 실행되지 않는다(부분 반영 없음)', () => {
     const input = { ...buildInput(), rawScore: { ...VALID_RAW_SCORE, homeScore: -1 } };
     expect(() => runPostMatchPipeline(input)).toThrow(RangeError);
+  });
+
+  it('같은 입력을 두 번 실행해도 스탯이 누적되지 않는다(재실행 멱등)', () => {
+    const input = buildInput();
+    const first = runPostMatchPipeline(input);
+    const second = runPostMatchPipeline(input);
+    expect(second.statAccumulation.get(PLAYER_A)?.goals).toBe(1);
+    expect(second.statAccumulation.get(PLAYER_A)).toEqual(first.statAccumulation.get(PLAYER_A));
+  });
+});
+
+describe('runPostMatchPipelineWithRetry — 재시도·롤백·알림', () => {
+  function buildInput(): PostMatchPipelineInput {
+    return {
+      fixture: FIXTURE_IDENTITY,
+      rawScore: VALID_RAW_SCORE,
+      events: [makeEvent({ type: 'GOAL', primaryPlayerId: PLAYER_A })],
+      disciplineRoster: new Map<PlayerId, PlayerCardSuspensionInput>([
+        [PLAYER_A, { priorState: baseDisciplineState(), competition: 'LEAGUE' }],
+      ]),
+    };
+  }
+
+  it('첫 시행에서 성공하면 attempts: 1로 즉시 반환한다', () => {
+    const outcome = runPostMatchPipelineWithRetry(buildInput());
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) {
+      expect(outcome.attempts).toBe(1);
+      expect(outcome.result.executedStages).toEqual(POST_MATCH_STAGE_ORDER);
+    }
+  });
+
+  it('계속 실패하면 기본 최대 3회 시행 후 알림 페이로드와 함께 ok: false를 반환한다(던지지 않음)', () => {
+    const input = { ...buildInput(), rawScore: { ...VALID_RAW_SCORE, homeScore: -1 } };
+    const outcome = runPostMatchPipelineWithRetry(input);
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.attempts).toBe(3);
+      expect(outcome.notification).toEqual({
+        fixtureId: FIXTURE_IDENTITY.fixtureId,
+        attempts: 3,
+        lastErrorMessage: expect.stringContaining('homeScore'),
+        notify: true,
+      });
+    }
+  });
+
+  it('maxAttempts 옵션으로 시행 횟수 상한을 조정할 수 있다', () => {
+    const input = { ...buildInput(), rawScore: { ...VALID_RAW_SCORE, homeScore: -1 } };
+    const outcome = runPostMatchPipelineWithRetry(input, { maxAttempts: 1 });
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) {
+      expect(outcome.attempts).toBe(1);
+    }
+  });
+});
+
+describe('computePostMatchIdempotencyKey — 멱등 키', () => {
+  it('같은 fixtureId면 항상 같은 키를 낸다', () => {
+    expect(computePostMatchIdempotencyKey(FIXTURE_IDENTITY)).toBe(
+      computePostMatchIdempotencyKey(FIXTURE_IDENTITY),
+    );
+  });
+
+  it('fixtureId가 다르면 키도 다르다', () => {
+    const other = { ...FIXTURE_IDENTITY, fixtureId: 'fixture-2' as FixtureId };
+    expect(computePostMatchIdempotencyKey(FIXTURE_IDENTITY)).not.toBe(
+      computePostMatchIdempotencyKey(other),
+    );
   });
 });

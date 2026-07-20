@@ -1,15 +1,549 @@
+import type { ReactNode } from "react";
+
+import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from "@/i18n/locales";
+import { t } from "@/i18n/t";
+import type { TranslationKey } from "@/i18n/keys";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+
+import { AbilityRadar } from "@/components/domain/AbilityRadar";
+import { ConditionGauge } from "@/components/domain/ConditionGauge";
+import { FitnessBar } from "@/components/domain/FitnessBar";
+import { FormStrip } from "@/components/domain/FormStrip";
+import { PlayerAvatar } from "@/components/domain/PlayerAvatar";
+import { PositionMap } from "@/components/domain/PositionMap";
+import { StatBar } from "@/components/domain/StatBar";
+import { TeamBadge } from "@/components/domain/TeamBadge";
+
+import { BracketTree } from "@/components/composite/BracketTree";
+import type { BracketParticipant, BracketTreeData } from "@/components/composite/BracketTree";
+import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
+import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
+import { GrowthChart } from "@/components/composite/GrowthChart";
+import { InjuryTimeline } from "@/components/composite/InjuryTimeline";
+import type { InjuryTimelineData } from "@/components/composite/InjuryTimeline";
+import { NewsItem } from "@/components/composite/NewsItem";
+import type { NewsItemData } from "@/components/composite/NewsItem";
+import { PitchLineup } from "@/components/composite/PitchLineup";
+import type { PitchLineupData } from "@/components/composite/PitchLineup";
+import { TrophyCase } from "@/components/composite/TrophyCase";
+import type {
+  TrophyCaseAwardRow,
+  TrophyCaseData,
+  TrophyCaseTrophyRow,
+} from "@/components/composite/TrophyCase";
+
+import { CountdownTimer } from "@/components/state/CountdownTimer";
+import { EmptyState } from "@/components/state/EmptyState";
+import { ErrorState } from "@/components/state/ErrorState";
+import { OddsButton } from "@/components/state/OddsButton";
+import { PhaseIndicator } from "@/components/state/PhaseIndicator";
+import { SkeletonBlock } from "@/components/state/SkeletonBlock";
+
+import { getDataSource } from "@/lib/data/factory";
+import type {
+  AwardId,
+  Fixture,
+  Injury,
+  InjuryId,
+  PlayerAttributeHistory,
+  TeamId,
+  TrophyId,
+} from "@/types";
+
 /**
- * `/[lang]/sample` 라우트 골격 — Task 005(10일차), 빈 페이지.
+ * `/[lang]/sample` 컴포넌트 쇼케이스 — Task 014(34일차, 4팀) 1일차분.
  *
- * `/sample` 쇼케이스 본편은 4팀 Task 014(34~38일차)에서 완성된다. 지금은
- * 라우트 골격만 만든다.
+ * 오늘 스코프: 카테고리별 섹션 레이아웃 + 앵커 내비게이션 + 21종 전량 등록만 한다.
+ * 4상태 토글·뷰포트 프리뷰·로케일 토글·ErrorBoundary·커버리지 카운터·어댑터 토글은
+ * 35일차 이후(Task 014 계속분) — 여기서는 각 컴포넌트를 "ready"(4상태 비대상은 정적
+ * 기본값) 상태 1건씩만 보여준다.
+ *
+ * 소스: `MatchCard`(5팀 Task 015 예정)는 아직 없어 등록하지 않는다. 차트/어드민
+ * 카테고리는 전용 컴포넌트가 아직 없어 섹션 골격만 두고 "미구현"으로 표기한다
+ * (복합 카테고리의 `GrowthChart`가 1차 차트 구현이며 그쪽에서 이미 등록된다).
+ *
+ * Mock 데이터는 `src/lib/mock/**`(3팀 소유)를 직접 import하지 않고 항상 `getDataSource()`
+ * (`@/lib/data/factory`) 어댑터를 경유한다 — 프로덕션 코드가 `src/lib/mock/**`를 직접
+ * import하면 ESLint(Task 044, 21일차 결함 A 재발 방지)가 막는다. `Injury`/`Trophy`/`Award`/
+ * `PlayerAttributeHistory`는 `MockDataSource`가 아직 `[]`만 반환한다(economy/성장·수상
+ * 파이프라인, 21·28일차 이후 생성기 예정 — `MockDataSource.ts` 파일 헤더 "데이터가 없는
+ * 메서드" 절 참조). 그 3+1종만 어댑터가 실제로 반환하는 ID(`samplePlayer`/`sampleTeam`/
+ * `season`)를 참조하는 이 쇼케이스 전용 최소 인라인 표본으로 보완한다(새 mock 팩토리
+ * 파일을 만들지 않음 — 그 소유 경로는 3팀).
  */
+
+/** `DomainViewState<T>`/`CompositeViewState<T>` 양쪽에 구조적으로 대입 가능한 "ready" 헬퍼. */
+function ready<T>(data: T): { readonly status: "ready"; readonly data: T } {
+  return { status: "ready", data };
+}
+
+interface CategoryDef {
+  readonly id: "domain" | "composite" | "state" | "chart" | "admin";
+  readonly navKey: TranslationKey;
+}
+
+const CATEGORIES: readonly CategoryDef[] = [
+  { id: "domain", navKey: "sample.nav.domain" },
+  { id: "composite", navKey: "sample.nav.composite" },
+  { id: "state", navKey: "sample.nav.state" },
+  { id: "chart", navKey: "sample.nav.chart" },
+  { id: "admin", navKey: "sample.nav.admin" },
+];
+
+function ComponentSlot({ name, children }: { readonly name: string; readonly children: ReactNode }) {
+  return (
+    <Card size="sm" className="gap-3">
+      <CardHeader>
+        <CardTitle className="font-mono text-xs text-muted-foreground">{name}</CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function ShowcaseSection({
+  id,
+  title,
+  description,
+  count,
+  children,
+}: {
+  readonly id: CategoryDef["id"];
+  readonly title: string;
+  readonly description: string;
+  readonly count?: number;
+  readonly children: ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-24 space-y-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+        {count !== undefined && (
+          <Badge variant="secondary" className="shrink-0">
+            {count}
+          </Badge>
+        )}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function NotImplementedPanel({ label }: { readonly label: string }) {
+  return (
+    <div className="flex items-center justify-center rounded-xl border border-dashed border-border py-10 text-sm text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
 export default async function Page(props: PageProps<"/[lang]/sample">) {
   const { lang } = await props.params;
+  const locale: SupportedLocale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
+
+  /* ── Mock 데이터 조립 (프로덕션 규약대로 `getDataSource()` 어댑터 경유) ─── */
+  const dataSource = getDataSource();
+
+  const leagues = await dataSource.getLeagues();
+  const primaryLeague = leagues[0] ?? null;
+
+  const [season, standings, liveFixtures, cupBracket, newsFeedItems] = await Promise.all([
+    dataSource.getCurrentSeason(),
+    primaryLeague ? dataSource.getStandings({ leagueId: primaryLeague.id }) : Promise.resolve([]),
+    dataSource.getLiveFixtures(),
+    dataSource.getCupBracket(),
+    dataSource.getNewsFeed({ limit: 1 }),
+  ]);
+
+  const sampleStanding = standings[0] ?? null;
+  const sampleTeamId = sampleStanding?.teamId ?? null;
+
+  const [sampleTeam, squad, squadStates, statRanking] = await Promise.all([
+    sampleTeamId ? dataSource.getTeam(sampleTeamId) : Promise.resolve(null),
+    sampleTeamId ? dataSource.getTeamSquad(sampleTeamId) : Promise.resolve([]),
+    sampleTeamId ? dataSource.getTeamSquadStates(sampleTeamId) : Promise.resolve([]),
+    primaryLeague
+      ? dataSource.getPlayerStatRanking({
+          leagueId: primaryLeague.id,
+          competitionType: "LEAGUE",
+          metric: "goals",
+          limit: 1,
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const samplePlayer = squad[0] ?? null;
+  const samplePlayerAttribute = samplePlayer ? await dataSource.getPlayerAttribute(samplePlayer.id) : null;
+  const samplePlayerState = samplePlayer
+    ? (squadStates.find((s) => s.playerId === samplePlayer.id) ?? null)
+    : null;
+
+  const sampleFixture = liveFixtures[0] ?? null;
+  const matchEvents = sampleFixture ? await dataSource.getMatchEvents(sampleFixture.id) : [];
+  const sampleEvent = matchEvents.find((event) => event.type === "GOAL") ?? matchEvents[0] ?? null;
+
+  const teamIdsToResolve = new Set<TeamId>();
+  for (const fixture of cupBracket) {
+    teamIdsToResolve.add(fixture.homeTeamId);
+    teamIdsToResolve.add(fixture.awayTeamId);
+  }
+  if (sampleEvent?.teamId) teamIdsToResolve.add(sampleEvent.teamId);
+  const [teamsForDisplay, eventPrimaryPlayer, eventSecondaryPlayer] = await Promise.all([
+    dataSource.getTeamsByIds([...teamIdsToResolve]),
+    sampleEvent?.primaryPlayerId
+      ? dataSource.getPlayerProfile(sampleEvent.primaryPlayerId)
+      : Promise.resolve(null),
+    sampleEvent?.secondaryPlayerId
+      ? dataSource.getPlayerProfile(sampleEvent.secondaryPlayerId)
+      : Promise.resolve(null),
+  ]);
+  const teamById = new Map(teamsForDisplay.map((team) => [team.id, team] as const));
+
+  /* ── domain 8종 ────────────────────────────────────────────────────── */
+  const teamBadgeState = sampleTeam
+    ? ready({ name: sampleTeam.name, shortName: sampleTeam.shortName, crestSeed: sampleTeam.crestSeed })
+    : ({ status: "empty" } as const);
+  const playerAvatarState = samplePlayer
+    ? ready({ id: samplePlayer.id, name: samplePlayer.name })
+    : ({ status: "empty" } as const);
+  const abilityRadarState = samplePlayerAttribute
+    ? ready(samplePlayerAttribute)
+    : ({ status: "empty" } as const);
+  const conditionGaugeState = samplePlayerState
+    ? ready({ condition: samplePlayerState.condition, fitness: samplePlayerState.fitness })
+    : ({ status: "empty" } as const);
+  const fitnessBarState = samplePlayerState
+    ? ready({ fitness: samplePlayerState.fitness })
+    : ({ status: "empty" } as const);
+  const formStripState = sampleStanding
+    ? ready({ form: sampleStanding.form })
+    : ({ status: "empty" } as const);
+  const positionMapState = samplePlayer
+    ? ready({ position: samplePlayer.preferredPosition })
+    : ({ status: "empty" } as const);
+  const sampleStatLeader = statRanking[0] ?? null;
+  const statBarState = sampleStatLeader
+    ? ready({ value: sampleStatLeader.goals, max: 30 })
+    : ({ status: "empty" } as const);
+
+  /* ── composite 7종 ─────────────────────────────────────────────────── */
+  function toParticipant(teamId: TeamId): BracketParticipant {
+    const team = teamById.get(teamId);
+    return { teamId, name: team?.name ?? teamId, shortName: team?.shortName };
+  }
+
+  const bracketRoundsMap = new Map<number, Fixture[]>();
+  for (const fixture of cupBracket) {
+    const list = bracketRoundsMap.get(fixture.round) ?? [];
+    list.push(fixture);
+    bracketRoundsMap.set(fixture.round, list);
+  }
+  const bracketTreeData: BracketTreeData = {
+    rounds: [...bracketRoundsMap.entries()]
+      .sort(([a], [b]) => a - b)
+      .map(([, fixtures]) => ({
+        label: fixtures[0]?.roundLabel ?? "",
+        matches: fixtures.map((fixture) => ({
+          matchId: fixture.id,
+          home: toParticipant(fixture.homeTeamId),
+          away: toParticipant(fixture.awayTeamId),
+          homeScore: fixture.homeScore,
+          awayScore: fixture.awayScore,
+          wentToPenalties: fixture.pkHome != null && fixture.pkAway != null,
+          homePenaltyScore: fixture.pkHome,
+          awayPenaltyScore: fixture.pkAway,
+        })),
+      })),
+  };
+  const bracketTreeState =
+    bracketTreeData.rounds.length > 0 ? ready(bracketTreeData) : ({ status: "empty" } as const);
+
+  const eventTimelineData: EventTimelineItemData | null = sampleEvent
+    ? {
+        event: sampleEvent,
+        teamName: sampleEvent.teamId ? (teamById.get(sampleEvent.teamId)?.name ?? null) : null,
+        primaryPlayerName: eventPrimaryPlayer?.name ?? null,
+        secondaryPlayerName: eventSecondaryPlayer?.name ?? null,
+      }
+    : null;
+  const eventTimelineState = eventTimelineData
+    ? ready(eventTimelineData)
+    : ({ status: "empty" } as const);
+
+  // Injury/Trophy/Award/PlayerAttributeHistory — `MockDataSource`가 아직 `[]`만 반환하는
+  // 엔티티(위 파일 헤더 주석 참조). 실제 `samplePlayer`/`sampleTeam`/`season` ID를
+  // 참조하되, 엔티티 본체는 이 쇼케이스 전용 최소 표본으로 손으로 구성한다.
+  const injuryTimelineData: InjuryTimelineData | null =
+    samplePlayer && season
+      ? {
+          injuries: [
+            {
+              id: "sample-injury-1" as InjuryId,
+              playerId: samplePlayer.id,
+              matchId: null,
+              seasonId: season.id,
+              severity: "MODERATE",
+              typeLabel: "햄스트링 부상",
+              occurredRound: 4,
+              roundsOut: 3,
+              returnRound: 7,
+              status: "RECOVERED",
+            },
+            {
+              id: "sample-injury-2" as InjuryId,
+              playerId: samplePlayer.id,
+              matchId: null,
+              seasonId: season.id,
+              severity: "KNOCK",
+              typeLabel: "타박상",
+              occurredRound: 9,
+              roundsOut: 1,
+              returnRound: 10,
+              status: "ACTIVE",
+            },
+          ] satisfies readonly Injury[],
+          totalRounds: 20,
+        }
+      : null;
+  const injuryTimelineState = injuryTimelineData
+    ? ready(injuryTimelineData)
+    : ({ status: "empty" } as const);
+
+  const sampleNews = newsFeedItems[0] ?? null;
+  const newsItemData: NewsItemData | null = sampleNews
+    ? {
+        id: sampleNews.id,
+        title: sampleNews.headline,
+        summary: sampleNews.body,
+        publishedAt: sampleNews.occurredAt,
+        category: sampleNews.type,
+      }
+    : null;
+  const newsItemState = newsItemData ? ready(newsItemData) : ({ status: "empty" } as const);
+
+  const pitchLineupData: PitchLineupData | null = sampleTeam
+    ? {
+        formation: "4-4-2",
+        teamName: sampleTeam.name,
+        players: squad.slice(0, 11).map((player, index) => ({
+          playerId: player.id,
+          name: player.name,
+          isCaptain: index === 0,
+        })),
+      }
+    : null;
+  const pitchLineupState =
+    pitchLineupData && pitchLineupData.players.length > 0
+      ? ready(pitchLineupData)
+      : ({ status: "empty" } as const);
+
+  const trophyCaseData: TrophyCaseData | null =
+    sampleTeam && samplePlayer && season
+      ? {
+          trophies: [
+            {
+              trophy: {
+                id: "sample-trophy-1" as TrophyId,
+                seasonId: season.id,
+                teamId: sampleTeam.id,
+                type: "LEAGUE_TITLE",
+                leagueId: primaryLeague?.id ?? null,
+              },
+              seasonLabel: `S${season.seasonNumber}`,
+            },
+          ] satisfies readonly TrophyCaseTrophyRow[],
+          awards: [
+            {
+              award: {
+                id: "sample-award-1" as AwardId,
+                seasonId: season.id,
+                type: "GOLDEN_BOOT",
+                scope: "LEAGUE",
+                leagueId: primaryLeague?.id ?? null,
+                playerId: samplePlayer.id,
+                managerId: null,
+                teamId: null,
+                criteria: {},
+              },
+              seasonLabel: `S${season.seasonNumber}`,
+            },
+          ] satisfies readonly TrophyCaseAwardRow[],
+        }
+      : null;
+  const trophyCaseState = trophyCaseData ? ready(trophyCaseData) : ({ status: "empty" } as const);
+
+  const growthHistory: readonly PlayerAttributeHistory[] =
+    samplePlayer && samplePlayerAttribute
+      ? [0, 1, 2].map((offset) => {
+          const { ovrCached: _ovrCached, ...attributeValues } = samplePlayerAttribute;
+          return {
+            ...attributeValues,
+            playerId: samplePlayer.id,
+            seasonNumber: offset + 1,
+            ovr: Math.max(1, samplePlayerAttribute.ovrCached - (2 - offset) * 2),
+          };
+        })
+      : [];
+  const growthChartState =
+    growthHistory.length > 0 ? ready(growthHistory) : ({ status: "empty" } as const);
+
+  /* ── state 6종(4상태 규약 비대상) ──────────────────────────────────── */
+  const phaseIndicatorRound = { current: 10, total: 20 };
 
   return (
-    <main>
-      <pre>{JSON.stringify({ route: "/[lang]/sample", lang })}</pre>
+    <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
+      <header className="space-y-2">
+        <h1 className="text-2xl font-bold">{t(locale, "sample.meta.title")}</h1>
+        <p className="text-sm text-muted-foreground">{t(locale, "sample.meta.description")}</p>
+      </header>
+
+      <nav
+        aria-label={t(locale, "sample.meta.title")}
+        className="sticky top-0 z-10 -mx-6 flex flex-wrap gap-2 border-b border-border bg-background/95 px-6 py-3 backdrop-blur"
+      >
+        {CATEGORIES.map((category) => (
+          <a
+            key={category.id}
+            href={`#${category.id}`}
+            className={cn(
+              "rounded-full border border-border px-3 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground",
+            )}
+          >
+            {t(locale, category.navKey)}
+          </a>
+        ))}
+      </nav>
+
+      <ShowcaseSection
+        id="domain"
+        title={t(locale, "sample.section.domainTitle")}
+        description={t(locale, "sample.section.domainDescription")}
+        count={8}
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ComponentSlot name="AbilityRadar">
+            <AbilityRadar locale={locale} state={abilityRadarState} />
+          </ComponentSlot>
+          <ComponentSlot name="ConditionGauge">
+            <ConditionGauge locale={locale} state={conditionGaugeState} />
+          </ComponentSlot>
+          <ComponentSlot name="FitnessBar">
+            <FitnessBar locale={locale} state={fitnessBarState} />
+          </ComponentSlot>
+          <ComponentSlot name="FormStrip">
+            <FormStrip locale={locale} state={formStripState} />
+          </ComponentSlot>
+          <ComponentSlot name="PlayerAvatar">
+            <PlayerAvatar locale={locale} state={playerAvatarState} />
+          </ComponentSlot>
+          <ComponentSlot name="PositionMap">
+            <PositionMap locale={locale} state={positionMapState} />
+          </ComponentSlot>
+          <ComponentSlot name="StatBar">
+            <StatBar locale={locale} label={t(locale, "stat.leaderboard.title")} state={statBarState} />
+          </ComponentSlot>
+          <ComponentSlot name="TeamBadge">
+            <TeamBadge locale={locale} state={teamBadgeState} />
+          </ComponentSlot>
+        </div>
+      </ShowcaseSection>
+
+      <Separator />
+
+      <ShowcaseSection
+        id="composite"
+        title={t(locale, "sample.section.compositeTitle")}
+        description={t(locale, "sample.section.compositeDescription")}
+        count={7}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ComponentSlot name="BracketTree">
+            <BracketTree locale={locale} state={bracketTreeState} />
+          </ComponentSlot>
+          <ComponentSlot name="EventTimelineItem">
+            <EventTimelineItem locale={locale} state={eventTimelineState} />
+          </ComponentSlot>
+          <ComponentSlot name="GrowthChart">
+            <GrowthChart locale={locale} state={growthChartState} />
+          </ComponentSlot>
+          <ComponentSlot name="InjuryTimeline">
+            <InjuryTimeline locale={locale} state={injuryTimelineState} />
+          </ComponentSlot>
+          <ComponentSlot name="NewsItem">
+            <NewsItem locale={locale} state={newsItemState} />
+          </ComponentSlot>
+          <ComponentSlot name="PitchLineup">
+            <PitchLineup locale={locale} state={pitchLineupState} />
+          </ComponentSlot>
+          <ComponentSlot name="TrophyCase">
+            <TrophyCase locale={locale} state={trophyCaseState} />
+          </ComponentSlot>
+        </div>
+      </ShowcaseSection>
+
+      <Separator />
+
+      <ShowcaseSection
+        id="state"
+        title={t(locale, "sample.section.stateTitle")}
+        description={t(locale, "sample.section.stateDescription")}
+        count={6}
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ComponentSlot name="CountdownTimer">
+            <CountdownTimer locale={locale} targetAt="2026-09-04T21:00:00.000Z" isPaused={false} />
+          </ComponentSlot>
+          <ComponentSlot name="EmptyState">
+            <EmptyState locale={locale} titleKey="player.empty.message" />
+          </ComponentSlot>
+          <ComponentSlot name="ErrorState">
+            <ErrorState locale={locale} />
+          </ComponentSlot>
+          <ComponentSlot name="OddsButton">
+            <OddsButton
+              locale={locale}
+              selection={{ label: "홈 승" }}
+              odds={{ decimalOdds: 1.85 }}
+            />
+          </ComponentSlot>
+          <ComponentSlot name="PhaseIndicator">
+            {season ? (
+              <PhaseIndicator locale={locale} season={season} round={phaseIndicatorRound} />
+            ) : (
+              <SkeletonBlock rows={1} />
+            )}
+          </ComponentSlot>
+          <ComponentSlot name="SkeletonBlock">
+            <SkeletonBlock rows={3} />
+          </ComponentSlot>
+        </div>
+      </ShowcaseSection>
+
+      <Separator />
+
+      <ShowcaseSection
+        id="chart"
+        title={t(locale, "sample.section.chartTitle")}
+        description={t(locale, "sample.section.chartDescription")}
+      >
+        <NotImplementedPanel label={t(locale, "sample.status.notImplemented")} />
+      </ShowcaseSection>
+
+      <Separator />
+
+      <ShowcaseSection
+        id="admin"
+        title={t(locale, "sample.section.adminTitle")}
+        description={t(locale, "sample.section.adminDescription")}
+      >
+        <NotImplementedPanel label={t(locale, "sample.status.notImplemented")} />
+      </ShowcaseSection>
     </main>
   );
 }

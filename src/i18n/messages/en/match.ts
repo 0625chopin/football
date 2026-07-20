@@ -42,4 +42,11 @@ export const match: MatchMessages = {
     error: "Failed to load bracket.",
     tbd: "TBD",
   },
+  card: {
+    gridTitle: "Live Matches",
+    empty: "No matches to display.",
+    error: "Failed to load match info.",
+    scoreFormat: "{home} - {away}",
+    elapsedFormat: "{minute}'",
+  },
 };

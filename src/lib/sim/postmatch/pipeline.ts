@@ -324,3 +324,112 @@ export function runPostMatchPipeline(input: PostMatchPipelineInput): PostMatchPi
     settlementTrigger,
   };
 }
+
+// ── 재시도 · 롤백 · 멱등성 (Task 026, 34일차) ───────────────────────────────
+//
+// `runPostMatchPipeline()`은 이미 순수 함수라 스테이지 하나가 throw하면 그 시행에서 계산된
+// 값은 전부 버려진다(파일 헤더 "단일 트랜잭션의 의미" — 부분 반영 없음). 아래는 그 원자성을
+// "한 시행" 단위에서 "최대 N번 시행" 단위로 확장하는 얇은 겉껍질이다 — 하위 스테이지 로직을
+// 전혀 건드리지 않는다.
+//
+// 이 파이프라인과 스테이지 전부가 순수 함수라(NFR-DT-001, 무작위성 0) 같은 입력이면 항상
+// 같은 값 또는 항상 같은 예외를 낸다 — 즉 재시도 자체가 실패를 성공으로 바꾸는 경우는
+// 없다. 그럼에도 상한을 두는 이유는 이 호출 경계가 오케스트레이션 계층(DB 커밋 등 이 엔진
+// 밖의 일시적 장애)과 함께 재시도되는 것을 전제로 설계된 자리이기 때문이다 — 상한 없는
+// 재시도가 실패를 무한 반복하지 않도록 막는 구조적 안전장치다.
+
+/**
+ * 파이프라인이 시행을 전부 소진해도 실패했을 때 알림에 필요한 최소 정보. 실제 알림 발송
+ * (이메일·푸시 등)은 이 엔진의 책임이 아니다(오케스트레이션 계층 소관 — `buildSettlementTrigger`가
+ * 정산 계산 없이 신호만 넘기는 것과 같은 경계). 이 값은 "발송해야 한다"는 신호와 발송에
+ * 필요한 식별자만 담는다.
+ */
+export interface PostMatchPipelineFailureNotification {
+  readonly fixtureId: FixtureId;
+  readonly attempts: number;
+  readonly lastErrorMessage: string;
+  readonly notify: true;
+}
+
+/**
+ * 재시도 결과 — 성공/실패가 무엇을 노출하는지 타입 자체로 갈린다. 실패 분기는
+ * `PostMatchPipelineResult`의 어떤 필드도 담지 않는다(구조적으로 접근 불가) — 스테이지가
+ * 마지막 시행까지 실패하면 그 어떤 시행의 산출물도 호출자에게 넘어가지 않는다("전체 롤백"이
+ * 재시도 경계까지 확장된 것). 성공 시에는 여러 번 시행했더라도 성공한 시행 하나의 결과만
+ * 반환한다(먼저 실패한 시행의 값이 섞여 들어가지 않는다).
+ */
+export type PostMatchPipelineOutcome =
+  | { readonly ok: true; readonly attempts: number; readonly result: PostMatchPipelineResult }
+  | {
+      readonly ok: false;
+      readonly attempts: number;
+      readonly notification: PostMatchPipelineFailureNotification;
+    };
+
+export interface PostMatchPipelineRetryOptions {
+  /** 기본 3(팀 스케줄 34일차 행 "최대 3회 재시도"). 0 이하로 주면 1회로 취급한다(최소 1회 시행). */
+  readonly maxAttempts?: number;
+}
+
+const DEFAULT_MAX_ATTEMPTS = 3;
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * `runPostMatchPipeline()`을 최대 `maxAttempts`회(기본 3) 시행한다. 첫 성공에서 즉시
+ * 반환하고 이후 시행은 하지 않는다. 전부 실패하면 던지지 않고 마지막 실패의 알림 페이로드를
+ * `ok: false`로 반환한다 — 호출자(오케스트레이션 계층)가 예외 처리 대신 `ok` 판별로
+ * 분기하도록 한다.
+ */
+export function runPostMatchPipelineWithRetry(
+  input: PostMatchPipelineInput,
+  options?: PostMatchPipelineRetryOptions,
+): PostMatchPipelineOutcome {
+  const maxAttempts = Math.max(1, options?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS);
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const result = runPostMatchPipeline(input);
+      return { ok: true, attempts: attempt, result };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  return {
+    ok: false,
+    attempts: maxAttempts,
+    notification: {
+      fixtureId: input.fixture.fixtureId,
+      attempts: maxAttempts,
+      lastErrorMessage: describeError(lastError),
+      notify: true,
+    },
+  };
+}
+
+/**
+ * 같은 경기(`fixtureId`)에 대한 **동일 입력** 재실행을 식별하는 결정론적 키. `Date.now()`/
+ * 난수 없이 입력 식별자만으로 만든다 — 오케스트레이션 계층이 "이미 처리된 fixtureId"를 이
+ * 키로 조회해 스탯 누적을 다시 적용하지 않도록 하는 데 쓴다(팀 스케줄 34일차 행 "재실행
+ * 멱등(중복 누적 0)"). 이 엔진 자체는 어떤 저장소도 갖지 않으므로(순수 함수, NFR-DT-001)
+ * 중복 방지 조회·기록 자체는 호출자 책임이다 — 이 함수는 조회 키만 만들어 준다. 같은
+ * 이유로 `runPostMatchPipeline()`/`runStatAccumulationStage()`는 모듈 스코프 가변 상태를
+ * 전혀 갖지 않는다(매 호출 새 `Map` 반환) — 같은 입력을 여러 번 넣어도 스탯이 시행 간에
+ * 누적되지 않는다(재실행 시 스탯 이중 누적 0의 실제 근거는 이 무상태성이다).
+ *
+ * **경고 — 이 키는 재시뮬레이션 구분자가 아니다.** `fixtureId`만으로 만들기 때문에 D-30·
+ * D-31 Tier B 재시뮬레이션처럼 같은 fixture를 **다른 입력**(다른 시드/리비전)으로 다시
+ * 계산하면 결과는 달라져도 키는 동일하다. 이 함수의 유일한 용도는 "정확히 같은 입력의
+ * 우발적 재호출(네트워크 재시도·중복 이벤트 등)을 걸러내는 것"뿐이다 — 오케스트레이션
+ * 계층이 재시뮬레이션 경로에서 이 키로 "이미 처리됨" 판정을 내리면 정당한 재계산 결과가
+ * 통째로 버려진다. 재시뮬레이션 산출물의 중복 판정에는 이 키를 쓰지 말고, 시드/리비전을
+ * 포함한 별도 식별자를 써야 한다(그런 필드가 `PostMatchPipelineInput`에 아직 없어 이 파일
+ * 범위 밖 — H-15 오케스트레이션 배선 시점에 해소, 팀장 이슈 등재 예정).
+ */
+export function computePostMatchIdempotencyKey(fixture: SettlementTriggerFixtureIdentity): string {
+  return `postmatch:${fixture.fixtureId}`;
+}

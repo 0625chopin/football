@@ -13,6 +13,10 @@ export const common = {
   app: {
     name: "football4",
     devStatus: "개발 진행 중",
+    // Task 014(34일차) 팀장 검증 후속 — 루트 레이아웃 `generateMetadata`가 `<meta
+    // name="description">`을 로케일별로 내보내도록 여기 번역 키를 신설한다(이전엔
+    // metadata 객체에 한글이 하드코딩돼 `/en`에도 그대로 새 나갔다).
+    description: "가상 축구 리그 시뮬레이션 · 개발 진행 중",
   },
   header: {
     leagueSwitcherPlaceholder: "리그 선택 (준비 중)",
