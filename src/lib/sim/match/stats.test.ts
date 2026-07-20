@@ -249,3 +249,109 @@ describe('accumulatePlayerMatchStats — 결정론(순수 함수)', () => {
     expect(Object.fromEntries(second)).toEqual(Object.fromEntries(first));
   });
 });
+
+/**
+ * I-103 — "참가자 미배정 분기 15개 테스트" (16일차 인계, 15일차 미처리분).
+ *
+ * `accumulatePlayerMatchStats`의 switch 안에서 `if (primaryPlayerId)` /
+ * `if (secondaryPlayerId)` null 가드로 갈라지는 코드 분기는 정확히 15개다(각 case의
+ * 가드문 개수를 그대로 센 것 — FOUL/PENALTY_AWARDED와 SHOT_OFF/SHOT_BLOCKED는 코드를
+ * 공유하므로 대표 타입 1개씩만 쓴다). 이 describe는 그 15개 분기 각각에 대해 "해당
+ * 참가자가 null이면 예외 없이 스킵되고, null이 아닌 다른 참가자의 증분은 영향받지
+ * 않는다"를 개별적으로 고정한다. 3건(GOAL-primary, FOUL-secondary, PENALTY_MISSED-
+ * secondary)은 위 describe들에도 이미 등장하지만, I-103을 단일 블록으로 완결·감사
+ * 가능하게 남기기 위해 여기서도 명시적으로 재확인한다.
+ */
+describe('accumulatePlayerMatchStats — I-103 참가자 미배정 분기 15개', () => {
+  it('1) GOAL — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'GOAL', xg: 0.5 })];
+    expect(() => accumulatePlayerMatchStats(events)).not.toThrow();
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('2) PENALTY_SCORED — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'PENALTY_SCORED', xg: 0.7 })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('3) PENALTY_MISSED — primaryPlayerId null: penaltiesTaken 미증가, secondaryPlayerId 분기는 별개로 동작', () => {
+    const events: MatchEventDraft[] = [
+      makeEvent({ sequence: 1, type: 'PENALTY_MISSED', primaryPlayerId: null, secondaryPlayerId: PLAYER_GK }),
+    ];
+    const stats = accumulatePlayerMatchStats(events);
+    expect(stats.get(PLAYER_GK)?.penaltiesSaved).toBe(1);
+    expect(stats.size).toBe(1);
+  });
+
+  it('4) PENALTY_MISSED — secondaryPlayerId null: penaltiesSaved 아무도 증가하지 않음', () => {
+    const events: MatchEventDraft[] = [
+      makeEvent({ sequence: 1, type: 'PENALTY_MISSED', primaryPlayerId: PLAYER_A, secondaryPlayerId: null }),
+    ];
+    const stats = accumulatePlayerMatchStats(events);
+    expect(stats.get(PLAYER_A)?.penaltiesTaken).toBe(1);
+    expect(stats.size).toBe(1);
+  });
+
+  it('5) SHOT_ON — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'SHOT_ON', xg: 0.2 })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('6) SHOT_OFF/SHOT_BLOCKED — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'SHOT_OFF', xg: 0.1 })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('7) ASSIST — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'ASSIST' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('8) OWN_GOAL — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'OWN_GOAL' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('9) FOUL/PENALTY_AWARDED — primaryPlayerId null: foulsCommitted 없음, secondaryPlayerId의 foulsDrawn만 증가', () => {
+    const events: MatchEventDraft[] = [
+      makeEvent({ sequence: 1, type: 'FOUL', primaryPlayerId: null, secondaryPlayerId: PLAYER_B }),
+    ];
+    const stats = accumulatePlayerMatchStats(events);
+    expect(stats.get(PLAYER_B)?.foulsDrawn).toBe(1);
+    expect(stats.size).toBe(1);
+  });
+
+  it('10) FOUL/PENALTY_AWARDED — secondaryPlayerId null: foulsDrawn 아무도 증가하지 않음', () => {
+    const events: MatchEventDraft[] = [
+      makeEvent({ sequence: 1, type: 'FOUL', primaryPlayerId: PLAYER_A, secondaryPlayerId: null }),
+    ];
+    const stats = accumulatePlayerMatchStats(events);
+    expect(stats.get(PLAYER_A)?.foulsCommitted).toBe(1);
+    expect(stats.size).toBe(1);
+  });
+
+  it('11) YELLOW_CARD — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'YELLOW_CARD' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('12) SECOND_YELLOW — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'SECOND_YELLOW' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('13) RED_CARD — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'RED_CARD' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('14) OFFSIDE — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'OFFSIDE' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+
+  it('15) SAVE — primaryPlayerId null: 행 생성 없음', () => {
+    const events: MatchEventDraft[] = [makeEvent({ sequence: 1, type: 'SAVE' })];
+    expect(accumulatePlayerMatchStats(events).size).toBe(0);
+  });
+});

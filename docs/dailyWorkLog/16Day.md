@@ -1,0 +1,123 @@
+# 16일차 작업 로그 (2026-08-11 화)
+
+## 1. 참여 팀
+
+| 팀 | Task | 작업 | 결과 |
+|---|---|---|---|
+| 1팀 코어·품질 | 010 | `src/lib/sim/**` 결정론 lint 가드 | 완료 |
+| 2팀 시뮬레이션엔진 | 023 | 경기 1건 성능 벤치 p95/p99 | 완료 |
+| 3팀 데이터·밸런싱·배당 | 007 | 진행 상태 Mock 6종 | 완료 |
+| 4팀 UI기반·i18n | 011 | 메시지 카탈로그 8네임스페이스 | 완료 |
+| 6팀 DB인프라 | 032 | 제약 3종 + FK 인덱스 이월 | 완료 |
+
+**5팀 화면·배팅UX는 16일차 배정 없음(미참여).**
+
+## 2. 최종 게이트
+
+| 항목 | 결과 |
+|---|---|
+| **`npm run gate`** (3단 머지 게이트) | **`[gate] all checks passed`** |
+| `npx tsc --noEmit` | 0 에러 |
+| `npm run lint` | 0 에러 |
+| `npm run test` | 462 passed / 6 todo (37 파일) |
+| 커버리지 (aggregate) | statements 97.96% / branches 92.97% / lines 98.04% |
+| 신규 `progress.ts` 커버리지 | lines 98.01% / branches 91.22% |
+| `@/types` 서브경로 import (C-5·C-6) | 0건 |
+| `src/lib/sim`·`src/lib/mock` 금지 전역 실사용 | 0건 |
+
+프로덕션 빌드는 WSL 마운트 제약(I-62)으로 검증 수단에서 제외.
+
+## 3. 팀별 산출물
+
+**1팀 (Task 010)** — `eslint.config.mjs`
+- `src/lib/sim/**/*.ts(x)` 스코프에 `no-restricted-properties`로 `Math.random`/`Date.now` 차단.
+- 금지 패턴 실증 후 원복(byte-identical 확인), 원복 후 lint 재통과.
+- ISSUES 반영 담당으로 I-103 종결, I-105~108 등재/정정 수행.
+
+**2팀 (Task 023)** — `src/lib/sim/match/perf-bench.test.ts`(신규), `stats.test.ts`(추가)
+- 측정 구간이 `buildTickSequence`→`generateMatchEvents`→`linkPenaltyOutcomes`→`accumulatePlayerMatchStats` 전 구간을 덮음. 200건 표본, 5건마다 연장전.
+- **p50/p95/p99 = 0.203ms / 0.430ms** 수준, 한도 50ms/120ms 대비 대폭 여유.
+- 스코어 정합 불일치 0건(골 532건/200경기 = 2.66골/경기). `react`/`@supabase` import 0건 스캔 테스트 포함.
+- 여력으로 I-103(`stats.ts` 참가자 미배정 15개 분기) 전량 테스트 커버 → 종결.
+
+**3팀 (Task 007)** — `src/lib/mock/progress.ts`(신규, 42.8KB), `progress.test.ts`(신규, 11테스트)
+- 진행 상태 6종(라이브 경기·이벤트 타임라인·순위표·스탯 리더보드·뉴스 피드·브래킷) 결정론 생성.
+- `DataSource.ts`(1팀) 6개 메서드 반환 타입과 1:1 대응 — 18일차 MockDataSource가 바로 슬라이스 가능.
+- `deriveSeasonSeed`/`deriveMatchSeed`/`stateForSeed`로 시드 계층 정식 경유.
+
+**4팀 (Task 011)** — `src/i18n/messages/{ko,en}/*.ts` 16파일 + `index.ts`(신규), devStep 09 문서
+- 8네임스페이스(common·league·match·player·team·stat·admin·error) × ko/en.
+- ko가 값+타입 기준, en은 ko 타입을 적용해 **키 누락·고아 키를 컴파일타임 차단**(타입 애노테이션 방식).
+- `index.ts`가 `satisfies Record<SUPPORTED_LOCALES[number], unknown>`로 로케일 목록과 카탈로그 정합 강제.
+- `layout.tsx` 미수정(22일차 실배선 예정), common 값은 기존 하드코딩 문자열 이관.
+
+**6팀 (Task 032)** — 마이그레이션 5건
+- `fixture.snapshot_id` NOT NULL은 **9일차 기반영 확인**(중복 마이그레이션 만들지 않음) — 팀장이 `attnotnull=true` 직접 확인.
+- `trg_sponsor_contract_active_limit`(팀당 ACTIVE ≤ 3), `trg_common_code_json_required` 트리거 2종.
+- 범위 CHECK: 단일컬럼 18개 + `player_attribute`/history 34속성×2 → public 스키마 CHECK **142건**.
+- 6개 카테고리 위반 삽입 거부 + 경계값 통과 확인, **테스트 데이터 전량 정리**(팀장 재조회 0건 확인).
+
+## 4. 팀장 검증에서 발견된 결함
+
+**팀 산출물 결함 0건.** 5팀 전원 1회 검증 통과, 재수정 라운드 없음.
+
+다만 **팀 보고 1건이 사실과 달라 기각**했다(아래 5절 I-108).
+
+## 5. 신규/갱신 이슈
+
+| 번호 | 상태 | 내용 |
+|---|---|---|
+| **I-103** | **해소** | `stats.ts` 참가자 미배정 15개 분기 — 2팀이 전량 테스트 커버 |
+| **I-105** | **해소** | 로드맵 Task 010의 `no-restricted-globals`가 이 용도에 부적합(프로퍼티 접근 미검사) → `no-restricted-properties`로 구현 |
+| **I-106** | OPEN | Mock 순위표가 "전 팀 동일 10라운드" 가정 표본 — 17일차 풀 일정 확정 시 재평가 |
+| **I-107** | OPEN | Mock 브래킷이 2의 거듭제곱 내림으로 **부전승 미처리**, 컵 5라운드(32강, 스펙은 6라운드) — **5팀 브래킷 화면 착수 전 확정 필요** |
+| **I-108** | **기각** | 6팀의 "16일차 행 R-06은 R-04 오기" 제보 — 원본 확인 결과 **문서가 정확**, 제보가 틀림 |
+
+**I-108 상세**: `docs/require/06-prioritization-and-risks.md` 405~407행이 단일 소스이며, **R-06 = "공통코드 외부화가 결정론을 깨뜨림"**이고 그 완화책 원문에 `fixture.snapshot_id` NOT NULL 강제(DC-14)가 명시돼 있다. **R-04는 "Next.js 16 API 차이"**로 무관하다. 따라서 `docs/team-schedule/06-DB인프라팀.md`의 "R-06 대응" 표기가 옳고 정정 대상이 아니다. 기각했으나 같은 오해 재발 대비로 행은 남겼다.
+
+## 6. 팀장 조치 기록 (운영 사고 2건)
+
+두 건 모두 **같은 원인 — 팀 보고·상태를 근거까지 확인하지 않고 수용**했다.
+
+**① 3팀 중복 소환.** 3팀이 소환 후 약 15분 무응답이라 세션 단절로 단정하고 재소환(`team3-data-r2`)했으나, 실제로는 42.8KB 대형 파일 작업 중이었을 뿐이다. 두 세션이 같은 파일을 동시에 쓸 수 있었던 상황. 실피해는 없었다 — `progress.ts` mtime이 15:52:46 이후 불변, 크기·테스트 수(11건)가 원 3팀 보고와 일치함을 대조해 중복 쓰기 0건 확인 후 r2를 작업 없이 종료시켰다.
+- **재발 방지**: 무응답 팀 재소환 전 **산출물 경로의 파일 mtime을 먼저 확인**한다. 작업 흔적이 있으면 대기한다.
+
+**② 틀린 제보를 검증 없이 등재 지시.** 6팀의 R-06 오기 제보를 원본 대조 없이 1팀 등재 지시에 넣었다. 이후 리스크 원본을 직접 확인해 제보가 틀렸음을 발견하고 철회, I-108을 기각 처리했다. **반영됐다면 정확한 문서를 틀린 방향으로 고칠 뻔했다.**
+- **재발 방지**: 문서 정정 제보는 **단일 소스 원본을 팀장이 직접 대조한 뒤** 등재를 지시한다.
+
+## 7. advisors 이월 현황 (Task 032, 기한 18일차)
+
+| 항목 | 15일차 | 16일차 | 비고 |
+|---|---|---|---|
+| `unindexed_foreign_keys` | 65 | **0** | 전량 해소 |
+| `auth_rls_initplan` | 41 | 41 | **미착수 — 18일차 기한** |
+| `multiple_permissive_policies` | 170 | 170 | **미착수 — 18일차 기한** |
+| `unused_index` | 8 | 73 | **Task 042로 이관**(아래) |
+
+`unused_index` 증가는 오늘 추가한 FK 인덱스 65개가 아직 쿼리 트래픽이 없어 잡힌 것이다. 65건 전부 FK 컬럼이라 읽기 경로와 무관하게 **부모 행 UPDATE/DELETE 시 자식 테이블 잠금 스캔을 막는 목적이 이미 유효**하며(2팀 tick이 team/player/season 부모를 갱신), `idx_scan` 통계는 조회 계층(Task 004) 가동 전엔 의미가 없다. **18일차엔 이월 유지로 판정하고, 실사용 기준 회수 검토는 Task 042(58~62일차 성능 최적화)로 이관**한다.
+
+## 8. 다음 일차(17일차) 인계
+
+| 팀 | 인계 사항 |
+|---|---|
+| **1팀** | Task 010 계속(19일차까지) — 남은 항목: `no-restricted-imports`(`react`/`@supabase/*`), UI 하드코딩 문자열 검출 룰(D-18), 숫자 리터럴 잔존 검사, 커밋·PR 체크리스트, ISSUES 갱신 규약. 오늘 룰은 **멤버 접근만 차단** — `const { random } = Math` 구조분해·`new Date()`는 우회 가능(수락 기준 밖, 필요 시 보강) |
+| **2팀** | Task 023 성능 수락 기준 충족 완료. 다음 구간 진행 |
+| **3팀** | Task 007 계속 — **I-106**(순위표 라운드 가정) 17일차 풀 일정 역산 시 해소, **I-107**(브래킷 부전승) 5팀 화면 착수 전 확정 |
+| **4팀** | Task 011 계속(22일차까지) — 번역 함수 API·로케일 Provider, 열거형 표시명 카탈로그(3팀 지원), 날짜·숫자 서식, 로케일 스위처 |
+| **6팀** | **advisors 성능 2종(`auth_rls_initplan` 41 / `multiple_permissive_policies` 170) 18일차 기한** — 남은 2일. R-06 삭제정책(ON DELETE RESTRICT) 확정 별도 일정 필요. **R-\* 참조는 `docs/require/06-prioritization-and-risks.md`가 단일 소스**(I-108 교훈) |
+| **팀장** | 무응답 팀 재소환 전 파일 mtime 확인 / 문서 정정 제보는 원본 직접 대조 후 등재 지시 |
+
+## 9. 미해결·판정 대기
+
+| 건 | 상태 | 기한 |
+|---|---|---|
+| **auth_rls_initplan 41 / multiple_permissive_policies 170** | 미착수 | **18일차(Task 032 종료)** |
+| **I-107** | 브래킷 부전승·컵 라운드 축소 | 5팀 브래킷 화면 착수 전 |
+| **I-106** | 순위표 라운드 가정 | 17일차 풀 일정 확정 시 |
+| **unused_index 73** | 회수 검토 이관 | Task 042(58~62일차) |
+| **R-06 삭제정책** | ON DELETE RESTRICT 미확정 | 별도 일정 |
+| **I-100** | `bet` 계열 인덱스 2건 | 해당 테이블 생성 Task |
+| **I-102** | `is_event_elapsed()` 실판정 로직 | 2팀 H-24(30일차) |
+| **I-101** | 확장자 경로 404 UI 통일 여부 | Task 014(34~38일차) |
+| **SKILL.md 교체** | 14일차부터 이월, 사용자 판단 대기 | — |
+| **Playwright 콘솔 스모크** | Chrome 확보 필요, 13일차부터 이월 | — |
