@@ -334,8 +334,8 @@ export const COMMON_CODE_GROUP_CATALOG = [
     groupCode: 'ODDS_PARAM',
     groupName: '배당 산출',
     description:
-      '배당 산출(그룹 내 INT·DECIMAL 혼재 — DECIMAL로 표현) — 코드 예시(기본값): MC_N_MATCH=3000, MC_N_SEASON=300, OVERROUND=1.06, MIN_ODDS=1.01, MAX_ODDS=500. ' +
-      '주의: MC_N_SEASON=300은 05문서 원본값이며 `docs/ISSUES.md` I-08은 배당오차 ±11.5% 문제로 1,500 상향(+재산출 주기 매라운드→5라운드)을 권고한다 — 반영 시점은 Task 035 착수 전(팀 일정 30일차)이므로 이 카탈로그(9일차)에는 원본값을 유지한다.',
+      '배당 산출(그룹 내 INT·DECIMAL 혼재 — DECIMAL로 표현) — 코드 예시(기본값): MC_N_MATCH=3000, MC_N_SEASON=1500, REFRESH_ROUND_INTERVAL=5, OVERROUND=1.06, MIN_ODDS=1.01, MAX_ODDS=500. ' +
+      '27일차(Task 035 착수 — V-02 차단성 검증 통과 후 "모델 확정" 시점)에 `docs/ISSUES.md` I-08 권고(배당오차 ±11.5% 문제로 MC_N_SEASON 300→1,500 상향 + 재산출 주기 매라운드→5라운드)를 반영했다. 9일차 카탈로그·11일차 폴백의 300은 이 시점까지의 잠정값이었다.',
     valueType: 'DECIMAL',
     applyPolicy: 'NEXT_MARKET',
     relatedFr: ['FR-BT-005'],

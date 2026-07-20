@@ -209,11 +209,13 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
     ROOKIE_OVR_MAX: 14,
   },
   RETIREMENT_PARAM: { RISK_START_AGE: 34, FORCE_AGE: 40, BASE_PROB: 0.05 },
-  // 05문서 원본값(MC_N_SEASON=300)을 유지한다 — I-08의 1,500 상향 권고 반영은 Task 035
-  // 착수 전(팀 일정 30일차) 소관이며, catalog.ts 9일차 항목이 이미 같은 판단을 내렸다.
+  // I-08 반영(27일차, Task 035 착수 — V-02 차단성 검증 통과 후 "모델 확정" 시점): 배당오차
+  // ±11.5% 문제로 MC_N_SEASON 300→1,500 상향. 재산출 주기(매라운드→5라운드)는 수치가 아니라
+  // 호출 빈도 정책이라 REFRESH_ROUND_INTERVAL로 별도 등록해 스케줄러(후속 일차)가 참조하게 한다.
   ODDS_PARAM: {
     MC_N_MATCH: 3000,
-    MC_N_SEASON: 300,
+    MC_N_SEASON: 1500,
+    REFRESH_ROUND_INTERVAL: 5,
     OVERROUND: 1.06,
     MIN_ODDS: 1.01,
     MAX_ODDS: 500,
