@@ -45,53 +45,12 @@ const eslintConfig = defineConfig([
             "src/lib/sim/**는 결정론이 필요합니다. Date.now() 사용을 금지합니다 (NFR-DT-001).",
         },
       ],
-      // NFR-DT-001: src/lib/sim/**는 react 훅·Supabase 클라이언트에 의존할 수 없는 순수 함수 도메인이다.
-      // Task 023(16일차)의 perf-bench.test.ts 런타임 정규식 검사와 이중으로, 여기서는 정적으로 잡는다.
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "react",
-              message:
-                "src/lib/sim/**는 순수 함수 도메인입니다. react를 import할 수 없습니다 (NFR-DT-001).",
-            },
-            {
-              name: "react-dom",
-              message:
-                "src/lib/sim/**는 순수 함수 도메인입니다. react-dom을 import할 수 없습니다 (NFR-DT-001).",
-            },
-          ],
-          patterns: [
-            {
-              group: ["@supabase/*"],
-              message:
-                "src/lib/sim/**는 순수 함수 도메인입니다. @supabase/*를 import할 수 없습니다 (NFR-DT-001).",
-            },
-          ],
-        },
-      ],
-    },
-  },
-  {
-    // Task 010(17일차): src/components/**에서 Supabase 클라이언트를 직접 import하는 것을 금지한다.
-    // Mock First Development 원칙상 컴포넌트는 src/lib/data의 DataSource 어댑터만 거쳐야 하며,
-    // Supabase 클라이언트를 직접 물면 Mock↔실 데이터 교체 시 컴포넌트까지 고쳐야 한다.
-    // src/components/**는 4팀이 23일차 이후 만들 예정이라 아직 없지만, 규칙은 선제적으로 넣어둔다.
-    files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["@supabase/*"],
-              message:
-                "src/components/**에서 Supabase 클라이언트를 직접 import할 수 없습니다. src/lib/data의 DataSource 어댑터를 거치세요.",
-            },
-          ],
-        },
-      ],
+      // no-restricted-imports는 여기 두지 않는다 — 아래 Task 044 블록(files: src/**/*.ts(x))이
+      // src/lib/sim/**에도 매칭되고 이 블록보다 뒤에 오는데, flat config는 같은 파일에 매칭되는
+      // 여러 블록이 같은 규칙 키를 설정하면 병합하지 않고 나중 블록으로 전체 교체한다. 그래서
+      // Task 044 블록보다 앞에서 no-restricted-imports를 설정하면 통째로 덮어써져 무력화된다
+      // (25일차 034a 컴포넌트 가드레일 검증 중 같은 패턴의 결함을 발견해 여기도 같은 구조임을
+      // 확인함). react/react-dom/@supabase/* 차단은 아래 Task 044 블록 뒤의 전용 블록으로 옮겼다.
     },
   },
   {
@@ -119,6 +78,85 @@ const eslintConfig = defineConfig([
         "error",
         {
           patterns: [
+            {
+              group: ["@/lib/mock/*", "@/lib/mock/**"],
+              message:
+                "프로덕션 코드는 src/lib/mock/**를 직접 import할 수 없습니다 (21일차 결함 A). src/lib/data의 DataSource 어댑터를 거치세요.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // NFR-DT-001(5일차) → 25일차(Task 034a) 재배치: src/lib/sim/**는 react 훅·Supabase 클라이언트에
+    // 의존할 수 없는 순수 함수 도메인이다. Task 023(16일차)의 perf-bench.test.ts 런타임 정규식
+    // 검사와 이중으로, 여기서는 정적으로 잡는다.
+    //
+    // 원래 이 규칙은 위 no-restricted-properties와 같은 블록(파일 앞쪽, 5일차)에 있었다. 바로
+    // 위 Task 044 블록(files: src/**/*.ts(x))도 src/lib/sim/**에 매칭되고 이 규칙보다 뒤에
+    // 있어, flat config의 "같은 규칙 키는 병합 없이 나중 블록으로 전체 교체" 동작 때문에
+    // 통째로 덮어써져 있었다(react/react-dom/@supabase/* 차단이 무력화된 채 방치, mock 차단만
+    // 살아있었음 — 25일차 034a 컴포넌트 가드레일 검증 중 같은 결함 패턴을 발견해 확인). 그래서
+    // Task 044 블록보다 뒤로 옮기고 mock 차단 패턴도 병합했다.
+    files: ["src/lib/sim/**/*.ts", "src/lib/sim/**/*.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "react",
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. react를 import할 수 없습니다 (NFR-DT-001).",
+            },
+            {
+              name: "react-dom",
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. react-dom을 import할 수 없습니다 (NFR-DT-001).",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@supabase/*"],
+              message:
+                "src/lib/sim/**는 순수 함수 도메인입니다. @supabase/*를 import할 수 없습니다 (NFR-DT-001).",
+            },
+            {
+              group: ["@/lib/mock/*", "@/lib/mock/**"],
+              message:
+                "프로덕션 코드는 src/lib/mock/**를 직접 import할 수 없습니다 (21일차 결함 A). src/lib/data의 DataSource 어댑터를 거치세요.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Task 010(17일차) → 25일차(Task 034a) 재배치: src/components/**에서 Supabase 클라이언트를
+    // 직접 import하는 것을 금지한다. Mock First Development 원칙상 컴포넌트는 src/lib/data의
+    // DataSource 어댑터만 거쳐야 하며, Supabase 클라이언트를 직접 물면 Mock↔실 데이터 교체 시
+    // 컴포넌트까지 고쳐야 한다.
+    //
+    // 원래 이 블록은 위 Task 044 블록보다 앞에 있었다. flat config는 같은 파일에 매칭되는 여러
+    // 블록이 같은 규칙 키(no-restricted-imports)를 설정하면 병합하지 않고 나중 블록으로 전체
+    // 교체한다 — 그래서 뒤에 오는 Task 044 블록(대상이 겹치는 src/**/*.tsx)이 이 규칙을 통째로
+    // 덮어써 무력화시켰다(컴포넌트에 @supabase/* import를 넣어도 lint가 안 잡히는 채로 방치됨,
+    // 25일차 034a 실증 중 발견). 그래서 이 블록을 파일 내 no-restricted-imports 설정 중 가장
+    // 뒤로 옮기고, Task 044의 mock 차단 패턴도 함께 담아 컴포넌트에서는 두 보호가 모두 살도록
+    // 병합했다. 다른 경로(src/lib/data/supabase/** 등)는 여전히 위 Task 044 블록만 적용된다.
+    files: ["src/components/**/*.ts", "src/components/**/*.tsx"],
+    ignores: ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.type-test.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@supabase/*"],
+              message:
+                "src/components/**에서 Supabase 클라이언트를 직접 import할 수 없습니다. src/lib/data의 DataSource 어댑터를 거치세요.",
+            },
             {
               group: ["@/lib/mock/*", "@/lib/mock/**"],
               message:

@@ -14,6 +14,33 @@
   --breakpoint-lg: 64rem; /* 1024px */
   --breakpoint-xl: 90rem; /* 1440px */
   --breakpoint-2xl: 120rem; /* 1920px */
+  /* Task 012(25일차) — 시맨틱 컬러 토큰 5종(승격·플레이오프·강등·LIVE·경고).
+     NFR-A11Y-002: 색상 단독으로 의미를 전달하지 않는다 — 소비 컴포넌트(013A, 33일차)는
+     반드시 아이콘·라벨을 색상과 함께 병기할 것. 아래 값은 그 전제 위에서 "보조 신호"로서의
+     구분력만 보장한다(primary channel이 아님).
+     검증: OKLCH → linear sRGB → Brettel/Viénot 근사 행렬로 protanopia/deuteranopia/tritanopia
+     시뮬레이션 → CIE76 ΔE 쌍대 비교, 5색 전 조합이 정상 시야 포함 4가지 조건에서 ΔE≥15 확보.
+     강등(빨강)·LIVE는 의미상 같은 "위험/긴급" 색 계열이라 ΔE가 가장 낮게 나오는 쌍(15~29)인데,
+     이는 색만으로 구분하지 않는다는 전제와 일치하므로 완전 분리를 강제하지 않았다.
+     WCAG 배경 대비(별도 축, ΔE와 무관): promotion/playoff/relegation/live는 라이트 배경
+     대비 4.8~7.2:1·다크 배경 대비 3.7~8.5:1로 배지 채움·보더 용도(비텍스트 3:1 기준)에 충분하다.
+     --warning만 예외 — 파스텔 톤을 유지해야 ΔE≥15가 나오므로 배경 대비가 낮다
+     (라이트 1.34:1, 다크 12.61:1이나 라이트 쪽이 WCAG 1.4.11 비텍스트 3:1 기준 미달).
+     그래서 --warning은 페이지 배경 위 단독 채움(보더 없는 배지·텍스트)으로 쓰지 않고,
+     반드시 --warning-foreground(짙은 호박색, --warning 배지 위 대비 8.2~9.6:1)로
+     테두리·아이콘·텍스트를 병기한다 — 어차피 NFR-A11Y-002가 아이콘·라벨 병기를 강제하므로
+     실사용 제약과 합치한다. --warning-foreground는 다크 페이지 배경 위 단독 사용 금지
+     (대비 1.54:1) — 반드시 --warning 배지 위에서만 쓴다.
+     sRGB 색역: promotion/playoff(라이트+다크 playoff)/relegation(라이트)은 OKLCH 원값이
+     색역 밖이라 채도(C)를 낮춰 색역 안으로 재조정했다(명도·색상각은 보존, 대비 수치는 위 값
+     그대로 유지됨). --warning-foreground도 원래 채도(C=0.13)가 색역 밖이라 C=0.065로 낮췄다.
+     회귀 테스트: src/app/globals.color.test.ts — 토큰 값이 바뀌면 대비·색역 단언이 깨진다. */
+  --color-promotion: var(--promotion);
+  --color-playoff: var(--playoff);
+  --color-relegation: var(--relegation);
+  --color-live: var(--live);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -90,6 +117,12 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --promotion: oklch(0.5 0.13 150); /* 승격 — 초록. C=0.15→0.13(색역 안으로) */
+  --playoff: oklch(0.5 0.156 255); /* 플레이오프 — 파랑. C=0.17→0.156(색역 안으로) */
+  --relegation: oklch(0.48 0.184 25); /* 강등 — 빨강. C=0.2→0.184(색역 안으로) */
+  --live: oklch(0.58 0.22 10); /* LIVE — 강등과 동일 계열이나 명도·색상각을 분리 */
+  --warning: oklch(0.9 0.12 100); /* 경고 — 호박색. 배경 대비 낮음(1.34:1) — 단독 채움 금지, warning-foreground 병기 */
+  --warning-foreground: oklch(0.32 0.065 70); /* 경고 텍스트·아이콘·보더 전용. C=0.13→0.065(색역 안으로). 페이지 배경이 아닌 --warning 위에서만 사용 */
 }
 
 @media (prefers-color-scheme: dark) {
@@ -125,6 +158,12 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --promotion: oklch(0.72 0.16 150);
+    --playoff: oklch(0.72 0.14 255); /* C=0.15→0.14(색역 안으로) */
+    --relegation: oklch(0.55 0.19 25);
+    --live: oklch(0.65 0.2 10);
+    --warning: oklch(0.85 0.11 100); /* 배경 대비는 높지만(12.61:1) 파스텔 톤 유지 목적은 라이트와 동일 */
+    --warning-foreground: oklch(0.32 0.065 70); /* 다크 페이지 배경 위 단독 사용 금지(대비 1.54:1) — --warning 위에서만(8.19:1) */
   }
 }
 
