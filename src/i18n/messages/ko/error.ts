@@ -8,6 +8,7 @@ export const error = {
   generic: {
     title: "문제가 발생했습니다",
     description: "잠시 후 다시 시도해 주세요.",
+    retryLabel: "다시 시도",
   },
   network: {
     title: "네트워크 오류",

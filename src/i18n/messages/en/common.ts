@@ -9,7 +9,9 @@ export const common: CommonMessages = {
     leagueSwitcherPlaceholder: "Select league (coming soon)",
     seasonPhaseLabel: "Season phase: {phase} (coming soon)",
     nextKickoffPlaceholder: "Next kickoff in -- (coming soon)",
-    localeSwitcherPlaceholder: "{locale} (coming soon)",
+    localeSwitcherLabel: "Select language",
+    localeSwitcherOptionKo: "한국어",
+    localeSwitcherOptionEn: "English",
   },
   nav: {
     home: "Home",
@@ -34,5 +36,6 @@ export const common: CommonMessages = {
     cancel: "Cancel",
     confirm: "Confirm",
     close: "Close",
+    loading: "Loading…",
   },
 };

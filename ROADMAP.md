@@ -327,7 +327,10 @@
     - **자동/사람 검출 구분표**를 함께 실었다 — `tsc`(키 구조·3단 경로·enum 멤버 커버)와 ESLint D-18(JSX 하드코딩 텍스트)이 각각 무엇을 잡고 **무엇을 못 잡는지**(고유명사 오탐, 속성값 사각지대, 콘텐츠 경계 미판별)를 구분해, 같은 날 1팀의 CI 번역 키 검사 편입 작업과 맞물린다
     - `docs/devStep/09` §2가 계획한 "객체 프로퍼티 체인"과 실제 `keys.ts`(점 문자열 + `DotPath` 재귀 타입)가 어긋나 있어 README에 **코드가 옳다**고 명시 → I-125(09문서 최소 정정)
     - `tsc` 0 error, lint **신규 경고 0건**(기존 111 불변)
-  - [ ] 로케일 스위처 컴포넌트 + 선택 로케일 영속화(쿠키), 신규 로케일이 카탈로그 추가만으로 확장 가능함을 확인
+  - [x] 로케일 스위처 컴포넌트 + 선택 로케일 영속화(쿠키), 신규 로케일이 카탈로그 추가만으로 확장 가능함을 확인 — **22일차 완료, Task 011 종료 · M-1 Phase 1**(`src/components/ui/LocaleSwitcher.tsx` 신규 — **`src/components/` 디렉터리 첫 파일**로, 원래 23일차 예정이나 011 산출물이라 앞당겼다. `domain/`·`state/`·프리미티브 13종은 여전히 23일차 이후). 로케일은 경로 세그먼트가 단일 소스이므로 **전환 = 내비게이션** — 현재 경로의 첫 세그먼트만 교체하고 `router.replace`를 쓴다(로케일 전환은 설정 토글에 가까워 히스토리 스택에 항목을 남기지 않음). 쿠키(`LOCALE_COOKIE_NAME`)는 이 전환의 부수효과로만 기록되며 **오늘은 어떤 서버 코드도 읽지 않는다**(선행 배선). 루트 레이아웃에 **`TranslationProvider` 실배선**(18일차 API 확정 후 이월분) + 헤더 placeholder 교체, `enums.ts`의 `../index.ts` 합류(구조만 — 실값 기입은 3팀 23일차 이후)
+    - **수락 기준 "D-18 경고 111건 해소"가 판정 대상이었고 111건 → 0건으로 충족**(`npm run lint` 0 problems, 팀장 실행). 대상: 헤더·사이드내비·푸터 + 라우트별 `loading`/`error`/`not-found` 60개(20라우트×3) + `global-not-found`. "번역 키 누락이 `tsc` 오류로 검출"은 기존 `satisfies` 구조 유지로 충족
+    - **⚠️ 검증 제약** — Playwright MCP가 **Chromium 미설치로 실패**해 클릭 전환·"새로고침 없음"·고유명사 불변 **실측은 미수행**, curl 기반 SSR 검증(`/ko`·`/en` 라벨 전환, `aria-pressed`)으로 대체했다 → **I-128**. 고유명사 불변은 현재 렌더 페이지에 고유명사 콘텐츠 자체가 없어 실측 불가이나 스위처가 데이터에 관여하지 않아 구조적으로는 성립
+    - 라우트별 `loading`/`not-found`는 Next 16.2.10에서 `params` 접근 수단이 없어(`unstable_rootParams` 제거) **DEFAULT_LOCALE 고정** — 근거는 `src/i18n/README.md` §4, 쿠키 판독 완화는 후속 → **I-129**
 - **수락 기준**
   - ko/en 두 로케일로 전 라우트가 렌더되고 로케일 전환 시 새로고침 없이 문구가 바뀐다.
   - 번역 키 누락이 `npx tsc --noEmit`에서 오류로 검출된다.
@@ -546,8 +549,9 @@
     - **정지 상태 처리**: 새 필드를 만들지 않고 기존 `PlayerState.suspensionRemainingLeague`/`Cup`을 사용하되, `CompetitionType` 4종 → 리그/컵 2분류 매핑은 **025·026 소관이라 추측하지 않고** 입력(`suspensionCompetition: 'LEAGUE' | 'CUP'`)으로 위임했다
     - **⚠️ 로테이션 정책은 부분 충족 — 이력 기반 로테이션 미구현.** `PlayerState`(`src/types/person.ts:211`)에 최근 출전 이력 필드가 없고(8일차 동결 H-01), `PlayerSeasonStat.appearances`(`src/types/stat.ts:54`)는 시즌 누적이라 "최근 N경기" 판정에 쓸 수 없다 — **팀장이 타입 원본을 직접 확인**했다. 2팀은 억측으로 필드를 만들지 않고 `fitnessModifier` 페널티에 의한 **자연 유도** + 동점 시 `playerId` 오름차순 결정론까지만 적용했다(**판정: 멈춘 것이 옳다**). 이력 기반 로테이션이 실제로 필요한지는 **025·026 착수 시점에 판단** → **I-123**(필요 시 타입 필드 추가는 C-7 배치 선행)
     - 슬롯 배정이 그리디라 전역 최적해와 다를 수 있으나 **결정론은 확보돼 재현성 문제는 없다** → I-124(밸런싱 검증 단계에서만 재검토). `LINEUP_STARTER_COUNT = 11`이 `check:literals`에 걸리나 `substitution.ts`의 5/3과 같은 **구조 상수**(축구 규칙)로 밸런싱 파라미터가 아니다(팀장 확인)
-  - [ ] 카드 누적 5장 정지 / 퇴장 1~3경기 정지, 리그·컵 누적 분리
-  - [ ] 감독 공석 시 BALANCED 폴백 지속 규칙 확정 후 I-03 해소
+  - [x] 카드 누적 5장 정지 / 퇴장 1~3경기 정지, 리그·컵 누적 분리 — **22일차 완료**(`src/lib/sim/discipline/suspension.ts`, `suspension.test.ts` 신규, 단독 21케이스). 리그/컵을 **축으로 완전 분리**해 한쪽 누적이 다른 쪽에 영향을 주지 않음을 테스트로 직접 고정(수락 기준 "리그·컵 카드가 섞이지 않음" 충족). 21일차 `select.ts`의 `SuspensionCompetition`과 `stats.ts`의 `PlayerMatchStatTierAFold`를 **재구현 없이 소비**한다
+    - **퇴장 정지 경기 수(1~3)를 이 파일이 확정하지 않았다** — CardReason taxonomy가 I-41로 보류 중이라 억측 대신 호출자가 `dismissalSuspensionGames`로 명시하게 하고 파일은 범위 검증(fail-fast)만 한다. 21일차 로테이션 판단(타입에 없는 필드를 만들지 않고 멈춤)과 같은 원칙
+  - [x] 감독 공석 시 BALANCED 폴백 지속 규칙 확정 후 I-03 해소 — **22일차 완료**(D-23: 공석 0라운드·즉시 대행). `resolveManagerStyle(manager: Pick<Manager,'teamId'|'style'> | null)` — 인자가 `null`이면 BALANCED. **배치 판정(팀장)**: 카드 정지와 별개 관심사임에도 `suspension.ts`에 함께 둔 것을 **승인·유지** — ⓐ 22일차 행이 산출물 경로를 이 파일 하나로 명시했고 ⓑ 의존성 없는 순수 함수 1개라 이관 비용이 사실상 0이며 ⓒ 분리 여부는 025·026(감독·전술) 착수 시점에 함께 판단하는 것이 맞다(그때 재판단하도록 22일차 로그 §7에 예약)
 - **수락 기준**: 전 계수를 1.0으로 강제 시 base와 일치. 핵심 9개 함수 커버리지 100% (NFR-QA-002).
 - **테스트**: Vitest — 경계값(C=1→0.70, C=10→1.00 등) 전건, 부상·정지 선수 선발 0건.
 
@@ -623,7 +627,10 @@
     - **공통코드 처리**: `MARKET_VALUE_PARAM` 중 `OVR_DIVISOR`/`OVR_EXP`/`POT_STEP`/`REP_BASE`/`REP_STEP`/`FLOOR` 6개는 `fallback.ts`에 안전 기본값이 있어 그대로 쓰고, `AGE_*`/`CONTRACT_*`/`TIER_*`는 **05문서 원본부터 구체 숫자가 없어 폴백도 비어 있으므로**(억측 금지) 키 부재 시 중립값(배율 1)으로 처리한다. 새 키 이름은 이 파일이 처음 정한 것이라 36일차 시드와 정렬 필요 → **I-121**(20일차 I-118과 같은 패턴의 2회차라 구조적 문제로 승격)
     - **수락 기준 "최저 몸값 ≥ 100pt"는 구조적으로 보장**한다 — 하한을 `Math.max(rounded, floor)`로 **배율 로직과 완전히 분리된 마지막 줄**에 두어 어떤 배율 조합으로도 뚫리지 않고, `ovr` 음수 입력 시 `NaN` 전파로 하한이 무력화되는 것을 `Math.max(0, ovr)`로 막았다. 최악 입력 조합(음수 OVR·명성·계약, OVR 0, 미정의 티어) 전수를 테스트로 고정
     - 반올림은 `Math.round` — floor/ceil은 계통적 편향이 생기고 DC-08은 방향을 지정하지 않는다. `OVR_DIVISOR`가 이름과 달리 곱셈 스케일로 쓰이는 이름-용법 불일치 → I-122
-  - [ ] 급여(몸값 × 비율 0.18) 차감, 성과 분배, 스폰서 수입
+  - [x] 급여(몸값 × 비율 0.18) 차감, 성과 분배, 스폰서 수입 — **22일차 완료**(`src/lib/economy/salary.ts`, `salary.test.ts` 신규, 신규 15케이스 포함 economy 35케이스 통과). 20~21일차 `ledger.ts`·`valuation.ts` 관례(순수 함수, DC-08 정수 고정, `@/types` 배럴, `options?.table ?? loadConstants(group)`) 승계
+    - **수락 기준 "급여 이중 차감 0건"은 구조적으로 보장**한다 — 별도 "이미 지급함" 플래그를 만들지 않고, `postSalaryPayment`가 매 호출 시 원장(`existingTransactions`)을 스캔해 `reasonCode: 'WAGE'` + `refType: 'Contract'` + `refId: contract.id` + `seasonId`가 모두 일치하는 레코드가 있으면 `DuplicateSalaryPaymentError`를 던진다. **원장이 유일한 근거**라는 20일차 `ledger.ts` 단일 소스 원칙의 연장이며, 상태 플래그를 추가했다면 원장과 이중 소스가 됐을 지점이다
+    - 성과 분배는 `LEAGUE_FINISH_POINT`(BASE/RANGE/EXP)를 "1등=BASE+RANGE, 꼴찌=BASE, 사이는 EXP로 휘는 곡선"으로 해석해 `progress = (teamCount − rank)/max(1, teamCount − 1)`를 EXP 지수로 휜다. `teamCount ≤ 1` 분모 0과 범위 밖 `rank`를 clamp로 방어(`valuation.ts`의 구조적 불변식 방어와 동일 성격)
+    - 스폰서 수입은 **zero-sum 2건 기록** — 팀 잔고 +, 스폰서 잔고 − 를 같은 `refType: 'SponsorContract'`/`refId`로 함께 남긴다. 팀 한 건만 기록하면 NFR-QA-005(원장 합 = 잔고)가 스폰서 쪽에서 깨진다
   - [ ] 스폰서 엔티티·계약(팀당 최대 3슬롯, 1~10시즌), 명성 비례 제안 금액
   - [ ] 스폰서 부도 판정 및 관련 계약 일괄 `VOIDED` + 뉴스 피드 노출
   - [ ] 재정 위기 상태 — 음수 잔고 팀의 프리시즌 강제 매각 트리거
@@ -713,7 +720,10 @@
     - [x] **034a 2/3 — 21일차 완료(6팀)**: `getFixture` / `getPlayerProfile` / `getTeam` / `getPlayerStatRanking` 4개 구현(테스트 10케이스 추가, `src/lib/data/supabase/` 59 통과). **`client.ts` 미확장** — 4개 모두 `select('*')` 단건/전량 조회로 충분해 20일차에 "범위 밖"으로 남긴 컬럼 프로젝션이 필요 없었다. `getPlayerStatRanking`의 출전율 분모(시즌+대회 구분 범위 `MAX(appearances)`)·정렬을 Mock(H-07)과 동일하게 맞추고 `minAppearancePct` 기본값은 `loadConstants('UI_PARAM')` 경유. `Pick<DataSource, ...>` 목록 확장, `factory.ts` 미등록 유지
       - **메서드 선정 기준** — 팀 일정표가 "4개 메서드"처럼 개수만 명시하고 메서드명을 지정하지 않아 6팀이 임의 판단해야 했다. **팀장이 "화면 구역별 진입점(루트 조회) 1개씩" 기준을 승인**(20일차 순위·일정 / 21일차 경기상세·선수·클럽·통계) → I-126
       - **팀장 검증 결함 A — 프로덕션 어댑터가 Mock 스택에 의존(해소)**: `getPlayerProfile`이 `pa`→`scoutRating` 변환을 재구현하지 않으려 `@/lib/mock/fixtures/screens`의 `toPublicProfile`을 import했는데, `screens.ts`가 `generateMockWorld`·`generateMockProgress`·`generateSeasonSchedule`을 정적 import해 **프로덕션 어댑터 모듈 그래프에 Mock 월드 생성기 전체가 들어왔다** — 이 Task의 존재 이유(플래그로 Mock↔실데이터 교체, 최종적으로 Mock 분리)와 정면 충돌. 6팀이 인용한 `screens.ts` 주석("18일차 `MockDataSource`가 그대로 재사용한다")은 **Mock 어댑터**를 가리키지 프로덕션을 덮지 않으며, 6팀이 그 차이를 감지해 **스스로 판단을 물어온 것이라 절차는 정확했다**(재구현 대신 재사용한 판단도 옳았고, 문제는 함수의 **위치**였다). **조치**: 팀장이 교차 경로 편집을 승인해 1팀이 `toScoutRating`+`toPublicProfile`을 Mock 비의존 신규 모듈 **`src/lib/data/player-profile.ts`로 추출**하고 `screens.ts`에서 제거(**재export를 남기지 않음** — 남기면 결합이 그대로다). **재검증**: `grep -rn "lib/mock" src/lib/data/supabase/` **0건**, `player-profile.ts`의 import는 `@/types`·`./DataSource` 2개뿐, `screens.ts`가 반대로 `@/lib/data/player-profile`을 import해 **의존 방향이 `data → mock`에서 `mock → data`로 뒤집혔다**
-    - [ ] 034a 3/3 — 22일차. 잔여 구역을 같은 기준으로 채우고 **`factory.ts` 등록 + `implements Pick<...>` → `implements DataSource` 전체 전환을 함께** 한다
+    - [x] **034a 3/3 — 22일차 완료(6팀), 034a 종료**: 뉴스·브래킷·어드민 등 잔여 전 구역 배선으로 **`DataSource` 전 메서드(55개) 구현 달성**, `implements Pick<...>` → **`implements DataSource` 전체 전환** 완료(수락 기준 "인터페이스 전 메서드 구현" 충족). 기존 `mapper.ts` 재사용으로 **신규 매퍼 0건**, 테스트 45케이스 추가(`SupabaseDataSource` 104/104 통과, 전체 774 통과)
+      - **`factory.ts` 등록 완료** — `src/lib/data/supabase/index.ts` 신규가 `registerDataSource('supabase', ...)`를 부수효과로 1회 수행하고, `bootstrap.ts`가 이 모듈을 동적 로드한다(`factory.ts` 헤더 규약대로 `factory.ts` 자체는 무수정). 프로바이더 함수로 **지연 생성** — `NEXT_PUBLIC_DATA_SOURCE=mock` 구동 중에는 Supabase 환경변수 부재로 인한 에러가 나지 않는다(`mock/index.ts`와 동일 원칙). **팀장이 런타임으로 직접 검증** — `kind=supabase` + `bootstrapDataSource()` 후 `getDataSource()`가 정상 인스턴스를 반환함을 임시 테스트로 확인(커밋하지 않음)
+      - `@supabase-js` 미설치 제약은 `client.ts`에 **PostgREST fetch 브리지**(`createSupabaseRestQueryClient`)를 두어 해소했다 — 생성자가 `SupabaseQueryClient` 구조적 타입만 요구하므로 패키지 설치 후 `index.ts` **1줄 교체**로 실클라이언트 전환된다. `client.ts`에 `eq` boolean 확장 + `in()` 추가
+      - `getMatchPlayerRatings`/`getMatchTeamStats`는 2팀 **Tier B 재시뮬 컴포넌트 미도착(H-14, 27일차)**으로 Mock과 동일하게 빈 배열을 반환하되 **사유가 다름을 JSDoc에 명시**했다(오늘 결함 아님, 27일차 이후 채움)
   - [ ] `match_event` 경과 시간 필터를 뷰 또는 보안 함수로 강제 (DC-05, NFR-SEC-004)
   - [ ] 플래그 전환(`NEXT_PUBLIC_DATA_SOURCE`)으로 Mock↔실데이터 즉시 교체
   - [ ] 폴링 훅을 실데이터에 연결, 이후 Realtime 교체 가능하도록 훅 레이어 유지
@@ -871,10 +881,12 @@
     - [x] **시드 스냅샷 갱신 차단 + 번역 키 누락 검사 — 21일차 완료(1팀). 스크립트 신설 없이 기존 게이트 강화로 충족**
       - **번역 키 누락 검사: 별도 스크립트를 만들지 않았다.** 4팀 `keys.ts`의 재귀 조건부 타입 + en 8파일의 `: XMessages` 타입 주석 덕분에 **`tsc`가 이미 missing/excess 키를 잡는다**는 것을 실측으로 확인했다(en에서 키 삭제 → **TS2741**, 없는 키 추가 → **TS2353**). gate 1단계(`tsc --noEmit`)가 이미 커버하므로 중복 구현을 회피한 판단이다. 다만 이 검사가 "en 파일이 `: XMessages` 주석을 유지한다"는 **관례에만 의존하고 중앙 강제 장치가 없다**는 구멍이 남아 있고, `src/i18n/**`가 4팀 소유라 직접 반영하지 않고 제보만 했다 → **I-120**
       - **시드 스냅샷**: vitest 4.1.10이 std-env `isCI` 감지로 CI에서 이미 `updateSnapshot="none"`이 기본값임을 `node_modules` 소스로 확인하고, 스냅샷을 고의 변조한 뒤 `CI=true npx vitest run`으로 **실패 + 파일 미변경을 재현**했다. 이 **암묵적 기본값에 의존하지 않도록** `ci.yml`의 gate 스텝에 `env: UPDATE_SNAPSHOT: none`을 명시 고정했다(신규 로직이 아니라 기존 동작을 diff로 드러낸 것)
-    - [ ] 시크릿 스캔 · Edge Function 배포·롤백 문서화 · 환경 분리는 22~23일차
+    - [x] **시크릿 스캔 — 22일차 완료(1팀)**. 잔여(Edge Function 배포·롤백 문서화 · 환경 분리)는 23일차
     - **⚠️ CI 첫 실행 결과가 2일째 미확인** — 이 환경에 `gh` CLI가 없어 GitHub Actions 러너 결과를 조회할 수단이 없다. 확인 수단 결정이 선행돼야 한다
   - [ ] 위반 시 머지 차단, 스냅샷 무단 갱신이 diff로 드러나도록 구성
-  - [ ] 시크릿 스캔(커밋 히스토리 포함) 및 클라이언트 번들 서비스롤 키 grep 검사
+  - [x] 시크릿 스캔(커밋 히스토리 포함) 및 클라이언트 번들 서비스롤 키 grep 검사 — **22일차 완료**(`.github/workflows/secret-scan.yml` 신규, push·PR(master) 트리거 2 job). job1: **gitleaks CLI 바이너리를 직접 설치**해 `detect --source . --log-opts="--all" --redact --exit-code 1` + `fetch-depth: 0`으로 커밋 히스토리 전체 스캔 — 마켓플레이스 액션(`gitleaks-action` v2)은 조직 사용 시 `GITLEAKS_LICENSE`를 요구하나 스캐너 본체는 MIT라 **라이선스 의존을 회피**했다. job2: `npm run build` 후 `.next/static`을 `SUPABASE_SERVICE_ROLE_KEY|service_role`로 grep. 로컬 gitleaks 실행 **35 commits 스캔 0건**(수락 기준 "시크릿 스캔 0건" 충족), `.env.local` gitignore 적용 확인(팀장)
+    - **`SUPABASE_SERVICE_ROLE_KEY`는 `NEXT_PUBLIC_` 접두사가 없어 정상 경로로는 클라이언트에 인라인되지 않는다** — job2는 실수로 접두사를 붙이거나 값을 하드코딩하는 **회귀를 잡는 방어용**이다. WSL은 `next build` 최종 `copyfile`이 EPERM으로 죽지만(I-62) 정적 청크는 그 이전에 생성돼 grep 로직 자체는 로컬 확인했고, 실제 게이트 판정은 ubuntu-latest 러너가 한다
+    - **추가(팀장 지시, 21일차 결함 A 재발 방지)**: `eslint.config.mjs`에 `no-restricted-imports`로 **프로덕션 코드의 `@/lib/mock/**` import를 정적 차단**. 예외는 `src/lib/mock/**` 자신·`src/lib/data/mock/**`(DataSource 계약상 Mock 구현)·테스트 파일뿐이다. Mock↔실데이터 교체(Task 034)의 전제가 "Mock을 걷어내도 프로덕션 어댑터가 안 깨진다"이므로 문서가 아니라 룰로 고정했다. 팀장 확인: 프로덕션 코드의 `@/lib/mock` import **잔존 0건**
   - [ ] Edge Function 배포·롤백 절차 문서화, Supabase 요금제·크론 주기 비용 산정(팀원 3 예산안 입력)
   - [ ] 환경 분리(로컬/스테이징/프로덕션) 및 마이그레이션 적용 순서 규약
 - **수락 기준**: CI에서 3단 게이트가 실제로 실패를 잡아낸다. 시크릿 스캔 0건.

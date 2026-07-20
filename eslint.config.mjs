@@ -95,6 +95,41 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // Task 044(22일차, 21일차 결함 A 재발 방지): 프로덕션 데이터 어댑터가 `src/lib/mock/**`를
+    // 직접 import하면 그 모듈 그래프에 Mock 월드 생성기 스택 전체가 딸려 들어온다 — 21일차에
+    // SupabaseDataSource.ts가 `@/lib/mock/fixtures/screens`를 import해 실제로 벌어졌던 결함
+    // (docs/dailyWorkLog/21Day.md, 팀장이 `toScoutRating`/`toPublicProfile`을 Mock 비의존
+    // `src/lib/data/player-profile.ts`로 추출시켜 해소). Mock↔실데이터 교체(Task 034)의
+    // 전제가 "Mock을 걷어내도 프로덕션 어댑터가 안 깨진다"이므로 정적으로 고정한다.
+    //
+    // `src/lib/mock/**` 자신과, DataSource 계약상 Mock을 구현해야 하는 `src/lib/data/mock/**`
+    // (MockDataSource.ts 등)만 예외다 — 그 외 어댑터(`src/lib/data/supabase/**` 등)·앱
+    // 코드는 DataSource 인터페이스를 거쳐야지 Mock 픽스처를 직접 물면 안 된다. 테스트 파일은
+    // 테스트 더블로 Mock 픽스처를 쓰는 것이 정당한 용도라 범위에서 뺀다.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    ignores: [
+      "src/lib/mock/**",
+      "src/lib/data/mock/**",
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "src/**/*.type-test.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/lib/mock/*", "@/lib/mock/**"],
+              message:
+                "프로덕션 코드는 src/lib/mock/**를 직접 import할 수 없습니다 (21일차 결함 A). src/lib/data의 DataSource 어댑터를 거치세요.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Task 010(18일차, D-18): JSX 텍스트 리터럴 하드코딩 경고 — src/i18n/t()(Task 011,
     // src/i18n/t.ts) 번역 키 경유를 강제하기 위한 선제 경고다. 아직 화면 본문은 4팀이
     // 28일차 이후 채우지만(CLAUDE.md), 헤더 골격(src/app/[lang]/layout.tsx, 12일차)처럼

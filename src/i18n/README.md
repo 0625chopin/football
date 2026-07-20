@@ -110,3 +110,35 @@ I-14/I-15 해소)이 단일 소스다:
 들어간 내용이 §2의 번역 대상 경계를 지켰는가**는 판단하지 못한다 — 그 표현식이 카탈로그
 번역 키(`t(...)`) 형태로만 바뀌면 두 게이트 모두 조용해지기 때문이다. 이 판단은 여전히
 코드 리뷰(일차 마감 교차 점검) 몫이다.
+
+## 4. `params.lang`에 접근할 수 없는 특수 파일 (22일차)
+
+D-18 경고 111건을 해소하며 실제로 부딪힌 제약: Next.js 16.2.10에서 `loading.js`·
+`not-found.js`·`global-not-found.js`는 **props를 받지 않는다**(각 파일의 공식 문서,
+`node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/*.md` "Reference"
+절 확인). 예전에 있었던 `unstable_rootParams`(레이아웃/페이지 없이도 루트 세그먼트
+파라미터를 읽는 API)도 v16에서 제거됐고 대안은 아직 없다(`02-guides/upgrading/
+version-16.md`). 즉 이 세 파일은 자신이 어느 `/[lang]` 세그먼트 아래 있는지 **서버
+컴포넌트로서는 알 방법이 없다**.
+
+세 파일의 처리 방침:
+
+- **`loading.tsx`/`not-found.tsx`(라우트별, 서버 컴포넌트)**: `t(DEFAULT_LOCALE, key)`로
+  고정한다. `global-not-found.tsx`가 이미 같은 이유로 고정 로케일을 쓰고 있었다(I-89,
+  10일차 결정 — 그 파일은 라우팅 자체를 우회하는 완전 미매치 URL 전용이라 태생적으로
+  세그먼트가 없다). 라우트별 loading/not-found는 세그먼트 **안**에 있지만 파일
+  자체가 그 파라미터를 못 받는다는 점만 다를 뿐 결론은 같다.
+- **`error.tsx`(Client Component)**: `"use client"`라 `provider.tsx`의
+  `useTranslation()`을 그대로 쓴다 — 루트 레이아웃이 `TranslationProvider`로 감싸는
+  트리 안에서 렌더되므로(에러가 나도 Provider 자신은 그 상위라 언마운트되지 않는다)
+  **현재 활성 로케일**(URL 세그먼트 → `LocaleSwitcher` 전환 반영)을 정확히 따라간다.
+  서버 파일 두 종류보다 나은 방법이 있으니 그쪽을 쓴다 — "모든 특수 파일을 똑같이
+  취급"이 목표가 아니라 "가능한 최선을 각자 쓴다"가 목표다.
+
+`LOCALE_COOKIE_NAME`(`src/i18n/locales.ts`, 22일차 `LocaleSwitcher.tsx` 신설)로 선택
+로케일이 쿠키에 영속화되긴 하지만, 오늘은 `loading.tsx`/`not-found.tsx`가 그 쿠키를
+읽지 않는다 — `cookies()`(`next/headers`)는 서버 컴포넌트 어디서나 호출 가능해 구조적으로
+막혀 있진 않지만, 오늘 스코프는 스위처 자체의 배선(전환 시 쿠키를 **쓰는** 쪽)까지다.
+이 쿠키를 **읽어** 두 파일의 DEFAULT_LOCALE 고정을 완화하는 것은 후속 이슈로 남긴다
+(재검토 시점: `unstable_rootParams` 대안 API가 나오거나, 위 쿠키 판독 경로를 실제로
+구현하기로 할 때).

@@ -1,13 +1,17 @@
+import { t } from "@/i18n/t";
+import { DEFAULT_LOCALE } from "@/i18n/locales";
+
 /**
  * `/[lang]/sponsors` not-found 폴백 — Task 005(13일차), 빈 자리표시자.
  *
  * 화면 본문은 5팀 소관이며 28일차 이후 채워진다. 4팀은 라우트 골격만 만든다.
+ * lang 파라미터를 받지 못하는 특수 파일이라 DEFAULT_LOCALE로 고정 표시한다(`src/i18n/README.md` §4, 22일차).
  */
 export default function NotFound() {
   return (
     <main className="p-4 text-sm">
-      <h2 className="font-semibold">찾을 수 없음 (준비 중)</h2>
-      <p className="text-foreground/60">요청한 리소스를 찾을 수 없습니다.</p>
+      <h2 className="font-semibold">{t(DEFAULT_LOCALE, "error.notFound.title")}</h2>
+      <p className="text-foreground/60">{t(DEFAULT_LOCALE, "error.notFound.description")}</p>
     </main>
   );
 }

@@ -8,6 +8,7 @@ export const error: ErrorMessages = {
   generic: {
     title: "Something went wrong",
     description: "Please try again in a moment.",
+    retryLabel: "Try again",
   },
   network: {
     title: "Network error",

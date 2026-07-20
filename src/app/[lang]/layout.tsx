@@ -4,7 +4,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { SeasonPhase } from "@/types";
-import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
+import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from "@/i18n/locales";
+import { TranslationProvider } from "@/i18n/provider";
+import { t } from "@/i18n/t";
+import type { TranslationKey } from "@/i18n/keys";
+import { LocaleSwitcher } from "@/components/ui/LocaleSwitcher";
+import { bootstrapApp } from "@/lib/data/bootstrap";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -82,8 +87,27 @@ export async function generateStaticParams() {
  * 아직 데이터소스도 i18n도 없어 전부 비활성 placeholder다. 실제 구현 시점: 리그 스위처·
  * 킥오프 타이머는 013A/019~020 화면 연결(28일차 이후), 로케일 스위처는 011의 22일차
  * (`LocaleSwitcher.tsx`), 여기 하드코딩된 한국어 라벨도 그때 번역 키로 교체된다.
+ *
+ * **22일차 갱신**: 위 문단이 예고한 교체를 실제로 했다. 로케일 스위처는 실컴포넌트로
+ * 바뀌었고(데이터소스가 필요 없는 유일한 자리라 오늘 바로 활성화), 나머지 3개 자리는
+ * 여전히 `disabled` placeholder지만 하드코딩 라벨은 전부 `common.ts` 번역 키로
+ * 교체했다(D-18 경고 해소 — 데이터소스 연결과 라벨의 i18n 경유는 별개 축이다). 이 파일
+ * 전체를 `TranslationProvider`로 감싸 SiteHeader/SideNav/SiteFooter가 `useTranslation()`
+ * 없이도(전부 로컬 함수라 서버 컴포넌트로 남아 있다) `t(lang, key)`를 직접 호출한다 —
+ * Provider는 013A 이후 생길 클라이언트 리프 컴포넌트(`LocaleSwitcher`가 이미 그 예)를
+ * 위한 것이지 이 파일 자신에게 필요한 건 아니지만, 그 컴포넌트들이 트리에 들어올 자리에
+ * 미리 감싸 둔다.
+ *
+ * **22일차 — `bootstrapApp()` 배선(1팀 인계, I-72/13일차 지시 이월분)**: `getDataSource()`/
+ * `loadConstants()`를 처음 쓰기 전 반드시 끝나야 하는 앱 부트스트랩(공통코드 폴백 등록 +
+ * 어댑터 등록)의 유일한 호출처가 이 루트 레이아웃이다(`src/lib/data/bootstrap.ts` "호출
+ * 시점" 절). `bootstrapDataSource()`를 따로 부르지 않는다 — `bootstrapApp()` 하나가 순서를
+ * 책임진다(1팀 절충 설계). 이미 실행됐으면 아무 것도 하지 않는 멱등 함수라 매 요청 호출
+ * 비용이 없다.
  */
 export default async function RootLayout(props: LayoutProps<"/[lang]">) {
+  await bootstrapApp();
+
   const { lang } = await props.params;
 
   // 15일차 2차 수정(팀장 검증) — `proxy.ts`의 matcher는 일부 경로(`_next`/`api`/확장자
@@ -106,16 +130,18 @@ export default async function RootLayout(props: LayoutProps<"/[lang]">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <div className="flex min-h-full flex-col">
-          <SiteHeader lang={htmlLang} />
-          <div className="flex flex-1">
-            <SideNav lang={htmlLang} />
-            <main className="flex-1">
-              <LocaleGate lang={lang}>{props.children}</LocaleGate>
-            </main>
+        <TranslationProvider locale={htmlLang}>
+          <div className="flex min-h-full flex-col">
+            <SiteHeader lang={htmlLang} />
+            <div className="flex flex-1">
+              <SideNav lang={htmlLang} />
+              <main className="flex-1">
+                <LocaleGate lang={lang}>{props.children}</LocaleGate>
+              </main>
+            </div>
+            <SiteFooter lang={htmlLang} />
           </div>
-          <SiteFooter />
-        </div>
+        </TranslationProvider>
       </body>
     </html>
   );
@@ -131,62 +157,62 @@ function LocaleGate({ lang, children }: { lang: string; children: ReactNode }) {
 // mock — 시즌/페이즈 인디케이터 자리. 실제 값은 DataSource 연결(28일차 이후) 시 교체.
 const mockSeasonPhase: SeasonPhase = "REGULAR";
 
-function SiteHeader({ lang }: { lang: string }) {
+function SiteHeader({ lang }: { lang: SupportedLocale }) {
+  // `enums.seasonPhase.${SeasonPhase}` 형태의 캐스트 — `EnumTranslationCatalog<SeasonPhase>`
+  // (enums.ts)가 SeasonPhase 전 멤버 커버를 tsc로 강제하므로 이 형태의 경로는 항상
+  // 존재한다. 템플릿 리터럴 표현식은 기본적으로 `string`으로 넓혀져 `TranslationKey`
+  // 유니온과 바로 맞지 않아 단언이 필요하다 — mock 값 하나짜리라 여기 국소적으로만 쓴다
+  // (일반화된 enum→키 헬퍼는 013A 도메인 컴포넌트가 실제로 enum을 소비하기 시작할 때 판단).
+  const seasonPhaseKey = `enums.seasonPhase.${mockSeasonPhase}` as TranslationKey;
+
   return (
     <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
-      {/* 서비스명 — 011에서 번역 키로 교체 예정 */}
-      <span className="font-semibold">football4</span>
+      <span className="font-semibold">{t(lang, "common.app.name")}</span>
       <div className="flex items-center gap-2 text-sm">
         <button
           type="button"
           disabled
           className="rounded border border-foreground/20 px-2 py-1 text-foreground/60"
         >
-          리그 선택 (준비 중)
+          {t(lang, "common.header.leagueSwitcherPlaceholder")}
         </button>
         <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
-          시즌 페이즈: {mockSeasonPhase} (준비 중)
+          {t(lang, "common.header.seasonPhaseLabel", { phase: t(lang, seasonPhaseKey) })}
         </span>
         <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
-          다음 킥오프까지 -- (준비 중)
+          {t(lang, "common.header.nextKickoffPlaceholder")}
         </span>
-        <button
-          type="button"
-          disabled
-          className="rounded border border-foreground/20 px-2 py-1 text-foreground/60"
-        >
-          {lang.toUpperCase()} (준비 중)
-        </button>
+        <LocaleSwitcher />
       </div>
     </header>
   );
 }
 
 // 11일차까지 생성된 실제 라우트만 연결한다. admin/bet/my는 2차 대비 예약(플래그 비활성)이라 제외.
-const NAV_ITEMS: { label: string; path: string }[] = [
-  { label: "리그", path: "leagues" },
-  { label: "경기", path: "matches" },
-  { label: "선수", path: "players" },
-  { label: "팀", path: "teams" },
-  { label: "통계", path: "stats" },
-  { label: "플레이오프", path: "playoffs" },
-  { label: "컵", path: "cup" },
-  { label: "이적", path: "transfers" },
-  { label: "수상", path: "awards" },
-  { label: "아카이브", path: "archive" },
-  { label: "스폰서", path: "sponsors" },
+const NAV_ITEMS: { labelKey: TranslationKey; path: string }[] = [
+  { labelKey: "common.nav.leagues", path: "leagues" },
+  { labelKey: "common.nav.matches", path: "matches" },
+  { labelKey: "common.nav.players", path: "players" },
+  { labelKey: "common.nav.teams", path: "teams" },
+  { labelKey: "common.nav.stats", path: "stats" },
+  { labelKey: "common.nav.playoffs", path: "playoffs" },
+  { labelKey: "common.nav.cup", path: "cup" },
+  { labelKey: "common.nav.transfers", path: "transfers" },
+  { labelKey: "common.nav.awards", path: "awards" },
+  { labelKey: "common.nav.archive", path: "archive" },
+  { labelKey: "common.nav.sponsors", path: "sponsors" },
 ];
 
-function SideNav({ lang }: { lang: string }) {
+function SideNav({ lang }: { lang: SupportedLocale }) {
   return (
     <nav className="w-48 shrink-0 border-r border-foreground/10 p-4">
       <ul className="flex flex-col gap-1 text-sm">
         <li>
-          <Link href={`/${lang}`}>홈</Link>
+          <Link href={`/${lang}`}>{t(lang, "common.nav.home")}</Link>
         </li>
         {NAV_ITEMS.map((item) => (
           <li key={item.path}>
-            <Link href={`/${lang}/${item.path}`}>{item.label}</Link>
+            <Link href={`/${lang}/${item.path}`}>{t(lang, item.labelKey)}</Link>
           </li>
         ))}
       </ul>
@@ -194,11 +220,10 @@ function SideNav({ lang }: { lang: string }) {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ lang }: { lang: SupportedLocale }) {
   return (
     <footer className="border-t border-foreground/10 px-4 py-3 text-sm text-foreground/60">
-      {/* 개발 진행 상태 표기 — 011에서 번역 키로 교체 예정 */}
-      football4 · 개발 진행 중
+      {t(lang, "common.footer.devStatus")}
     </footer>
   );
 }

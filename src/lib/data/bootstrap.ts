@@ -26,19 +26,28 @@
  * 레이아웃에 또 늘리지 않는다. 이 파일이 "앱 시작 시 무엇이 초기화돼야 하는가"의 유일한
  * 목록이 되도록 유지하는 것이 이 절충안의 핵심이다.
  *
- * ## 왜 정적 import가 아니라 변수 경유 동적 import인가 (`bootstrapDataSource` 한정)
- * `./mock`·`./supabase`는 오늘 시점에 실존하지 않는 디렉터리다(3팀 Task 007은 13~19일차,
- * 6팀 Task 034는 그 이후). 정적 `import`문이나 문자열 리터럴을 인자로 받는 동적
- * `import('./mock')`는 TypeScript가 컴파일 시점에 모듈 해석을 시도해 `tsc`가 즉시 실패한다.
- * 반면 `import(modulePath)`처럼 인자가 **변수(비리터럴 표현식)**이면 TypeScript는 정적 모듈
- * 해석을 시도하지 않고 해당 `import()` 호출의 타입을 `any`로 취급한다 — 그래서 대상 모듈이
- * 아직 없어도 `tsc`가 통과한다(이 파일 작성 직후 `npx tsc --noEmit`으로 실측 확인함). 두
- * 어댑터 디렉터리가 실제로 생기기 전까지 `bootstrapDataSource()`를 **호출**하면 런타임에
- * "모듈을 찾을 수 없음" 에러가 나지만, 오늘은 이 함수를 호출하는 곳이 아직 없으므로 문제가
- * 되지 않는다. **4팀 1차 교차 점검 지적(`docs/ISSUES.md` I-75)**: 이 변수 경유 동적 import가
- * webpack 번들러에서도 문제없이 해석되는지는 아직 실제 `next dev --webpack` 컴파일로
- * 검증된 바 없다(오늘은 `tsc --noEmit`만 확인, WSL에서 `next build`가 별도로 실패하는
- * I-62 때문에 실컴파일 기회 자체가 제한적이다) — 13일차 배선 시 실컴파일 확인이 필요하다.
+ * ## 22일차 갱신 — 리터럴 분기 동적 import로 전환 (I-75 확정·해소)
+ * 11일차 원안은 `import(modulePath)`처럼 인자를 변수로 넘겨 `./mock`·`./supabase`가 아직
+ * 없어도 `tsc`가 통과하도록 했다(TypeScript는 비리터럴 `import()` 인자를 정적 해석하지
+ * 않고 `any`로 취급한다). 그런데 **webpack은 반대로 정적 해석이 안 되는 동적 import를
+ * 다루지 못한다** — `next dev --webpack`으로 실컴파일하면
+ * `Critical dependency: the request of a dependency is an expression` 경고와 함께
+ * `Cannot find module './mock'`(`MODULE_NOT_FOUND`)로 첫 요청이 500이 난다(4팀 13일차
+ * 배선 지연분이 22일차에 배선되며 팀장이 격리 포트로 재현·확정, I-75). 두 어댑터 디렉터리가
+ * 이제 실존하므로(3팀 Task 007 19일차, 6팀 Task 034) 변수 경유로 tsc를 우회할 필요가
+ * 없어졌다 — **`kind` 값을 리터럴 두 갈래로 분기**해 각 분기의 `import('./mock')`/
+ * `import('./supabase')`가 리터럴 문자열이 되도록 바꿨다. webpack이 두 갈래 모두 정적으로
+ * 분석해 번들에 포함시키므로 경고와 500이 사라진다(리터럴이라 `tsc`도 당연히 통과).
+ *
+ * ## 22일차 갱신 — 부트스트랩 플래그가 실패를 은폐하던 결함 해소(4팀 발견, 팀장 재현 확정)
+ * 원안은 `xBootstrapped = true`를 `await`/등록 **이전에 동기 세팅**했다. 그래서 최초 호출이
+ * reject해도 플래그는 true로 남아, 다음 호출부터는 재시도 없이 그대로 resolve했다 —
+ * "부트스트랩이 성공한 것처럼" 조용히 통과하는 것이다(1차 500 → 2차부터 200이 그대로
+ * 재현됨). **성공했을 때만** 완료로 간주해야 재시도가 가능하다. 불리언 플래그 대신
+ * in-flight `Promise`를 캐시하는 방식으로 바꿨다 — 동시 호출은 같은 프라미스를 공유해
+ * 등록이 중복 실행되지 않고(경쟁 조건 방지), 그 프라미스가 reject하면 캐시를 비워 다음
+ * 호출이 처음부터 다시 시도하며, resolve하면 캐시를 그대로 유지해 이후 호출은 재실행 없이
+ * 캐시된 결과를 재사용한다.
  *
  * ## 호출 시점 (인계 대상)
  * `bootstrapApp()`은 `getDataSource()`(`factory.ts`)·`loadConstants()`(`loader.ts`)를 처음
@@ -58,50 +67,61 @@ import { installHardcodedFallback } from '@/lib/config/fallback';
 
 import { getDataSourceKind } from './factory';
 
-let dataSourceBootstrapped = false;
-let appBootstrapped = false;
+let dataSourceBootstrapPromise: Promise<void> | null = null;
+let appBootstrapPromise: Promise<void> | null = null;
 
 /**
  * 현재 `NEXT_PUBLIC_DATA_SOURCE` 설정에 맞는 어댑터의 self-registration 모듈을 로드한다
- * (I-67, 어댑터 등록 전용 — 다른 레지스트리는 모른다). 이미 로드했으면(같은 프로세스 내
- * 재호출) 아무 것도 하지 않는다.
+ * (I-67, 어댑터 등록 전용 — 다른 레지스트리는 모른다). 로드에 **성공**했으면(같은 프로세스
+ * 내 재호출) 캐시된 결과를 그대로 재사용해 재등록하지 않는다. **실패**하면 캐시를 비워
+ * 다음 호출이 처음부터 다시 시도한다(22일차, 부트스트랩 플래그가 실패를 은폐하던 결함 해소
+ * — 위 파일 헤더 참조). `kind`별로 리터럴 분기해야 webpack이 두 갈래를 정적으로 분석해
+ * 번들에 포함시킨다(I-75, 변수 경유 동적 import는 webpack이 해석하지 못한다).
  */
 export async function bootstrapDataSource(): Promise<void> {
-  if (dataSourceBootstrapped) {
-    return;
+  if (!dataSourceBootstrapPromise) {
+    const kind = getDataSourceKind();
+
+    dataSourceBootstrapPromise = (kind === 'supabase' ? import('./supabase') : import('./mock'))
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        dataSourceBootstrapPromise = null;
+        throw error;
+      });
   }
-  dataSourceBootstrapped = true;
 
-  const kind = getDataSourceKind();
-  const modulePath = kind === 'supabase' ? './supabase' : './mock';
-
-  await import(modulePath);
+  return dataSourceBootstrapPromise;
 }
 
 /**
  * **앱 부트스트랩 단일 진입점**(I-72). 4팀이 13일차 이후 루트 레이아웃에서 호출해야 할
  * 유일한 함수 — 공통코드 하드코딩 폴백 등록(`installHardcodedFallback`)과 어댑터 등록
- * (`bootstrapDataSource`)을 이 함수 하나가 순서대로 수행한다. 이미 실행했으면 아무 것도
- * 하지 않는다. **새 초기화가 필요해지면 이 함수 본문에 한 줄만 추가할 것** — 4팀 레이아웃에
- * 새 호출을 늘리지 않는다(위 파일 헤더 "절충 설계" 절 참조).
+ * (`bootstrapDataSource`)을 이 함수 하나가 순서대로 수행한다. **성공**했으면 이후 호출은
+ * 캐시된 결과를 재사용하고, **실패**하면 캐시를 비워 다음 호출이 다시 시도한다(22일차,
+ * 위 파일 헤더 참조). **새 초기화가 필요해지면 이 함수 본문에 한 줄만 추가할 것** — 4팀
+ * 레이아웃에 새 호출을 늘리지 않는다(위 파일 헤더 "절충 설계" 절 참조).
  */
 export async function bootstrapApp(): Promise<void> {
-  if (appBootstrapped) {
-    return;
+  if (!appBootstrapPromise) {
+    appBootstrapPromise = (async () => {
+      installHardcodedFallback();
+      await bootstrapDataSource();
+    })().catch((error: unknown) => {
+      appBootstrapPromise = null;
+      throw error;
+    });
   }
-  appBootstrapped = true;
 
-  installHardcodedFallback();
-  await bootstrapDataSource();
+  return appBootstrapPromise;
 }
 
 /**
- * 부트스트랩 완료 플래그를 초기화한다. 테스트 간 격리 목적 — 일반 애플리케이션 코드
+ * 부트스트랩 완료 캐시를 초기화한다. 테스트 간 격리 목적 — 일반 애플리케이션 코드
  * 경로에서는 호출하지 않는다(`factory.ts`의 `resetDataSourceCache`와 동일한 용도).
  * 공통코드 캐시 자체의 초기화는 `loader.ts`의 `invalidateConstants()`가 별도로 담당한다
- * (이 함수는 "다시 등록이 필요한가"라는 부트스트랩 플래그만 초기화한다).
+ * (이 함수는 "다시 등록이 필요한가"라는 부트스트랩 캐시만 초기화한다).
  */
 export function resetDataSourceBootstrap(): void {
-  dataSourceBootstrapped = false;
-  appBootstrapped = false;
+  dataSourceBootstrapPromise = null;
+  appBootstrapPromise = null;
 }
