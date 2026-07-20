@@ -322,7 +322,7 @@
   - [ ] **열거형 표시명 카탈로그**(팀원 6) — 포지션 11군, 이벤트 23종, 부상 4등급, 전술 성향 6종, 페이즈 6종, 수상 종류, 마켓 상태의 ko/en 표시명
     - [x] **골격 — 19일차 완료(4팀)**: `src/i18n/messages/{ko,en}/enums.ts` 신규. 3팀 H-10 목록 전량(포지션 11·이벤트 23·부상 4·전술 6·페이즈 6·수상 12·마켓 상태 4)을 `EnumTranslationCatalog<T>`(T12, `@/types`)로 감싸 **도메인 enum의 전 멤버가 매핑됐는지 tsc가 강제**한다 — 유니온 멤버가 늘거나 줄면 즉시 컴파일 오류로 드러난다. `enums.position.GK` 형태의 3단 구조(`keys.ts` 규약) 준수, `@/types` 배럴로만 import(C-5·C-6 위반 0건, 팀장 grep 실증). ko/en 키 수 동일(각 74), D-18 lint 경고 0. `../index.ts` 통합 `messages`에는 **미합류**(Provider 실배선 22일차 이후, 09문서 §4 방침 유지)
     - [ ] **실값 기입 — 3팀이 23일차 이후**: 현재 값은 전부 enum 리터럴을 echo하는 자리표시자다. 4팀은 값을 임의로 채우지 않는다
-  - [ ] **날짜·시각·숫자 서식** — 킥오프 시각(UTC 저장 → 로케일 로컬 변환, DC-07), 포인트 천단위 구분, 배당 소수 2자리 표기를 로케일별 포맷터로 단일화
+  - [x] **날짜·시각·숫자 서식** — 킥오프 시각(UTC 저장 → 로케일 로컬 변환, DC-07), 포인트 천단위 구분, 배당 소수 2자리 표기를 로케일별 포맷터로 단일화 — **20일차 완료**(`src/i18n/format.ts`, `format.test.ts` 신규). `formatKickoff`(style: `time`/`dateTime`/`date`) · `formatPoints` · `formatOdds` 3함수를 `Intl.*` 기반으로 구현. **포맷터 단일 소스 성립을 팀장이 실증** — `src/**`에서 `toLocaleString`/`Intl.*` 직접 호출이 `src/i18n/format.ts` 외 **0건**(각 화면이 직접 포맷하지 않음). 테스트 10케이스 통과, 전체 641 통과(회귀 0), **D-18 경고 신규 추가 0건**(기존 111건 불변). 소비는 5팀 28일차 이후
   - [ ] **번역 대상 경계 명문화** — 번역함: UI 레이블, 열거형 표시명, 안내·에러 문구 / **번역하지 않음: 선수·클럽·감독·스폰서 이름(D-17에 따른 국적 기반 생성 고유명사), 구장명, 시드 값**
   - [ ] 로케일 스위처 컴포넌트 + 선택 로케일 영속화(쿠키), 신규 로케일이 카탈로그 추가만으로 확장 가능함을 확인
 - **수락 기준**
@@ -535,7 +535,10 @@
   - [x] 컨디션 `M = 0.70 + 0.30×(C−1)/9`, 피로 `M = 0.75 + 0.25×(fitness/100)`, 캐미 상한 +6% — **18일차 완료**(`modifiers.ts` 자리표시자 3종 교체, `modifiers.test.ts` 36→39케이스). `conditionModifier`/`fitnessModifier`는 과제 행 공식 그대로, `familiarityModifier`는 `M = min(1.0 + 0.01×familiaritySeasons, 1.06)` — **상한 +6%만 명시돼 있고 증가 곡선(선형 vs 체감)·연 증가율이 미정이라 선형 1%p/시즌으로 채택하고 근거를 파일 상단 주석에 명시**(6시즌차부터 상한 고정). 17일차 `clampAbilityModifier` 단일 진입점을 그대로 재사용해 **신규 클램프를 만들지 않았다**. **수락 기준 경계값 전건 통과** — C=1→0.70, C=10→1.00, fitness=0→0.75/100→1.00, seasons=0/3/6/20. `tsc --noEmit` 0 error, `npm run test` 542 통과. 잔여 자리표시자 5종(부상·홈·날씨·감독·포지션)은 19~20일차
   - [x] 포지션 숙련도 5단계 + 인접 그래프 BFS 기반 미보유 페널티, GK 교차 0.35 예외 우선 — **19일차 완료**(`src/lib/sim/ability/position.ts` 신규, `position.test.ts` 60케이스, `modifiers.ts`에서 스텁 이관·제거). 11노드/15엣지 인접 그래프를 모듈 로드 시 **전 쌍 BFS 테이블로 사전 계산**하고, ① `assignedPosition`이 GK 관련 교차면 **하드 고정 0.35를 보유 단계표보다 우선** 적용(FR-PL-006 "하드 고정" + 수용 기준 ④) ② 보유 시 숙련도 5단계(1.00/0.95/0.88/0.75/0.60) ③ 미보유 시 `max(0.45, 0.88 − 0.11×dist)`. GK 교차 배율은 재선언하지 않고 `match/gk-fallback.ts`의 `GK_CROSS_POSITION_MODIFIER_DEFAULT`를 import해 **같은 공통코드 값의 중복 선언을 피했다**. BFS 거리별 페널티 단조 감소를 테스트로 직접 고정. `tsc --noEmit` 0 error, `npx vitest run src/lib/sim` 17파일 299케이스 전건 통과
     - **파일 분리 판단(17일차 인계 사항 해소)** — `modifiers.ts` 잔류가 아닌 **분리 확정**. 근거 ⓐ 단일 수식인 컨디션/피로/캐미와 달리 그래프+BFS+3단 분기로 복잡도 층위가 다름 ⓑ 팀 일정표 산출물 필드가 이미 `position.ts`로 지정돼 있었음 ⓒ `match/gk-fallback.ts`(14일차)가 같은 이유로 분리된 선례. **20일차 날씨·감독은 각각 단일 매트릭스 룩업이라 이 판단이 자동 승계되지 않으며 그날 별도 판단한다**. 참고: FR-PL-007이 [제안] 상태인 값을 코드 상수화했으므로, 값 변경 시 `POSITION_ADJACENCY`만 고치면 된다
-  - [ ] 날씨 9종·감독 성향 6종 + 6×6 상성 매트릭스(공통코드 로드)
+  - [x] 날씨 9종·감독 성향 6종 + 6×6 상성 매트릭스(공통코드 로드) — **20일차 완료**(`src/lib/sim/ability/tactics.ts` 신규, `tactics.test.ts` 신규, `modifiers.ts`에서 스텁 이관·제거 + `NEUTRAL_MODIFIER` export). 날씨 `M_weather`(FR-MT-006)·감독 `M_manager`(FR-MT-009 6×6)를 3팀 로더 `loadConstants` 경유로 조회 — **숫자 리터럴 0건**(`check-literals.mjs` 검사 대상 11파일에 `tactics.ts` 포함, 후보 0건 확인). `npx vitest run src/lib/sim/ability/` 65케이스 통과, `tsc --noEmit` 0 error
+    - **파일 분리 판단(19일차 인계 사항 해소)** — **분리 확정**. 19일차 포지션 판단(그래프 BFS 복잡도)을 승계하지 않고 **"공통코드 로더 의존"이라는 별도 축**으로 재판단했다: `WEATHER_EFFECT`/`MANAGER_MATCHUP`은 `fallback.ts`의 `SAFE_DEFAULT_VALUES`에 구체 숫자·JSON 구조 자체가 아직 없어(36일차 031a 소관) **포지션처럼 안전 기본값을 선언할 수 없고**, 억측 금지 원칙상 로더를 반드시 거쳐야 한다. `options?.table ?? loadConstants(group)` 패턴으로 override 시 순수함수를 유지하고, 미지정 시에는 로더를 직접 호출한다(다른 레이어의 기존 방식과 동일). 미등록 시 `ConstantSourceUnavailableError`를 **삼키지 않고 전파** — 부트스트랩 누락을 조용한 폴백으로 숨기지 않기 위함
+    - **⚠️ 실제 계수 값은 36일차(031a) 시드 이후 자동 반영**된다. 그전까지 이 경로는 로더 미등록 시 예외로 죽는 것이 정상 동작이다. `WEATHER_EFFECT[weather]` 안에서 이 체인이 읽는 키 `ABILITY_MULT`는 05문서에도 `fallback.ts`에도 없어 20일차 2팀이 처음 정한 것이므로 **시드 작성자와 키 이름 정렬 필요 → I-118**
+    - **FR-MT-009의 "성향 자체 xG 배율"·"숙련도 실현율"은 이 Task 범위 밖**으로 판단해 남겼다 — 선수 능력치가 아니라 팀 단위 xG 조정이라 매치 엔진 소관이나, **`ROADMAP.md`에 "xG" 문자열이 0건이라 대응 Task 행 자체가 없다(스코프 누락 확정) → I-119, 팀장 배정 대기**
   - [ ] 라인업 선정 — 가용성 × 컨디션 × 피로 × 포지션으로 선발 11 + 벤치 7(GK≥1), 로테이션 정책
   - [ ] 카드 누적 5장 정지 / 퇴장 1~3경기 정지, 리그·컵 누적 분리
   - [ ] 감독 공석 시 BALANCED 폴백 지속 규칙 확정 후 I-03 해소
@@ -609,7 +612,7 @@
 - **일정**: 20일차 ~ 26일차 (2026-08-17 ~ 2026-08-25) / 추정 5.5인일 / 담당 3팀 데이터·밸런싱·배당팀
 - **근거**: FR-EC-001·005~012, FR-TM-002·008, NFR-QA-005, KPI-9, DC-08
 - **구현 사항**
-  - [ ] 포인트 원장(`point_transaction`) — 모든 잔고 변동은 원장 레코드 필수, 잔고는 원장의 파생값
+  - [x] 포인트 원장(`point_transaction`) — 모든 잔고 변동은 원장 레코드 필수, 잔고는 원장의 파생값 — **20일차 완료**(`src/lib/economy/ledger.ts`, `ledger.test.ts` 신규). **`postPointTransaction(currentBalance, input)` 단일 진입점만 잔고 변동을 만들고 항상 `PointTransaction` 레코드 + `balanceAfter`를 함께 반환한다 — 잔고를 직접 바꾸는 함수를 아예 만들지 않아 "원장 없는 잔고 변동 0건"을 구조적으로 강제**했다(런타임 검사가 아니라 API 표면으로 차단). `deriveBalance(transactions)`로 원장 합 = 잔고 항등식(NFR-QA-005)을 검증하고, DC-08(정수 고정) 위반 시 `NonIntegerPointsError`를 던진다. `PointTransaction`/`PointTransactionId`/`PointTransactionOwnerType`/`PointTransactionReasonCode`는 1팀 동결 타입을 `@/types` 배럴로 재사용(재선언 0건, C-5·C-6 준수). ID·Timestamp는 내부 생성이 아니라 **호출자 주입**(`crypto.randomUUID`/`Date.now` 미사용, NFR-DT-001 관례). 테스트 7케이스 통과, `tsc --noEmit`·`eslint` 0 error. **영속화(DB 반영)는 6팀 DataSource 경계 너머이며 아직 배선 없음**
   - [ ] 몸값 공식(OVR·나이·잠재·명성·계약·티어), 하한 100pt 보장
   - [ ] 급여(몸값 × 비율 0.18) 차감, 성과 분배, 스폰서 수입
   - [ ] 스폰서 엔티티·계약(팀당 최대 3슬롯, 1~10시즌), 명성 비례 제안 금액
@@ -697,6 +700,8 @@
 - **근거**: FR-UI-023, FR-UI-022, NFR-MT-002, NFR-PF-008·011, R-16
 - **구현 사항**
   - [ ] Task 004의 `DataSource` 인터페이스를 Supabase 구현체로 작성 (`src/lib/data/supabase/`)
+    - [x] **034a 1/3 — 20일차 완료(6팀)**: `getStandings` / `getFixturesByRound` 2개 메서드(`SupabaseDataSource.ts`, `client.ts`, `SupabaseDataSource.test.ts` 신규). **`@supabase/*` 패키지가 미설치인 제약을 클라이언트 주입 인터페이스(`client.ts`)로 해소** — 기존 `supabase/**`에 선례가 없음을 확인하고 최초 설계했으며, `from`/`select`/`eq`/`order`/`limit`/`maybeSingle` + thenable을 duck-typing으로 최소 정의해 **실제 패키지 설치 후에도 구조적으로 호환**된다. `DataSource` 시그니처 불변, 2/3 잔여로 전체 implements가 불가해 `implements Pick<DataSource, 'getStandings'|'getFixturesByRound'>`이며 **`factory.ts` 미등록**(전체 구현 완료 후). Result 래핑 없음(Mock과 동일 패턴). `seasonId` 생략 시 `world.current_season_number`→season 해석, `round` 생략 시 standing `MAX(round)` 조회. **`mapper.ts` 재사용**(`mapStandingRow`/`mapFixtureRow`/`mapSeasonRow`), 새 매퍼 0개이며 브랜드 캐스트는 `mapper.ts`에만 국한. `npx vitest run src/lib/data/supabase/` 49 통과, `tsc --noEmit`·`eslint` 클린. **`client.ts`의 `select()` 컬럼 프로젝션 미지원은 범위 밖으로 헤더에 명시** — 2/3 착수 시 참고
+    - [ ] 034a 2/3 · 3/3 — 21일차 이후
   - [ ] `match_event` 경과 시간 필터를 뷰 또는 보안 함수로 강제 (DC-05, NFR-SEC-004)
   - [ ] 플래그 전환(`NEXT_PUBLIC_DATA_SOURCE`)으로 Mock↔실데이터 즉시 교체
   - [ ] 폴링 훅을 실데이터에 연결, 이후 Realtime 교체 가능하도록 훅 레이어 유지
@@ -849,6 +854,9 @@
 - **근거**: NFR-QA-001·010, NFR-MT-005, NFR-SEC-011, D-18, KPI-11
 - **구현 사항**
   - [ ] CI 파이프라인 — `tsc --noEmit` + `lint` + `test` + coverage 임계 + 시드 스냅샷 검증 + **번역 키 누락 검사**
+    - [x] **3단 게이트 CI 실행 — 20일차 완료(1팀)**: `.github/workflows/ci.yml` 신규. push·PR(master) → ubuntu-latest → `checkout@v4` → `setup-node@v4`(node 20, npm 캐시) → `npm ci` → **`npm run gate` 단일 호출**. 로컬 게이트와 CI가 갈라지지 않도록 스텝을 개별 나열하지 않고 `scripts/gate.sh`(I-117)를 그대로 재사용한다. WSL EPERM(I-62) 때문에 `next build`는 미포함. 로컬 `npm run gate` 통과 확인 — tsc 0 error / lint 0 error(경고 111건은 D-18 기지 상태, I-116) / coverage **lines 98.05%·branches 92.14%**(임계 80/70 상회)
+      - **팀장 검증 결함 A — `check:literals` 게이트 미연결(해소)**: Task 024 수락 기준이 "숫자 리터럴 0건 **(CI 검증)**"인데 `gate.sh`·`ci.yml` 어디에도 `npm run check:literals`가 없어, **19일차에 막 해소한 I-117과 같은 결함 계열**(스크립트는 있는데 게이트가 안 부름)이었다. 다만 현재 exit 1·후보 55건이 **전부 기존 파일**이고 스크립트 자신이 휴리스틱 후보라고 명시하므로 blocking은 오답 — `ci.yml`에 **비차단 advisory 스텝**(`check literals (advisory)`, `continue-on-error: true`)으로 추가하고 **`gate.sh`는 미변경**(로컬 머지 게이트는 fail-fast 3단이 정본). I-115 allowlist 정리 후 blocking 승격이 최종 목표임을 주석에 명시. **⚠️ CI는 아직 GitHub Actions 러너에서 실행된 적이 없다** — 로컬 검증은 YAML 파싱 + `npm run gate`까지이며 첫 실행 결과 확인은 21일차 몫
+    - [ ] 시드 스냅샷 검증 · 번역 키 누락 검사 · 시크릿 스캔은 21~23일차
   - [ ] 위반 시 머지 차단, 스냅샷 무단 갱신이 diff로 드러나도록 구성
   - [ ] 시크릿 스캔(커밋 히스토리 포함) 및 클라이언트 번들 서비스롤 키 grep 검사
   - [ ] Edge Function 배포·롤백 절차 문서화, Supabase 요금제·크론 주기 비용 산정(팀원 3 예산안 입력)

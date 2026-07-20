@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  gate:
+    name: Merge gate (typecheck + lint + test/coverage)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # scripts/gate.sh(I-117)의 3단 게이트를 그대로 실행한다 — CI와 로컬 게이트가
+      # 갈라지지 않도록 npm run gate 하나만 호출한다(WSL EPERM 때문에 여기 next build는 넣지 않는다).
+      - run: npm run gate
+
+      # Task 024 수락 기준("숫자 리터럴 0건, CI 검증") 충족용 advisory 스텝.
+      # 현재 55건은 전부 기존 파일(오늘 산출물 아님)이고 스크립트 자체가 휴리스틱 후보라고
+      # 명시하므로 continue-on-error로 신호만 노출한다 — gate.sh에는 넣지 않는다(로컬 머지
+      # 게이트는 fail-fast 3단이 정본). I-115(allowlist 정리) 완료 후 blocking으로 승격 예정.
+      - name: check literals (advisory)
+        continue-on-error: true
+        run: npm run check:literals

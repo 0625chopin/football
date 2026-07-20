@@ -5,14 +5,15 @@
  * FR-MT-004~009 계수 체인의 각 항을 담당하는 8개 개별 계수 함수와, 이들을
  * 하나의 최종 배율로 합성하는 `combineAbilityModifiers`(9번째)를 포함한다.
  *
- * ## 이 파일의 범위 (19일차 갱신)
+ * ## 이 파일의 범위 (20일차 갱신)
  * 17일차에는 **시그니처 + 클램프 경계 동작**만 확정했다. 18일차에 컨디션·
- * 피로·캐미 3종의 실공식을 채웠다. 19일차에 **포지션 숙련도는 이 파일에서
- * 빠졌다** — 인접 그래프 BFS가 필요해 단일 수식 3종과 성격이 달라 별도 파일
- * `./position.ts`로 분리했다(분리 근거는 그 파일 헤더 참조). 이 파일에 남은
- * 자리표시자는 이제 4개(부상·홈·날씨·감독)다: 날씨·감독 상성(20일차,
- * `tactics.ts` 분리 여부는 그날 재판단). 조기에 공식을 확정하면 그날 담당
- * 판단을 앞질러 버리므로 의도적으로 비워 둔다.
+ * 피로·캐미 3종의 실공식을 채웠다. 19일차에 **포지션 숙련도**가 인접 그래프
+ * BFS가 필요해 단일 수식 3종과 성격이 달라 별도 파일 `./position.ts`로
+ * 분리됐다. 20일차에 **날씨·감독 성향**도 이 파일에서 빠졌다 — 둘 다 공통코드
+ * 로더(`@/lib/config/loader`)에 의존해야 하는데(억측 금지 원칙상 안전 기본값을
+ * 새로 선언할 근거가 없다) 그 의존을 이 파일에 섞으면 "순수 수식만 담는다"는
+ * 성질이 깨져 `./tactics.ts`로 분리했다(분리 근거는 그 파일 헤더 참조). 이
+ * 파일에 남은 자리표시자는 이제 2개(부상·홈)뿐이다.
  *
  * ## 캐미 공식(18일차 판단 — ROADMAP에 정확한 곡선이 명시되지 않아 결정)
  * `M = min(1.0 + 0.01 × familiaritySeasons, 1.06)` — 시즌당 +1%p 선형 증가,
@@ -40,7 +41,7 @@
  * 확률 비교에는 여전히 `precision.ts`를 거쳐야 한다.
  */
 
-import type { InjurySeverity, ManagerStyle, Position, WeatherType } from '@/types';
+import type { InjurySeverity } from '@/types';
 
 /** 계수 하한 안전 기본값 (D-22 GK 교차 배율과 동일 값, I-83 주입 패턴 참조) */
 export const ABILITY_MODIFIER_MIN_DEFAULT = 0.35;
@@ -83,9 +84,10 @@ export function clampAbilityModifier(value: number, options?: AbilityModifierCla
 
 /**
  * 골격 단계 공통 자리표시자 — 실제 공식이 채워지기 전까지 모든 개별 계수
- * 함수가 이 중립값(보정 없음)을 클램프해 반환한다.
+ * 함수가 이 중립값(보정 없음)을 클램프해 반환한다. 20일차부터 `./tactics.ts`도
+ * 공통코드 그룹이 아직 비어 있을 때의 대체값으로 재사용한다(값 중복 선언 금지).
  */
-const NEUTRAL_MODIFIER = 1.0;
+export const NEUTRAL_MODIFIER = 1.0;
 
 /** `conditionModifier` 입력 — `PlayerState.condition`(1.0~10.0) */
 export interface ConditionModifierInput {
@@ -140,28 +142,16 @@ export function homeModifier(_input: HomeModifierInput, options?: ClampOpts): nu
   return clampAbilityModifier(NEUTRAL_MODIFIER, options);
 }
 
-/** `weatherModifier` 입력 — 날씨 9종 × 포지션 */
-export interface WeatherModifierInput {
-  readonly weather: WeatherType;
-  readonly position: Position;
-}
-
-/** 날씨 계수. TODO(20일차): 공통코드 매트릭스 연동(`tactics.ts` 분리 여부 그날 재판단) */
-export function weatherModifier(_input: WeatherModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
-}
-
-/** `managerModifier` 입력 — 감독 성향 6종 */
-export interface ManagerModifierInput {
-  readonly style: ManagerStyle;
-}
-
-/** 감독 성향 계수. TODO(20일차): 6×6 상성 매트릭스 연동 */
-export function managerModifier(_input: ManagerModifierInput, options?: ClampOpts): number {
-  return clampAbilityModifier(NEUTRAL_MODIFIER, options);
-}
-
 /**
+ * 날씨 계수(`M_weather`)는 20일차부터 `./tactics.ts`의 `weatherModifier`/
+ * `WeatherModifierInput`을 쓴다. 이 파일에는 두지 않는다(분리 근거: 그 파일 헤더
+ * "modifiers.ts 잔류 vs 파일 분리" 절 — 공통코드 로더 의존이라는 새 축 때문에 19일차
+ * `position.ts` 분리 판단이 자동 승계되지 않아 오늘 별도로 재판단했다).
+ *
+ * 감독 성향 상성 계수(`M_manager`)도 20일차부터 `./tactics.ts`의 `managerModifier`/
+ * `ManagerModifierInput`을 쓴다(6×6 상성 매트릭스 판정에 상대 성향이 추가로 필요해
+ * 스텁 시그니처 자체가 바뀌었다). 이 파일에는 두지 않는다.
+ *
  * 포지션 숙련도 계수(`M_position`)는 19일차부터 `./position.ts`의
  * `positionModifier`/`PositionModifierInput`을 쓴다. 이 파일에는 두지 않는다
  * (분리 근거: 그 파일 헤더 "modifiers.ts 잔류 vs 파일 분리" 절).
