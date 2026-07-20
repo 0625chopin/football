@@ -185,7 +185,7 @@
 - **근거**: FR-AD-011~016, E-41~E-44, NFR-CFG-001~007, 05문서 5.12.1
 - **구현 사항**
   - [x] `src/lib/config/` 에 그룹 카탈로그 36종을 타입 안전한 상수 정의로 작성 (group_code, 타입, min/max, `apply_policy`, description) — **9일차 완료** (`src/lib/config/catalog.ts`, 05문서 5.12.1 표 36개 그룹 전량 등록. `src/types` E-41 `CommonCodeGroup`을 `Pick`으로 파생해 재사용, 신규 타입 미선언). `npx tsc --noEmit`·`npm run lint` 오류 0
-  - [ ] 상수 로더 인터페이스 정의 — 해석 우선순위(전역 기본값 → 하드코딩 폴백), 그룹 단위 캐시, 무효화 훅
+  - [x] 상수 로더 인터페이스 정의 — 해석 우선순위(전역 기본값 → 하드코딩 폴백), 그룹 단위 캐시, 무효화 훅 — **10일차 완료** (`src/lib/config/loader.ts`, `loadConstants(group)`). `catalog.ts`의 `CommonCodeGroupCode`(36개 리터럴 유니온)를 파라미터 타입으로 강제해 미등록 그룹 코드는 `tsc` 컴파일 오류가 나며, 반환 타입은 그룹의 `valueType`에서 유도(`INT`/`DECIMAL`→`number`, `STRING`→`string`, `BOOL`→`boolean`, `JSON`→`Readonly<Record<string, unknown>>`). 전역 기본값·하드코딩 폴백은 `ConstantSource` 주입 방식(`setGlobalDefaultSource`/`setFallbackSource`)으로 두어 11일차 `fallback.ts`가 실제 폴백을 연결할 수 있게 확장 지점만 오늘 확정(실 값 데이터는 아직 없음). 그룹 단위 `Map` 캐시 + `invalidateConstants(group?)`/`onConstantsInvalidated` 무효화 훅 포함. 테스트 `src/lib/config/loader.test.ts`(10케이스, 우선순위·캐시·무효화·소스 미등록 에러·타입 강제) 전건 통과, `npx tsc --noEmit`·`npm run lint`·`npm run test`(142 tests) 오류 0
   - [ ] 하드코딩 안전 기본값 테이블 작성 (NFR-CFG-005, DC-13) + 폴백 시 WARN 로그 규약
   - [ ] 발효 정책 3종(`NEXT_SEASON` / `IMMEDIATE` / `NEXT_MARKET`) 해석 함수 시그니처 확정
   - [ ] 상수 스냅샷 직렬화·해시(SHA-256) 규칙 확정 (FR-AD-014, NFR-CFG-006)
@@ -200,9 +200,9 @@
 - **구현 사항**
   - [x] `src/lib/data/` 에 `DataSource` 인터페이스 정의 — 화면별 조회 메서드(리그 순위, 일정, 경기 상세, 선수, 클럽, 통계, 뉴스, 브래킷, 어드민) — **9일차 완료** (`src/lib/data/DataSource.ts`)
   - [x] 반환 타입은 `src/types/` 도메인 타입만 사용 (DB 생성 타입 노출 금지) — **9일차 완료**: 배럴(`@/types`)만 import, 비영속 조회 DTO(`PublicPlayerProfile`·`MatchTeamStatComparison` 등)도 도메인 타입 필드로만 합성(I-38·W-38 판정)
-  - [ ] 환경변수·플래그 기반 어댑터 선택 팩토리 (`NEXT_PUBLIC_DATA_SOURCE=mock|supabase`)
+  - [x] 환경변수·플래그 기반 어댑터 선택 팩토리 (`NEXT_PUBLIC_DATA_SOURCE=mock|supabase`) — **10일차 완료** (`src/lib/data/factory.ts`): self-registration 레지스트리 패턴 — 3팀(mock)·6팀(supabase) 구현체가 아직 없어 정적 import 대신 `registerDataSource(kind, provider)`로 각 팀이 스스로 등록, `getDataSource()`가 `NEXT_PUBLIC_DATA_SOURCE` 값으로 조회·캐시. 잘못된 값은 `mock`으로 안전 폴백(Supabase 클라이언트 미설치)
   - [ ] 폴링 추상화 훅 계약 정의 (기본 5초 / 라이브 3초, 주기는 공통코드, 탭 비활성 시 중단)
-  - [ ] 로딩/에러/빈 상태를 타입으로 표현하는 결과 래퍼 정의 (FR-UI-000)
+  - [x] 로딩/에러/빈 상태를 타입으로 표현하는 결과 래퍼 정의 (FR-UI-000) — **10일차 완료** (`src/lib/data/result.ts`): `Result<T>` 판별 유니온(`LOADING`/`ERROR`/`EMPTY`/`SUCCESS`) + 생성자·타입가드·변환 헬퍼(`fromNullable`/`fromArray`). `@/types` 비의존 범용 유틸 — `DataSource.ts` 자체는 이번 산출물 범위에서 수정하지 않음(근거는 `docs/ISSUES.md` 신규 이슈 참조)
 - **수락 기준**: 어댑터 인터페이스가 확정되어 Task 007(Mock)과 Task 034(Supabase)이 각각 독립 구현 가능하다.
 
 ### Task 005: 전 라우트 골격과 전역 레이아웃을 스캐폴딩한다
@@ -213,7 +213,8 @@
 - **구현 사항**
   - [x] `node_modules/next/dist/docs/`의 App Router·layout·`params`·i18n 라우팅 가이드를 먼저 확인하고 참조 경로 기록 — 9일차 완료, 문서 경로 전량과 발견 사항은 `docs/team-schedule/04-UI기반i18n팀.md` §7 참조
   - [ ] 라우트 생성: `/`, `/sample`, `/leagues/[leagueId]`, `/leagues/[leagueId]/fixtures`, `/matches/[matchId]`, `/players/[playerId]`, `/teams/[teamId]`, `/stats`, `/playoffs/[leagueId]`, `/cup`, `/transfers`, `/awards`, `/archive`, `/sponsors`, `/admin`, `/admin/config`, `/admin/scheduler`
-  - [ ] **Task 011에서 확정한 로케일 라우팅 전략과 정합**하도록 세그먼트 구조를 결정 (경로 세그먼트 방식 채택 시 전 라우트가 로케일 하위에 배치)
+    - 10일차 진행: 위 17개 중 8개(`/`, `/sample`, `/leagues/[leagueId]`, `/leagues/[leagueId]/fixtures`, `/matches/[matchId]`, `/players/[playerId]`, `/teams/[teamId]`, `/stats`)를 `src/app/[lang]/**`에 빈 `page.tsx`로 생성. 나머지 9개(2차 예약 3개 제외)는 11일차 예정. 확인은 `/ko`·`/en` 하위 경로 기준(로케일 없는 `/`는 9일차 §7.4 결정에 따라 `proxy.ts` 부재로 이번 일차엔 404가 정상)
+  - [x] **Task 011에서 확정한 로케일 라우팅 전략과 정합**하도록 세그먼트 구조를 결정 (경로 세그먼트 방식 채택 시 전 라우트가 로케일 하위에 배치) — 9일차 §7.4에서 팀장 승인으로 `app/[lang]/` 세그먼트 방식 조기 확정(`docs/team-schedule/04-UI기반i18n팀.md` §7.4), 10일차에 실제 라우트 생성에 적용
   - [ ] 2차 대비 라우트 자리만 예약: `/bet`, `/my/bets`, `/my/wallet` (플래그로 비활성)
   - [ ] 전역 레이아웃 골격 — 헤더(리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머·**로케일 스위처**), 사이드 내비, 푸터 (FR-UI-020)
   - [ ] 각 라우트에 `loading.tsx` / `error.tsx` / `not-found.tsx` 배치 (FR-UI-000 기반)
@@ -270,7 +271,7 @@
 - **근거**: E-01~E-47, D-15, 05문서 5.14~5.17, DC-05~DC-08, NFR-SC-001
 - **구현 사항**
   - [x] `docs/db/schema-design.md` 작성 — 47 엔티티의 테이블·컬럼·타입·제약 매핑 (단일 월드 전제)
-  - [ ] 관계 R-01~R-13 반영 (`TeamSeason` 소속 관리, `Contract/Loan` 기반 선수-팀, `fixture.snapshot_id` NOT NULL)
+  - [x] 관계 R-01~R-13 반영 (`TeamSeason` 소속 관리, `Contract/Loan` 기반 선수-팀, `fixture.snapshot_id` NOT NULL)
   - [ ] 인덱스 설계 — 5.16절 13개 인덱스 + `fixture(status, kickoff_at)` 부분 인덱스
   - [ ] 수치 정밀도 규약 (포인트 bigint / 배당 numeric(8,2) / 확률 numeric(9,8) / 컨디션 numeric(3,1))
   - [ ] RLS 정책 초안 — 공개 읽기·엔진 서비스롤 쓰기·`match_event` 경과 시간 뷰 (DC-05)
@@ -497,7 +498,7 @@
 - **근거**: FR-MT-001·002·003·012·013·016, **D-19**, NFR-MT-001, NFR-PF-001, I-02
 - **구현 사항**
   - [x] `src/lib/sim/match/` — 90틱(+30 연장) 순회 엔진, 추가시간(전반 0~5 / 후반 1~8) 표현 (9일차, `tick.ts`)
-  - [ ] 이벤트 23종 생성 및 시간순 정렬, `detail(JSON)` 최소화. **이벤트는 타입 코드만 저장하고 문구는 UI 카탈로그가 담당**(D-18)
+  - [x] 이벤트 23종 생성 및 시간순 정렬, `detail(JSON)` 최소화. **이벤트는 타입 코드만 저장하고 문구는 UI 카탈로그가 담당**(D-18) (10일차, `events.ts`)
   - [ ] 스탯 자연 누적 — 이벤트 로그가 SSOT, 사후 임의 배분 금지
   - [ ] 교체 로직(최대 5명·3창), 부상 발생 시 즉시 교체 판단
   - [ ] 승부차기(5+서든데스) — **PK 골은 `player_match_stat.goals`에 미포함**, `pk_home`/`pk_away`로 분리 기록 (D-19)

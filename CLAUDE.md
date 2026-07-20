@@ -6,9 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 3일차 진행 완료(2026-07-23 기준).**
+`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 10일차 진행 완료(2026-08-03 기준).**
 
-- **화면 코드는 아직 없습니다.** `src/app/`에는 `layout.tsx`, `page.tsx`, `globals.css`, `favicon.ico`만 있습니다. 라우트 골격은 9~13일차(Task 005) 예정입니다.
+- **화면 코드가 생겼습니다(10일차).** `src/app/[lang]/`에 **루트 레이아웃 1개 + 빈 라우트 8개**가 있습니다. 나머지 9개 라우트는 11일차, 전역 레이아웃 골격(헤더·내비·푸터)은 12일차 예정입니다(Task 005, 4팀).
+  - **최상단 `src/app/layout.tsx`는 없습니다.** `src/app/[lang]/layout.tsx`가 루트 레이아웃이며 `<html lang>`을 `params.lang`으로 동적 설정합니다. 레이아웃은 자기보다 상위 세그먼트의 `params`를 읽을 수 없어, 분리하면 로케일을 반영할 수 없기 때문입니다(10일차 결정). **최상단에 `layout.tsx`를 다시 만들지 마세요.**
+  - 각 `page.tsx`는 `params`를 JSON으로 출력만 하는 **자리표시자**입니다. 화면 본문은 5팀이 28일차 이후 채웁니다.
+- **⚠️ WSL 마운트(`/mnt/...`)에서 `npm run dev` / `npm run build`가 실패합니다(I-62).** dev는 `npx next dev --webpack`으로 우회하세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npx tsc --noEmit` / `npm run lint` / `npm run test`로 판정하세요.
 - **이미 만들어진 코드가 있습니다. 새로 만들기 전에 반드시 확인하세요.**
   - `src/types/**` — 도메인 타입 **단일 소스**(1팀 소유). 11파일, E-01~E-08 정의 완료. **8일차(2026-07-30)에 동결**되며 이후 변경은 이슈 배치 반영만 가능합니다. **여기 있는 타입을 다른 곳에 다시 선언하지 마세요.** import는 배럴(`@/types`)로만 하고, `@/types/match` 같은 서브경로 직접 import는 쓰지 않습니다(체크리스트 C-5·C-6).
   - `src/lib/sim/rng/**` — 시드 PRNG·결정론 유틸(2팀 소유). `prng.ts`(xoshiro128\*\*) / `derive.ts`(시드 계층 파생) / `precision.ts`(확률 6자리 정수 비교). **난수와 확률 비교는 전부 이 모듈을 경유합니다.**
@@ -102,7 +105,7 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 - 화면은 모두 component 단위로 만듭니다.
 - 화면의 모든 컴포넌트는 `http://localhost:3000/sample`에 보이도록 배치합니다.
-  - **`/sample` 라우트는 아직 없습니다.** 4팀이 Task 005(10일차)에서 생성하고 Task 014(34~38일차)에서 쇼케이스로 완성합니다. 임의로 만들지 말고 해당 팀 일정에 따르세요.
+  - **`/sample` 라우트는 10일차에 생겼습니다** — `src/app/[lang]/sample/page.tsx`(빈 자리표시자). 쇼케이스 본문은 4팀 Task 014(34~38일차)에서 채웁니다. 임의로 채우지 말고 해당 팀 일정에 따르세요. 접근 경로는 `/ko/sample`·`/en/sample`입니다(로케일 없는 `/sample`은 `proxy.ts` 도입 전까지 404).
 - 개발은 더미 데이터(Mock Data)로 화면(UI)부터 구현합니다.
 - Database 설계 및 연결 전에 화면, 컴포넌트 구조, 사용자 경험(UX)을 먼저 완성합니다.
 - Mock 데이터와 실제 Database 데이터는 **동일한 TypeScript 타입**을 사용합니다.
