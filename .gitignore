@@ -45,3 +45,6 @@ shrimp_data/
 
 # 로컬 작업 메모
 업무지시 방안.txt
+
+# Turbopack이 WSL에서 Windows 경로를 그대로 디렉터리명으로 만든 산출물 (I-62)
+E:\\*
