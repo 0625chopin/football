@@ -54,6 +54,7 @@ import type {
   NewsFeedItemType,
   Player,
   PlayerId,
+  PlayerMatchStat,
   PlayerSeasonStat,
   PlayerState,
   PlayerStatCoreValues,
@@ -85,6 +86,15 @@ export interface MockProgress {
   readonly standings: readonly Standing[];
   /** 선수 스탯 리더보드 표본 — `getPlayerStatRanking` 대응 */
   readonly statLeaders: readonly PlayerSeasonStat[];
+  /**
+   * 최근경기평점 표본(D-34 결정④, 48일차, I-238) — `getPlayerRecentMatchStats` 대응.
+   * `statLeaders`와 같은 표본 선수에 한해 선수당 `RECENT_MATCH_SAMPLE_COUNT`건, 최신순으로
+   * 담는다. 이 표본은 생성 시점부터 전부 "종료된 경기"만 표현한다 — 라이브 경기 변형이
+   * 애초에 이 풀에 섞이지 않으므로, 어댑터가 `Fixture.status`를 다시 조회해 걸러낼 필요가
+   * 없다(D-34 결정④ "어댑터 레벨 FINISHED 필터"의 Mock 쪽 이행 방식, Supabase는 실제
+   * 조인 필터가 필요하다는 점과 다르다).
+   */
+  readonly recentMatchStats: readonly PlayerMatchStat[];
   /** 발생 시각 역순 뉴스 — `getNewsFeed` 대응 */
   readonly newsFeed: readonly NewsFeedItem[];
   /** 리그별 플레이오프 대진 — `getPlayoffBracket` 대응 */
@@ -109,6 +119,9 @@ const STANDINGS_ROUND = 10;
 
 /** 스탯 리더보드 표본 크기(전 리그 통합) */
 const STAT_LEADER_SAMPLE_SIZE = 60;
+
+/** 스탯 리더보드 표본 선수당 최근경기평점 표본 건수(D-34 결정④, 48일차, I-238) */
+const RECENT_MATCH_SAMPLE_COUNT = 5;
 
 /** 뉴스 피드 생성 건수 */
 const NEWS_FEED_COUNT = 24;
@@ -427,12 +440,17 @@ function generatePlayerStatCore(
   return { state: cursor, value };
 }
 
+interface StatLeadersResult {
+  readonly statLeaders: readonly PlayerSeasonStat[];
+  readonly recentMatchStats: readonly PlayerMatchStat[];
+}
+
 function generateStatLeaders(
   state: PrngState,
   world: MockWorld,
   teamToLeague: ReadonlyMap<TeamId, LeagueId>,
   seasonId: SeasonId,
-): PrngResult<readonly PlayerSeasonStat[]> {
+): PrngResult<StatLeadersResult> {
   let cursor = state;
   const teamById = new Map<TeamId, Team>(world.teams.map((t) => [t.id, t] as const));
   const stateByPlayer = new Map<PlayerId, PlayerState>(
@@ -445,6 +463,7 @@ function generateStatLeaders(
   const selectedIndices = shuffleStep.value.slice(0, sampleSize);
 
   const stats: PlayerSeasonStat[] = [];
+  const recentMatchStats: PlayerMatchStat[] = [];
   for (const idx of selectedIndices) {
     const player = world.players[idx];
     const playerState = stateByPlayer.get(player.id);
@@ -478,6 +497,9 @@ function generateStatLeaders(
     cursor = roundsInjuredStep.state;
     const suspendedStep = nextIntBetween(cursor, 0, Math.floor(coreStep.value.yellowCards / 5));
     cursor = suspendedStep.state;
+    // 1.0~10.0(D-34 결정①, 48일차, I-238) — `avgCondition`과 동일한 정수/10 표현 관례.
+    const ratingStep = nextIntBetween(cursor, 10, 100);
+    cursor = ratingStep.state;
 
     stats.push({
       ...coreStep.value,
@@ -488,14 +510,35 @@ function generateStatLeaders(
       leagueId,
       contributionScore: contributionStep.value,
       avgCondition: conditionStep.value / 10,
+      avgRating: ratingStep.value / 10,
       motmAwards: motmStep.value,
       injuriesCount: injuriesStep.value,
       roundsInjured: roundsInjuredStep.value,
       matchesSuspended: suspendedStep.value,
     });
+
+    for (let recentIdx = 0; recentIdx < RECENT_MATCH_SAMPLE_COUNT; recentIdx += 1) {
+      const matchIdStep = nextId(cursor);
+      cursor = matchIdStep.state;
+      const matchCoreStep = generatePlayerStatCore(cursor, isGoalkeeper, 1, attackBias);
+      cursor = matchCoreStep.state;
+      const matchRatingStep = nextIntBetween(cursor, 10, 100);
+      cursor = matchRatingStep.state;
+      const motmRollStep = nextIntBetween(cursor, 0, 99);
+      cursor = motmRollStep.state;
+
+      recentMatchStats.push({
+        ...matchCoreStep.value,
+        matchId: matchIdStep.value as FixtureId,
+        playerId: player.id,
+        teamId: team.id,
+        matchRating: matchRatingStep.value / 10,
+        isMotm: motmRollStep.value < 8,
+      });
+    }
   }
 
-  return { state: cursor, value: stats };
+  return { state: cursor, value: { statLeaders: stats, recentMatchStats } };
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -1103,7 +1146,8 @@ export function generateMockProgress(
     liveFixtures,
     matchEvents,
     standings,
-    statLeaders: statLeadersStep.value,
+    statLeaders: statLeadersStep.value.statLeaders,
+    recentMatchStats: statLeadersStep.value.recentMatchStats,
     newsFeed: newsFeedStep.value,
     playoffBracket,
     cupBracket,

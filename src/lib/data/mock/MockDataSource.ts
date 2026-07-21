@@ -32,10 +32,17 @@
  *   집계(`PlayerCareerStat`)·능력치 히스토리(`PlayerAttributeHistory`)**: `economy/`
  *   (21일차)·성장·수상 파이프라인(28일차) 이후 생성기가 생긴다 → `null`/`[]`.
  * - **라인업(`MatchLineup`)·경기 선수 평점(`PlayerMatchStat`)·팀 스탯 비교
- *   (`MatchTeamStatComparison`)·날씨(`Weather`)**: 2팀 엔진 반환 타입(H-14, 27일차) 이후 →
- *   `[]`/`null`.
- * - **클럽 시즌 지표(`TeamSeasonStat`)·원장(`PointTransaction`)·스폰서 계약
- *   (`SponsorContract`)·트로피(`Trophy`)**: `economy/`(21일차) → `[]`.
+ *   (`MatchTeamStatComparison`)·날씨(`Weather`)**: ⚠️ **48일차 정정(I-229)** — 아래 각 메서드에
+ *   그동안 "라인업 생성기 없음(2팀 H-14, 27일차 이후)"라고 적혀 있었으나 **사실이 아니다**.
+ *   2팀이 21일차에 `src/lib/sim/lineup/select.ts`의 `selectLineup()`을 이미 완성했다. 이 파일이
+ *   비워 둔 진짜 이유는 **경기별(임의의 `fixtureId`) 로스터 가용성 조회 + I-34(LIVE 중 Tier
+ *   A/B 컷오프 재계산) 배선이 아직 없어서**다 — 오늘(48일차)은 `getPlayerRecentMatchStats`가
+ *   필요로 하는 최근경기평점만 `progress.ts`가 선수 표본별로 직접 생성해 해소했고(별도 데이터
+ *   경로), 임의 경기 단위 라인업·팀 스탯 연결은 범위 밖으로 남겨 이슈 후보로 보고한다.
+ * - **클럽 시즌 지표(`TeamSeasonStat`)·원장(`PointTransaction`)·트로피(`Trophy`)**:
+ *   `economy/`(21일차) → `[]`. **스폰서 계약(`SponsorContract`)은 48일차에 해소했다**(I-231) —
+ *   `world.ts`가 `economy/sponsor.ts`의 `proposeSponsorContract`로 팀당 ACTIVE ≤ 3건을 실제
+ *   생성하고, 아래 `getSponsorContracts`/`getTeamSponsorContracts`가 그 결과를 슬라이스한다.
  * - **크론(`CronRun`/`CronGap`)·감사 로그(`AuditLog`)**: 실행 이력 자체가 발생한 적이
  *   없는 새 Mock 월드라 `[]`/`null`이 오히려 정확하다(값을 발명하는 게 아니라 "아직 실행
  *   안 됨"이 사실). `getCronRunMetrics`도 표본 0건이므로 전부 0(`sampleSize: 0`)을 반환한다
@@ -89,6 +96,7 @@ import type {
   CommonCode,
   CommonCodeGroup,
   CommonCodeHistory,
+  ClubOwner,
   CommonCodeId,
   CompetitionType,
   Contract,
@@ -535,6 +543,7 @@ export class MockDataSource implements DataSource {
   private readonly teamToLeague: ReadonlyMap<TeamId, LeagueId>;
   private readonly teamsByLeague: ReadonlyMap<LeagueId, readonly Team[]>;
   private readonly managersByTeam: ReadonlyMap<TeamId, Manager>;
+  private readonly clubOwnersByTeam: ReadonlyMap<TeamId, ClubOwner>;
   private readonly playerPositionsByPlayer: ReadonlyMap<PlayerId, readonly PlayerPosition[]>;
   private readonly playerStatesByPlayer: ReadonlyMap<PlayerId, PlayerState>;
   private readonly playerStatesByTeam: ReadonlyMap<TeamId, readonly PlayerState[]>;
@@ -544,6 +553,8 @@ export class MockDataSource implements DataSource {
   private readonly fixturesById: ReadonlyMap<FixtureId, Fixture>;
   private readonly matchEventsByFixture: ReadonlyMap<FixtureId, readonly MatchEvent[]>;
   private readonly statLeadersByPlayer: ReadonlyMap<PlayerId, readonly PlayerSeasonStat[]>;
+  private readonly recentMatchStatsByPlayer: ReadonlyMap<PlayerId, readonly PlayerMatchStat[]>;
+  private readonly sponsorContractsByTeam: ReadonlyMap<TeamId, readonly SponsorContract[]>;
   private readonly statAppearanceBasis: number;
 
   /** 진행 중 시즌 1건(D-15)의 수상 전량 + 통산 다관왕 랭킹 — 생성자에서 1회 산출(41일차, Task 043/019 갭 보완). */
@@ -593,6 +604,11 @@ export class MockDataSource implements DataSource {
       this.world.managers
         .filter((m): m is Manager & { teamId: TeamId } => m.teamId !== null)
         .map((m) => [m.teamId, m] as const),
+    );
+    this.clubOwnersByTeam = new Map(
+      this.world.clubOwners
+        .filter((o): o is ClubOwner & { teamId: TeamId } => o.teamId !== null)
+        .map((o) => [o.teamId, o] as const),
     );
     this.playerAttributesByPlayer = new Map(this.world.playerAttributes.map((a) => [a.playerId, a] as const));
 
@@ -689,6 +705,22 @@ export class MockDataSource implements DataSource {
     }
     this.statLeadersByPlayer = statLeadersByPlayer;
     this.statAppearanceBasis = Math.max(1, ...this.progress.statLeaders.map((s) => s.appearances));
+
+    const recentMatchStatsByPlayer = new Map<PlayerId, PlayerMatchStat[]>();
+    for (const stat of this.progress.recentMatchStats) {
+      const list = recentMatchStatsByPlayer.get(stat.playerId) ?? [];
+      list.push(stat);
+      recentMatchStatsByPlayer.set(stat.playerId, list);
+    }
+    this.recentMatchStatsByPlayer = recentMatchStatsByPlayer;
+
+    const sponsorContractsByTeam = new Map<TeamId, SponsorContract[]>();
+    for (const contract of this.world.sponsorContracts) {
+      const list = sponsorContractsByTeam.get(contract.teamId) ?? [];
+      list.push(contract);
+      sponsorContractsByTeam.set(contract.teamId, list);
+    }
+    this.sponsorContractsByTeam = sponsorContractsByTeam;
 
     const awardCatalog = buildAwardCatalog(
       this.world,
@@ -888,17 +920,20 @@ export class MockDataSource implements DataSource {
   }
 
   async getMatchLineups(_fixtureId: FixtureId): Promise<readonly MatchLineup[]> {
-    // 라인업 생성기 없음(2팀 H-14, 27일차 이후) — 위 파일 헤더 참조.
+    // 48일차 정정(I-229): selectLineup()은 2팀이 21일차에 이미 완성했다 — 없는 건 임의
+    // fixtureId별 로스터 가용성 조회 배선이다. 위 파일 헤더 "48일차 정정" 절 참조.
     return [];
   }
 
   async getMatchPlayerRatings(_fixtureId: FixtureId): Promise<readonly PlayerMatchStat[]> {
-    // 경기 단위 선수 평점 생성기 없음(2팀 H-14, 27일차 이후) — 위 파일 헤더 참조.
+    // 48일차 정정(I-229): 최근경기평점(`getPlayerRecentMatchStats`)은 해소했으나, 임의
+    // fixtureId 단위 평점은 I-34(LIVE Tier A/B 컷오프) 배선이 아직 없다 — 위 파일 헤더 참조.
     return [];
   }
 
   async getMatchTeamStats(_fixtureId: FixtureId): Promise<readonly MatchTeamStatComparison[]> {
-    // 비영속 파생 DTO지만 원천 이벤트/스탯 생성기가 없어 파생할 데이터 자체가 없다.
+    // 48일차 정정(I-229): 원천 이벤트는 있으나(`matchEventsByFixture`) 이 DTO로의 파생 집계
+    // 배선이 아직 없다 — "원천 자체가 없다"는 이전 서술은 부정확했다. 위 파일 헤더 참조.
     return [];
   }
 
@@ -940,6 +975,40 @@ export class MockDataSource implements DataSource {
   async getPlayerCareerStat(_playerId: PlayerId): Promise<PlayerCareerStat | null> {
     // 통산 집계 생성기 없음 — 위 파일 헤더 참조.
     return null;
+  }
+
+  /**
+   * 최근경기평점(D-34 결정④, 48일차, I-238). `progress.ts`가 스탯 리더보드 표본 선수당
+   * 최신순 `RECENT_MATCH_SAMPLE_COUNT`건을 이미 생성해 두므로(3팀 Mock 팩토리), 여기서는
+   * 슬라이스만 한다. 이 표본은 생성 시점부터 전부 "종료된 경기"만 표현한다 — 라이브 경기가
+   * 이 풀에 애초에 섞이지 않으므로 `Fixture.status`를 다시 조회해 걸러낼 필요가 없다(D-34
+   * 결정④ "어댑터 레벨 FINISHED 필터"의 Mock 쪽 이행 방식).
+   */
+  async getPlayerRecentMatchStats(params: {
+    readonly playerId: PlayerId;
+    readonly limit: number;
+  }): Promise<readonly PlayerMatchStat[]> {
+    const stats = this.recentMatchStatsByPlayer.get(params.playerId) ?? [];
+    return stats.slice(0, params.limit);
+  }
+
+  /** 리그 평균 평점(D-34 결정③, 48일차, I-238) — 표본 0이면 null. */
+  async getLeagueAverageRating(params: {
+    readonly seasonId: SeasonId;
+    readonly leagueId: LeagueId;
+    readonly competitionType: CompetitionType;
+  }): Promise<number | null> {
+    if (!this.isKnownSeason(params.seasonId)) {
+      return null;
+    }
+    const matching = this.progress.statLeaders.filter(
+      (s) => s.leagueId === params.leagueId && s.competitionType === params.competitionType,
+    );
+    if (matching.length === 0) {
+      return null;
+    }
+    const sum = matching.reduce((acc, s) => acc + s.avgRating, 0);
+    return Math.round((sum / matching.length) * 100) / 100;
   }
 
   async getPlayerContract(_playerId: PlayerId): Promise<Contract | null> {
@@ -1005,6 +1074,11 @@ export class MockDataSource implements DataSource {
     return this.managersByTeam.get(teamId) ?? null;
   }
 
+  /** 구단주(D-35, 48일차, I-239) — `getTeamManager`와 동일한 팀 1:1 조회 패턴. */
+  async getClubOwner(teamId: TeamId): Promise<ClubOwner | null> {
+    return this.clubOwnersByTeam.get(teamId) ?? null;
+  }
+
   async getTeamSquad(teamId: TeamId): Promise<readonly PublicPlayerProfile[]> {
     const states = this.playerStatesByTeam.get(teamId) ?? [];
     const playerIds = new Set(states.map((s) => s.playerId));
@@ -1031,8 +1105,8 @@ export class MockDataSource implements DataSource {
     return [];
   }
 
-  async getTeamSponsorContracts(_teamId: TeamId): Promise<readonly SponsorContract[]> {
-    return [];
+  async getTeamSponsorContracts(teamId: TeamId): Promise<readonly SponsorContract[]> {
+    return this.sponsorContractsByTeam.get(teamId) ?? [];
   }
 
   async getSponsorsByIds(sponsorIds: readonly SponsorId[]): Promise<readonly Sponsor[]> {
@@ -1044,11 +1118,15 @@ export class MockDataSource implements DataSource {
     return this.world.sponsors;
   }
 
-  async getSponsorContracts(_params?: {
+  async getSponsorContracts(params?: {
     readonly sponsorId?: SponsorId;
     readonly status?: SponsorContractStatus;
   }): Promise<readonly SponsorContract[]> {
-    return [];
+    return this.world.sponsorContracts.filter(
+      (c) =>
+        (params?.sponsorId === undefined || c.sponsorId === params.sponsorId) &&
+        (params?.status === undefined || c.status === params.status),
+    );
   }
 
   async getTeamTrophies(_teamId: TeamId): Promise<readonly Trophy[]> {

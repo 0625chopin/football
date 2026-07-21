@@ -47,6 +47,17 @@ describe('stat.ts — PlayerStatCoreValues 비율형 파생 필드 미포함(E-1
   });
 });
 
+describe('stat.ts — avgRating (D-34, 48일차, I-238)', () => {
+  it('avgRating은 PlayerStatCoreValues에 존재하지 않는다(PlayerStatRankingMetric 회귀 방지)', () => {
+    expectTypeOf<PlayerStatCoreValues>().not.toHaveProperty('avgRating');
+  });
+
+  it('avgRating은 PlayerSeasonStat/PlayerCareerStat에만 존재한다', () => {
+    expectTypeOf<PlayerSeasonStat>().toHaveProperty('avgRating').toEqualTypeOf<number>();
+    expectTypeOf<PlayerCareerStat>().toHaveProperty('avgRating').toEqualTypeOf<number>();
+  });
+});
+
 describe('stat.ts — TeamSeasonStat (E-22) 저장/파생 경계', () => {
   it('goalDifference/ppg 등 산술 파생 필드는 저장하지 않는다(조회 시점 계산)', () => {
     expectTypeOf<TeamSeasonStat>().not.toHaveProperty('goalDifference');

@@ -39,13 +39,17 @@
  */
 
 import { installHardcodedFallback } from '@/lib/config/fallback';
+import type { ConstantGroupValues } from '@/lib/config/loader';
 import { loadConstants } from '@/lib/config/loader';
+import { proposeSponsorContract } from '@/lib/economy/sponsor';
 import { generateTeamEmblem } from '@/lib/naming/emblem';
 import { generatePlayerName } from '@/lib/naming/generate';
 import { SUPPORTED_NATIONALITY_CODES } from '@/lib/naming/namePools';
 import { createState, nextIntBelow, nextIntBetween } from '@/lib/sim/rng/prng';
 import type { PrngResult, PrngState } from '@/lib/sim/rng/prng';
 import type {
+  ClubOwner,
+  ClubOwnerId,
   Formation,
   League,
   LeagueId,
@@ -63,6 +67,8 @@ import type {
   PreferredFoot,
   Seed,
   Sponsor,
+  SponsorContract,
+  SponsorContractId,
   SponsorId,
   TasteTag,
   Team,
@@ -88,6 +94,10 @@ export interface MockWorld {
   readonly playerPositions: readonly PlayerPosition[];
   readonly playerStates: readonly PlayerState[];
   readonly sponsors: readonly Sponsor[];
+  /** 구단주(D-35, 48일차, I-239) — 팀과 1:1, `Manager`와 동일한 항상-배정 관례(공석 미표본). */
+  readonly clubOwners: readonly ClubOwner[];
+  /** 팀당 ACTIVE ≤ 3(I-231 해소) — `economy/sponsor.ts`의 `proposeSponsorContract`를 그대로 재사용해 생성한다. */
+  readonly sponsorContracts: readonly SponsorContract[];
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -524,6 +534,53 @@ function generateManagerForTeam(
 }
 
 /* ────────────────────────────────────────────────────────────────────────
+ * 구단주 (D-35, 48일차, I-239)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+function generateClubOwnerForTeam(state: PrngState, team: Team): PrngResult<ClubOwner> {
+  let cursor = state;
+
+  const idStep = nextId(cursor);
+  cursor = idStep.state;
+
+  const nationalityStep = pick(cursor, SUPPORTED_NATIONALITY_CODES);
+  cursor = nationalityStep.state;
+
+  const nameStep = generatePlayerName(cursor, nationalityStep.value);
+  cursor = nameStep.state;
+
+  const ageStep = nextIntBetween(cursor, 35, 75);
+  cursor = ageStep.state;
+
+  const wealthStep = nextIntBetween(cursor, 1, 30);
+  cursor = wealthStep.state;
+
+  const negotiationStep = nextIntBetween(cursor, 1, 30);
+  cursor = negotiationStep.state;
+
+  const reputationStep = nextIntBetween(cursor, 0, 100);
+  cursor = reputationStep.state;
+
+  // Manager.tenureSeasons(0~10)과 동일한 "취임 경과" 관례 — currentSeasonNumber(1)에서 역산한다.
+  const tenureStep = nextIntBetween(cursor, 0, 9);
+  cursor = tenureStep.state;
+
+  const owner: ClubOwner = {
+    id: idStep.value as ClubOwnerId,
+    teamId: team.id,
+    name: nameStep.value.fullName,
+    age: ageStep.value,
+    nationality: nationalityStep.value,
+    wealth: wealthStep.value,
+    negotiation: negotiationStep.value,
+    reputation: reputationStep.value,
+    sinceSeason: 1 - tenureStep.value,
+  };
+
+  return { state: cursor, value: owner };
+}
+
+/* ────────────────────────────────────────────────────────────────────────
  * 스쿼드(선수)
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -865,6 +922,68 @@ function generateSponsors(
 }
 
 /* ────────────────────────────────────────────────────────────────────────
+ * 스폰서 계약 (I-231 해소 — 팀당 ACTIVE ≤ 3, D-35 결정④ 구단주 축 반영)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 팀 하나에 스폰서 계약 0~`MAX_PER_TEAM`건을 배정한다. 계약 레코드 자체는
+ * `economy/sponsor.ts`의 `proposeSponsorContract`를 그대로 호출해 만든다 — 금액·
+ * `sharePct` 산식을 이 파일에서 재구현하지 않는다(단일 소스 유지, `world.ts` 전역 관례).
+ */
+function generateSponsorContractsForTeam(
+  state: PrngState,
+  team: Team,
+  owner: ClubOwner,
+  sponsors: readonly Sponsor[],
+  table: ConstantGroupValues<'SPONSOR_PARAM'>,
+): PrngResult<readonly SponsorContract[]> {
+  let cursor = state;
+
+  if (sponsors.length === 0) {
+    return { state: cursor, value: [] };
+  }
+
+  const countStep = nextIntBetween(cursor, 0, table.MAX_PER_TEAM);
+  cursor = countStep.state;
+  if (countStep.value === 0) {
+    return { state: cursor, value: [] };
+  }
+
+  const shuffleStep = shuffledRange(cursor, sponsors.length);
+  cursor = shuffleStep.state;
+  const chosenIndices = shuffleStep.value.slice(0, countStep.value).map((n) => n - 1);
+
+  const contracts: SponsorContract[] = [];
+  for (const idx of chosenIndices) {
+    const sponsor = sponsors[idx];
+
+    const seasonLengthStep = nextIntBetween(cursor, table.CONTRACT_MIN, table.CONTRACT_MAX);
+    cursor = seasonLengthStep.state;
+
+    const idStep = nextId(cursor);
+    cursor = idStep.state;
+
+    contracts.push(
+      proposeSponsorContract(
+        {
+          id: idStep.value as SponsorContractId,
+          sponsor,
+          teamId: team.id,
+          teamReputation: team.reputation,
+          startSeason: 1,
+          requestedSeasonLength: seasonLengthStep.value,
+          existingContractsForTeam: contracts,
+          owner,
+        },
+        { table },
+      ),
+    );
+  }
+
+  return { state: cursor, value: contracts };
+}
+
+/* ────────────────────────────────────────────────────────────────────────
  * 진입점
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -876,7 +995,8 @@ export function generateMockWorld(worldSeed: WorldSeed): MockWorld {
   installHardcodedFallback();
 
   const squadParam = loadConstants('SQUAD_PARAM') as unknown as SquadParamConstants;
-  const sponsorParam = loadConstants('SPONSOR_PARAM') as unknown as SponsorParamConstants;
+  const sponsorParamTable = loadConstants('SPONSOR_PARAM');
+  const sponsorParam = sponsorParamTable as unknown as SponsorParamConstants;
 
   let state = createState(worldSeed);
 
@@ -891,6 +1011,7 @@ export function generateMockWorld(worldSeed: WorldSeed): MockWorld {
   const usedShortNames = new Set<string>();
   const teams: Team[] = [];
   const managers: Manager[] = [];
+  const clubOwners: ClubOwner[] = [];
   const players: Player[] = [];
   const playerAttributes: PlayerAttribute[] = [];
   const playerPositions: PlayerPosition[] = [];
@@ -909,6 +1030,10 @@ export function generateMockWorld(worldSeed: WorldSeed): MockWorld {
       state = managerStep.state;
       managers.push(managerStep.value);
 
+      const clubOwnerStep = generateClubOwnerForTeam(state, team);
+      state = clubOwnerStep.state;
+      clubOwners.push(clubOwnerStep.value);
+
       const squadStep = generateSquadForTeam(state, team, league.tier, squadParam);
       state = squadStep.state;
       players.push(...squadStep.value.players);
@@ -920,6 +1045,19 @@ export function generateMockWorld(worldSeed: WorldSeed): MockWorld {
 
   const sponsorsStep = generateSponsors(state, sponsorParam.POOL_MIN);
   state = sponsorsStep.state;
+  const sponsors = sponsorsStep.value;
+
+  const clubOwnerByTeam = new Map(clubOwners.map((owner) => [owner.teamId, owner] as const));
+  const sponsorContracts: SponsorContract[] = [];
+  for (const team of teams) {
+    const owner = clubOwnerByTeam.get(team.id);
+    if (owner === undefined) {
+      continue;
+    }
+    const contractsStep = generateSponsorContractsForTeam(state, team, owner, sponsors, sponsorParamTable);
+    state = contractsStep.state;
+    sponsorContracts.push(...contractsStep.value);
+  }
 
   const world: World = {
     id: worldIdStep.value as WorldId,
@@ -945,6 +1083,8 @@ export function generateMockWorld(worldSeed: WorldSeed): MockWorld {
     playerAttributes,
     playerPositions,
     playerStates,
-    sponsors: sponsorsStep.value,
+    sponsors,
+    clubOwners,
+    sponsorContracts,
   };
 }

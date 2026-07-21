@@ -6,6 +6,7 @@
  */
 
 import { describe, expectTypeOf, it } from 'vitest';
+import type { ClubOwnerId } from './brand';
 import type { Contract, Loan, PointTransaction, Sponsor, SponsorContract, Transfer } from './economy';
 
 describe('economy.ts — 금액 필드는 전부 Points 브랜드다 (DC-08)', () => {
@@ -47,5 +48,12 @@ describe('economy.ts — nullable 필드 (FA 영입·부도·트레이드)', () 
   it('Loan/SponsorContract 상태 필드가 존재한다(enum 단일 선언 참조, C-6)', () => {
     expectTypeOf<Loan>().toHaveProperty('status');
     expectTypeOf<SponsorContract>().toHaveProperty('status');
+  });
+});
+
+describe('economy.ts — SponsorContract.signedByOwnerId (D-35, I-239, 48일차 신규)', () => {
+  it('signedByOwnerId는 ClubOwnerId이고, teamId(수입 귀속)는 그대로 유지된다', () => {
+    expectTypeOf<SponsorContract>().toHaveProperty('signedByOwnerId').toEqualTypeOf<ClubOwnerId>();
+    expectTypeOf<SponsorContract>().toHaveProperty('teamId');
   });
 });

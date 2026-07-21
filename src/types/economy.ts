@@ -14,6 +14,10 @@
  * **5일차 추가**: E-28 Sponsor / E-29 SponsorContract / E-30 PointTransaction. 명예
  * (E-31 Award / E-32 Trophy)는 금액 축이 없어 `stat.ts`에 배치했다(그 파일 헤더 주석 참조).
  *
+ * **48일차(2026-09-24) 추가**: `SponsorContract.signedByOwnerId`(D-35, I-239) — 구단주
+ * (`ClubOwner`, `person.ts` E-48) 도입에 따라 계약 체결 주체만 추가하고, `teamId`(수입
+ * 귀속)·회계 항등식은 건드리지 않는다. 상세 근거는 위 필드 인라인 주석 참조.
+ *
  * 착수 전 확인할 원칙:
  * - **DC-08**: 포인트는 **정수 고정**(`Points`, `brand.ts`). 소수점 연산을 도입하지 않는다.
  * - `Team.balance`는 원장(`PointTransaction`)의 **파생 캐시**이며 원장이 단일 근거다.
@@ -32,6 +36,7 @@ import type {
   TransferType,
 } from './enums';
 import type {
+  ClubOwnerId,
   ContractId,
   LoanId,
   PlayerId,
@@ -118,7 +123,15 @@ export interface Sponsor {
 export interface SponsorContract {
   readonly id: SponsorContractId;
   readonly sponsorId: SponsorId;
+  /** 수입 귀속처 — **자금 흐름의 근거는 여전히 팀**이다(D-35 결정②, 아래 signedByOwnerId 참조) */
   readonly teamId: TeamId;
+  /**
+   * 계약 체결 주체(D-35 결정②·③, 48일차, I-239) — **자금 흐름과 무관, 계약 주체만 표현**한다.
+   * `teamId`(수입 귀속)는 그대로 유지되며 스폰서 수입의 zero-sum 2건 기록(팀 잔고 +, 스폰서
+   * 잔고 −)도 변경 없다. `PointTransactionOwnerType`에 `'OWNER'`를 추가하지 않는다 — 26일차
+   * 검증된 회계 항등식(NFR-QA-005)을 그대로 보존하기 위함. 엔티티 본체는 `person.ts` `ClubOwner`.
+   */
+  readonly signedByOwnerId: ClubOwnerId;
   /** 기간 1~10시즌 */
   readonly startSeason: number;
   readonly endSeason: number;

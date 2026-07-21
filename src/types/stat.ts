@@ -9,6 +9,10 @@
  * `economy.ts`(계약·이동·스폰서 등 금액 축 도메인) 대신 통계·기록 성격이 같은 이 파일에 둔다
  * — 4일차 economy.ts 배치 원칙("소비자 기준 금액 축 공유")과 대칭되는 근거다.
  *
+ * **48일차(2026-09-24) 추가**: `PlayerSeasonStat`·`PlayerCareerStat`에 `avgRating`(D-34,
+ * I-238) — **`PlayerStatCoreValues`에는 넣지 않는다.** 상세 근거는 `PlayerSeasonStat.
+ * avgRating` 인라인 주석 참조. `PlayerStatCoreValues` 56필드는 이번 반영으로 변경되지 않는다.
+ *
  * **미결 I-19 해소(5일차)** — 승부차기 분리 브랜드 타입의 생성 책임 소재:
  * PSO 스코어(`Fixture.pkHome`/`pkAway`)는 브랜드 타입을 별도로 만들지 않기로 한다(오늘 판단).
  * 대신 **구조적 분리**(별도 필드 + `PlayerStatCoreValues`/`PlayerCareerStat`이 PSO 이벤트를
@@ -150,6 +154,14 @@ export interface PlayerSeasonStat extends PlayerStatCoreValues {
   readonly contributionScore: number;
   /** 시즌 평균 컨디션 */
   readonly avgCondition: number;
+  /**
+   * 시즌 평균 평점 1.0~10.0(D-34 결정①, 48일차, I-238) — **`PlayerStatCoreValues`에는
+   * 넣지 않는다**(`PlayerStatRankingMetric = keyof PlayerStatCoreValues`가 조용히 바뀌어
+   * 완료된 Task 019 통계 랭킹 회귀를 유발하므로). 저장형 평균을 집계 인터페이스에 두는
+   * 선례는 위 `avgCondition`과 동일하다. 지난 시즌 평점도 `getPlayerSeasonStats`가 전
+   * 시즌 행을 반환하므로 이 필드 하나로 해결된다(신규 필드·메서드 불필요, 결정②).
+   */
+  readonly avgRating: number;
   /** 맨 오브 더 매치 수상 횟수(경기별 `isMotm` 합) */
   readonly motmAwards: number;
   readonly injuriesCount: number;
@@ -166,6 +178,8 @@ export interface PlayerCareerStat extends PlayerStatCoreValues {
   readonly totalSeasons: number;
   readonly totalAwards: number;
   readonly totalInjuries: number;
+  /** 통산 평균 평점 1.0~10.0(D-34, 48일차, I-238) — `PlayerSeasonStat.avgRating`과 동일 근거 */
+  readonly avgRating: number;
 }
 
 /** 홈/원정 세부 기록 블록(E-22 `home_record`/`away_record`) — 단일 선언, `TeamSeasonStat`만 참조 */

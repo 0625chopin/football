@@ -9,6 +9,10 @@
  * E-11에는 3일차 교차 점검이 못박은 `condition`·`fitness`·`familiarity_seasons`·
  * `yellow_accumulated_league`/`_cup`가 024(능력치 보정 체인) 입력으로 전부 포함되어 있다.
  *
+ * **48일차(2026-09-24) 추가**: E-48 `ClubOwner` 신설(D-35, I-239) — 8일차 H-01 동결 이후
+ * 첫 인물 도메인 구조 변경이며, 인물 도메인은 이제 7종(E-06~E-11 + E-48)이다. `Manager`
+ * 바로 아래 대칭 배치했다(공석 패턴 승계 근거는 위 D-20 설명과 동일).
+ *
  * ## 적용 원칙
  * - **D-15**: 하위 엔티티에 `worldId`를 두지 않는다.
  * - **D-16**: 외부(FM 등) 데이터 스키마를 모사한 임포트 DTO 타입을 만들지 않는다(T4).
@@ -51,7 +55,7 @@ import type {
   PreferredFoot,
   TasteTag,
 } from './enums';
-import type { InjuryId, ManagerId, PlayerId, Points, TeamId } from './brand';
+import type { ClubOwnerId, InjuryId, ManagerId, PlayerId, Points, TeamId } from './brand';
 
 /**
  * **E-06 Manager** — 감독. 팀과 N:1(교체 이력 추적 가능, T19).
@@ -85,6 +89,34 @@ export interface Manager {
   readonly reputation: number;
   readonly contractUntilSeason: number;
   readonly tenureSeasons: number;
+}
+
+/**
+ * **E-48 ClubOwner** — 구단주 (D-35, `docs/ISSUES.md` I-239, 48일차 2026-09-24 동결 후
+ * 배치 추가). 팀과 **1:1**이며, `teamId: null`(공석)을 허용해 위 E-06 `Manager`(D-20/T19·T21)의
+ * 독립 엔티티 패턴을 그대로 승계한다 — 감독과 별개의 새 관계 패턴을 만들지 않는다.
+ *
+ * **자금 모델(D-35 결정②)**: 스폰서 계약의 체결 주체는 이 엔티티(`SponsorContract.
+ * signedByOwnerId`, `economy.ts`)이지만, 수입 귀속처는 여전히 `SponsorContract.teamId`다 —
+ * 구단주는 자체 잔고를 갖지 않으며 `PointTransactionOwnerType`에도 추가되지 않는다(26일차
+ * 검증된 회계 항등식 불변, NFR-QA-005).
+ */
+export interface ClubOwner {
+  readonly id: ClubOwnerId;
+  /** null = 공석(Manager.teamId와 동일 패턴, T21 승계) */
+  readonly teamId: TeamId | null;
+  /** 고유명사 — 3팀 공유 생성기 경유(D-17), 번역 비대상(D-18/T14) */
+  readonly name: string;
+  readonly age: number;
+  readonly nationality: NationalityCode;
+  /** 1~30 정수 스케일(T5 관례, 브랜드 없음) — `proposeSponsorContract()` 제안 금액 산출 입력 */
+  readonly wealth: number;
+  /** 1~30 정수 스케일(T5 관례) — `sharePct` 산출 입력 */
+  readonly negotiation: number;
+  /** 0~100(Manager.reputation과 동일 축) */
+  readonly reputation: number;
+  /** 구단주 취임 시즌 */
+  readonly sinceSeason: number;
 }
 
 /**

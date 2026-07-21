@@ -26,7 +26,7 @@
  * import해 교체한다.
  *
  * ## ID 혼용 방지
- * 아래 32종 ID(7일차 29종 + 8일차 E-45~47 3종)는 전부 `Brand<string, 'Xxx'>`다.
+ * 아래 33종 ID(7일차 29종 + 8일차 E-45~47 3종 + 48일차 E-48 1종)는 전부 `Brand<string, 'Xxx'>`다.
  * 예를 들어 `TeamId`를 `PlayerId`가
  * 필요한 자리에 넘기면 `tsc`가 오류로 잡는다(작업표 7일차 완료 판정). 이 타입들은 이미
  * `world.ts`/`person.ts`/`match.ts`/`economy.ts`/`betting.ts`/`ops.ts`/`stat.ts`가
@@ -64,6 +64,8 @@ export type CronRunId = Brand<string, 'CronRunId'>;
 export type CronGapId = Brand<string, 'CronGapId'>;
 /** E-47 AuditLog PK (uuid) — 엔티티 본체는 `ops.ts`. 8일차 추가 */
 export type AuditLogId = Brand<string, 'AuditLogId'>;
+/** E-48 ClubOwner PK (uuid) — 엔티티 본체는 `person.ts`(D-35, Manager 대칭). 48일차(2026-09-24) 동결 후 배치 추가 */
+export type ClubOwnerId = Brand<string, 'ClubOwnerId'>;
 
 /** E-15 Fixture PK (uuid) */
 export type FixtureId = Brand<string, 'FixtureId'>;

@@ -170,6 +170,8 @@ import type {
   Sponsor,
   SponsorContract,
   PointTransaction,
+  // 인물 (E-48, 48일차 D-35 추가)
+  ClubOwner,
   // 설정 (E-41~E-44)
   CommonCodeGroup,
   CommonCode,
@@ -423,6 +425,26 @@ export interface DataSource {
   /** 통산 집계(E6 [통산] 탭). 위와 동일한 컷오프 원칙 적용 */
   getPlayerCareerStat(playerId: PlayerId): Promise<PlayerCareerStat | null>;
 
+  /**
+   * 최근경기평점(E6, D-34 결정④, 48일차, I-238) — 최신순 최대 `limit`건. ⚠️ **어댑터 레벨에서
+   * `status='FINISHED'`인 경기만 반환한다** — 진행 중 경기 평점 컷오프는 UI 필터가 아니라
+   * 데이터 계약이라는 기존 판정(와이어프레임 05 W-34 / S-4~S-8, R-11, NFR-SEC-004)의 연장.
+   */
+  getPlayerRecentMatchStats(params: {
+    readonly playerId: PlayerId;
+    readonly limit: number;
+  }): Promise<readonly PlayerMatchStat[]>;
+
+  /**
+   * 리그 평균 평점(E6 벤치마크 병기, D-34 결정③, 48일차, I-238) — 표본 0이면 `null`.
+   * `getPlayerSeasonStats`가 반환하는 시즌 행의 `avgRating`과 나란히 노출한다.
+   */
+  getLeagueAverageRating(params: {
+    readonly seasonId: SeasonId;
+    readonly leagueId: LeagueId;
+    readonly competitionType: CompetitionType;
+  }): Promise<number | null>;
+
   /** 몸값·계약 정보(E5). 현재 유효 계약이 없으면(FA) null */
   getPlayerContract(playerId: PlayerId): Promise<Contract | null>;
   /** 부상 타임라인(E8), 발생 시각 역순 */
@@ -450,6 +472,12 @@ export interface DataSource {
 
   /** 공석이면 null(F3 "임시 감독" 표기는 UI 책임 — `Manager.isActing` 참조) */
   getTeamManager(teamId: TeamId): Promise<Manager | null>;
+
+  /**
+   * 구단주 조회(D-35, 48일차, I-239) — `getTeamManager`와 대칭 패턴. 팀과 1:1이며 공석이면
+   * null. 엔티티 본체는 `person.ts` `ClubOwner`(E-48, Manager 대칭 — `teamId: null` 공석 허용).
+   */
+  getClubOwner(teamId: TeamId): Promise<ClubOwner | null>;
 
   /**
    * `ManagerId` 단건 역조회(I-213, 42일차 판정). `getTeamManager(teamId)`는 팀의 **현재**

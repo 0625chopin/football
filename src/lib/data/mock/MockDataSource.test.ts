@@ -50,6 +50,19 @@ describe('MockDataSource', () => {
       b.getStandings({ leagueId }),
     ]);
     expect(JSON.stringify(standingsA)).toBe(JSON.stringify(standingsB));
+
+    // D-35(48일차, I-239)·D-34(48일차, I-238) — ClubOwner·avgRating도 동일 시드에서 바이트 단위 동일.
+    const teamId = (await a.getFixturesByRound({ leagueId, round: 1 }))[0].homeTeamId;
+    const [ownerA, ownerB] = await Promise.all([a.getClubOwner(teamId), b.getClubOwner(teamId)]);
+    expect(JSON.stringify(ownerA)).toBe(JSON.stringify(ownerB));
+
+    const [seasonStatsA, seasonStatsB] = await Promise.all([
+      a.getPlayerStatRanking({ leagueId, competitionType: 'LEAGUE', metric: 'goals' }),
+      b.getPlayerStatRanking({ leagueId, competitionType: 'LEAGUE', metric: 'goals' }),
+    ]);
+    expect(JSON.stringify(seasonStatsA.map((s) => s.avgRating))).toBe(
+      JSON.stringify(seasonStatsB.map((s) => s.avgRating)),
+    );
   });
 
   it('getStandings는 라운드 기본값에서 schedule.ts 파생 순위표를 그대로 반환한다(I-106 해소)', async () => {
@@ -161,9 +174,9 @@ describe('MockDataSource', () => {
     expect(await ds.getPlayerAttributeHistory(anyPlayerId)).toEqual([]);
     expect(await ds.getTeamSeasonStat({ teamId: anyTeamId })).toBeNull();
     expect(await ds.getTeamPointTransactions({ teamId: anyTeamId })).toEqual([]);
+    // 'x'는 실존하지 않는 팀 ID라 팀 축 조회는 여전히 빈 배열이다(I-231 해소 후에도 동일).
     expect(await ds.getTeamSponsorContracts(anyTeamId)).toEqual([]);
     expect(await ds.getTeamTrophies(anyTeamId)).toEqual([]);
-    expect(await ds.getSponsorContracts()).toEqual([]);
     expect(await ds.getMatchLineups('x' as never)).toEqual([]);
     expect(await ds.getMatchPlayerRatings('x' as never)).toEqual([]);
     expect(await ds.getMatchTeamStats('x' as never)).toEqual([]);
@@ -427,6 +440,79 @@ describe('MockDataSource', () => {
     const sponsors = await ds.getSponsors();
     const sponsorIds = sponsors.slice(0, 2).map((s) => s.id);
     expect((await ds.getSponsorsByIds(sponsorIds)).length).toBe(sponsorIds.length);
+  });
+
+  it('getClubOwner가 팀과 1:1로 조회된다(D-35, 48일차, I-239)', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const [league] = await ds.getLeagues();
+    const [fixture] = await ds.getFixturesByRound({ leagueId: league.id, round: 1 });
+
+    const owner = await ds.getClubOwner(fixture.homeTeamId);
+    expect(owner?.teamId).toBe(fixture.homeTeamId);
+    expect(owner?.wealth).toBeGreaterThanOrEqual(1);
+    expect(owner?.wealth).toBeLessThanOrEqual(30);
+    expect(owner?.negotiation).toBeGreaterThanOrEqual(1);
+    expect(owner?.negotiation).toBeLessThanOrEqual(30);
+
+    expect(await ds.getClubOwner('no-such-team-id' as TeamId)).toBeNull();
+  });
+
+  it('getTeamSponsorContracts/getSponsorContracts가 팀당 ACTIVE ≤ 3건을 실제로 생성해 반환한다(I-231)', async () => {
+    const ds = new MockDataSource(SEED_A);
+
+    const all = await ds.getSponsorContracts();
+    expect(all.length).toBeGreaterThan(0);
+
+    // fixture.homeTeamId는 계약이 0건 배정된 팀일 수 있어(0~MAX_PER_TEAM 확률) 대신
+    // 전역 목록에서 실제로 계약을 가진 팀을 골라 팀 축 조회를 검증한다 — 그래야
+    // teamContracts가 빈 배열이면 아래 단언이 자명 통과가 아니라 실패한다.
+    const teamIdWithContract = all[0].teamId;
+    const teamContracts = await ds.getTeamSponsorContracts(teamIdWithContract);
+    expect(teamContracts.length).toBeGreaterThan(0);
+    expect(teamContracts.every((c) => c.teamId === teamIdWithContract)).toBe(true);
+    expect(teamContracts.filter((c) => c.status === 'ACTIVE').length).toBeLessThanOrEqual(3);
+    expect(teamContracts.every((c) => typeof c.signedByOwnerId === 'string' && c.signedByOwnerId.length > 0)).toBe(
+      true,
+    );
+
+    const bySponsor = await ds.getSponsorContracts({ sponsorId: all[0].sponsorId });
+    expect(bySponsor.every((c) => c.sponsorId === all[0].sponsorId)).toBe(true);
+  });
+
+  it('getPlayerRecentMatchStats/getLeagueAverageRating이 D-34 결정④·③을 만족한다(48일차, I-238)', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const [league] = await ds.getLeagues();
+    const seasonStats = await ds.getPlayerStatRanking({
+      leagueId: league.id,
+      competitionType: 'LEAGUE',
+      metric: 'goals',
+    });
+    expect(seasonStats.length).toBeGreaterThan(0);
+    const [sample] = seasonStats;
+
+    const recent = await ds.getPlayerRecentMatchStats({ playerId: sample.playerId, limit: 3 });
+    expect(recent.length).toBeLessThanOrEqual(3);
+    expect(recent.every((s) => s.matchRating >= 1 && s.matchRating <= 10)).toBe(true);
+
+    const noSample = await ds.getPlayerRecentMatchStats({ playerId: 'no-such-player-id' as PlayerId, limit: 5 });
+    expect(noSample).toEqual([]);
+
+    const avg = await ds.getLeagueAverageRating({
+      seasonId: sample.seasonId,
+      leagueId: league.id,
+      competitionType: 'LEAGUE',
+    });
+    expect(avg).not.toBeNull();
+    expect(avg).toBeGreaterThanOrEqual(1);
+    expect(avg).toBeLessThanOrEqual(10);
+
+    expect(
+      await ds.getLeagueAverageRating({
+        seasonId: 'no-such-season-id' as SeasonId,
+        leagueId: league.id,
+        competitionType: 'LEAGUE',
+      }),
+    ).toBeNull();
   });
 
   it('getTeamFixtures는 팀 소속 경기를 최신순으로 limit만큼 자르고, 모르는 팀은 브래킷만 본다', async () => {

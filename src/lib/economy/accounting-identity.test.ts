@@ -61,6 +61,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type {
+  ClubOwnerId,
   Contract,
   ContractId,
   NewsFeedItemId,
@@ -104,6 +105,8 @@ const SPONSOR_PARAM_TABLE = {
   INCOME_BASE: 100,
   INCOME_REP_STEP: 8,
 };
+/** D-35(48일차, I-239) — 이 회계 항등식 시뮬레이션은 구단주 축 배율을 검증 대상으로 삼지 않으므로 고정값 하나만 재사용한다. */
+const FIXED_OWNER = { id: 'owner-fixed' as ClubOwnerId, wealth: 15, negotiation: 15, reputation: 50 };
 
 const TEAM_COUNT = 60;
 const SPONSOR_COUNT = 45;
@@ -244,6 +247,7 @@ function runThreeSeasonSimulation(): SimResult {
             startSeason: 1,
             requestedSeasonLength: SEASON_COUNT,
             existingContractsForTeam: existingForTeam,
+            owner: FIXED_OWNER,
           },
           { table: SPONSOR_PARAM_TABLE },
         );

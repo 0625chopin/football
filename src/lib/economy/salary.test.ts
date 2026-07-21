@@ -7,7 +7,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Contract, PointTransaction, PointTransactionId, Points, SeasonId, SponsorContract, TeamId } from '@/types';
+import type { ClubOwnerId, Contract, PointTransaction, PointTransactionId, Points, SeasonId, SponsorContract, TeamId } from '@/types';
 import { installHardcodedFallback } from '@/lib/config/fallback';
 import { invalidateConstants, setFallbackSource, setGlobalDefaultSource } from '@/lib/config/loader';
 import {
@@ -230,6 +230,7 @@ describe('postSponsorIncome — zero-sum(NFR-QA-005)', () => {
       id: 'sponsor-contract-1' as SponsorContract['id'],
       sponsorId: 'sponsor-1' as SponsorContract['sponsorId'],
       teamId: 'team-1' as TeamId,
+      signedByOwnerId: 'owner-1' as ClubOwnerId,
       startSeason: 1,
       endSeason: 5,
       incomePerSeason: 300 as Points,

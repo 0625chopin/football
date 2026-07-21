@@ -34,6 +34,7 @@ import type {
   // 브랜드 ID
   AuditLogId,
   AwardId,
+  ClubOwnerId,
   CommonCodeHistoryId,
   CommonCodeId,
   ContractId,
@@ -675,6 +676,9 @@ export function mapPlayerSeasonStatRow(row: Row<'player_season_stat'>): PlayerSe
     leagueId: row.league_id as LeagueId,
     contributionScore: row.contribution_score,
     avgCondition: row.avg_condition,
+    // `avg_rating`은 48일차 마이그레이션으로 컬럼은 존재하나 `database.types.ts` 재생성은
+    // 51일차로 이월(D-34, I-238, 팀장 확정) — 재생성 전까지는 이 캐스트로 읽는다.
+    avgRating: (row as Row<'player_season_stat'> & { avg_rating: number }).avg_rating,
     motmAwards: row.motm_awards,
     injuriesCount: row.injuries_count,
     roundsInjured: row.rounds_injured,
@@ -689,6 +693,8 @@ export function mapPlayerCareerStatRow(row: Row<'player_career_stat'>): PlayerCa
     totalSeasons: row.total_seasons,
     totalAwards: row.total_awards,
     totalInjuries: row.total_injuries,
+    // `mapPlayerSeasonStatRow`의 avgRating 주석과 동일 사유(D-34, I-238, 51일차 재생성 예정)
+    avgRating: (row as Row<'player_career_stat'> & { avg_rating: number }).avg_rating,
   };
 }
 
@@ -960,6 +966,10 @@ export function mapSponsorContractRow(row: Row<'sponsor_contract'>): SponsorCont
     id: row.id as SponsorContractId,
     sponsorId: row.sponsor_id as SponsorId,
     teamId: row.team_id as TeamId,
+    // `signed_by_owner_id`는 48일차 마이그레이션으로 컬럼은 존재하나 `database.types.ts`
+    // 재생성은 51일차로 이월(D-35, I-239, 팀장 확정) — 재생성 전까지는 이 캐스트로 읽는다.
+    signedByOwnerId: (row as Row<'sponsor_contract'> & { signed_by_owner_id: string })
+      .signed_by_owner_id as ClubOwnerId,
     startSeason: row.start_season,
     endSeason: row.end_season,
     incomePerSeason: row.income_per_season as Points,

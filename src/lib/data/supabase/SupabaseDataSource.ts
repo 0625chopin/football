@@ -78,6 +78,7 @@ import type {
   // 엔티티
   Award,
   AuditLog,
+  ClubOwner,
   CommonCode,
   CommonCodeGroup,
   CommonCodeHistory,
@@ -584,6 +585,27 @@ export class SupabaseDataSource implements DataSource {
     return mapPlayerCareerStatRow(data);
   }
 
+  /**
+   * ⚠️ 신규 계약(D-34, 48일차, I-238) — `getMatchPlayerRatings`와 동일 사유로 오늘은 계약만
+   * 만족하는 최소 구현이다(팀장 확정, 1.52인일 부하). 실사용은 034b(66~68일차)이므로 실제
+   * 조회는 그때 채운다.
+   */
+  async getPlayerRecentMatchStats(_params: {
+    readonly playerId: PlayerId;
+    readonly limit: number;
+  }): Promise<readonly PlayerMatchStat[]> {
+    return [];
+  }
+
+  /** 위 `getPlayerRecentMatchStats`와 동일 사유(D-34, 48일차, I-238) — 034b에서 채운다 */
+  async getLeagueAverageRating(_params: {
+    readonly seasonId: SeasonId;
+    readonly leagueId: LeagueId;
+    readonly competitionType: CompetitionType;
+  }): Promise<number | null> {
+    return null;
+  }
+
   async getPlayerContract(playerId: PlayerId): Promise<Contract | null> {
     const { data, error } = await this.client
       .from('contract')
@@ -687,6 +709,16 @@ export class SupabaseDataSource implements DataSource {
       return null;
     }
     return mapManagerRow(data);
+  }
+
+  /**
+   * ⚠️ 신규 계약(D-35, 48일차, I-239) — `club_owner` 테이블은 오늘 마이그레이션으로 신설되지만
+   * `database.types.ts` 재생성은 51일차로 이월(팀장 확정, 1.52인일 부하) — 재생성 전까지는
+   * 타입 안전하게 조회할 수 없어 `getTeamManager`와 대칭 자리만 채운다. 실사용은 034b
+   * (66~68일차)이므로 실제 조회는 그 이후 채운다.
+   */
+  async getClubOwner(_teamId: TeamId): Promise<ClubOwner | null> {
+    return null;
   }
 
   async getTeamSquad(teamId: TeamId): Promise<readonly PublicPlayerProfile[]> {

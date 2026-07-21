@@ -69,6 +69,7 @@
  */
 
 import type {
+  ClubOwner,
   NewsFeedItem,
   NewsFeedItemId,
   Points,
@@ -86,6 +87,9 @@ type SponsorParamTable = ConstantGroupValues<'SPONSOR_PARAM'>;
 
 /** `sharePct`가 명성과 무관하게 스폰서 규모(1~5)에 비례하는 계수 — 그룹 계수 아님, 이 파일 전용. */
 const SPONSOR_SHARE_PCT_PER_SCALE = 6;
+
+/** 구단주 축 배율의 중립값(D-35 결정④) — `valuation.ts`의 `NEUTRAL_MULTIPLIER`와 동일 관례. */
+const NEUTRAL_MULTIPLIER = 1;
 
 /** 팀당 활성 계약 슬롯이 이미 `MAX_PER_TEAM`건 찼을 때 던지는 에러(수락 기준 "≤ 3"). */
 export class SponsorSlotLimitExceededError extends Error {
@@ -117,11 +121,61 @@ function clampSeasonLength(requestedSeasonLength: number, table: SponsorParamTab
   return Math.min(max, Math.max(min, rounded));
 }
 
+/**
+ * 구단주 자산 배율(D-35 결정④) — `ClubOwner.wealth`(1~30)에 비례. `OWNER_WEALTH_STEP_PCT`가
+ * 05문서에 근거 수치가 없어 미설정이면 중립값(배율 1)으로 처리한다(`valuation.ts`의
+ * `ageMultiplier` 선례와 동일 관례) — `wealth` 미지정(owner 없음) 시에도 동일하게 중립.
+ */
+function ownerWealthMultiplier(wealth: number | undefined, table: SponsorParamTable): number {
+  if (wealth === undefined) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const stepPct = readNumber(table, 'OWNER_WEALTH_STEP_PCT', 0);
+  if (stepPct === 0) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const reference = readNumber(table, 'OWNER_WEALTH_REFERENCE', wealth);
+  return NEUTRAL_MULTIPLIER + stepPct * (wealth - reference);
+}
+
+/** 구단주 평판 배율(D-35 결정④) — `ClubOwner.reputation`(0~100)에 비례. 위와 동일한 중립값 관례. */
+function ownerReputationMultiplier(reputation: number | undefined, table: SponsorParamTable): number {
+  if (reputation === undefined) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const stepPct = readNumber(table, 'OWNER_REPUTATION_STEP_PCT', 0);
+  if (stepPct === 0) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const reference = readNumber(table, 'OWNER_REPUTATION_REFERENCE', reputation);
+  return NEUTRAL_MULTIPLIER + stepPct * (reputation - reference);
+}
+
+/**
+ * 구단주 협상력 배율(D-35 결정④) — `ClubOwner.negotiation`(1~30)이 높을수록 스폰서가
+ * 요구하는 `sharePct`를 낮춘다(팀 쪽에 유리한 협상). 위와 동일한 중립값 관례.
+ */
+function ownerNegotiationMultiplier(negotiation: number | undefined, table: SponsorParamTable): number {
+  if (negotiation === undefined) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const stepPct = readNumber(table, 'OWNER_NEGOTIATION_STEP_PCT', 0);
+  if (stepPct === 0) {
+    return NEUTRAL_MULTIPLIER;
+  }
+  const reference = readNumber(table, 'OWNER_NEGOTIATION_REFERENCE', negotiation);
+  return NEUTRAL_MULTIPLIER - stepPct * (negotiation - reference);
+}
+
 export interface CalculateSponsorIncomeInput {
   /** `Team.reputation`(0~100) */
   readonly teamReputation: number;
   /** `Sponsor.scale`(1~5) */
   readonly sponsorScale: number;
+  /** `ClubOwner.wealth`(1~30, D-35 결정④) — 미지정 시 중립(배율 1) */
+  readonly ownerWealth?: number;
+  /** `ClubOwner.reputation`(0~100, D-35 결정④) — 미지정 시 중립(배율 1) */
+  readonly ownerReputation?: number;
 }
 
 export interface CalculateSponsorIncomeOptions {
@@ -131,7 +185,9 @@ export interface CalculateSponsorIncomeOptions {
 
 /**
  * 시즌당 제안 금액 — `teamReputation`에 비례하고 `sponsorScale`로 스케일된다(파일 상단
- * "명성 비례 제안 금액" 참조). 어떤 입력에도 `Number.isFinite`가 아니게 새지 않도록 방어한다.
+ * "명성 비례 제안 금액" 참조). `ownerWealth`/`ownerReputation`을 지정하지 않으면 기존
+ * 산식과 100% 동일하다(중립 배율 1). 어떤 입력에도 `Number.isFinite`가 아니게 새지
+ * 않도록 방어한다.
  */
 export function calculateSponsorIncome(
   input: CalculateSponsorIncomeInput,
@@ -142,15 +198,24 @@ export function calculateSponsorIncome(
   const repStep = readNumber(table, 'INCOME_REP_STEP', 8);
 
   const safeReputation = Math.max(0, input.teamReputation);
-  const raw = (base + repStep * safeReputation) * input.sponsorScale;
+  const raw =
+    (base + repStep * safeReputation) *
+    input.sponsorScale *
+    ownerWealthMultiplier(input.ownerWealth, table) *
+    ownerReputationMultiplier(input.ownerReputation, table);
 
   return Math.round(Number.isFinite(raw) ? raw : base) as Points;
 }
 
-function calculateSponsorSharePct(sponsorScale: number, table: SponsorParamTable): number {
-  const raw = Math.max(0, sponsorScale) * SPONSOR_SHARE_PCT_PER_SCALE;
+function calculateSponsorSharePct(
+  sponsorScale: number,
+  table: SponsorParamTable,
+  ownerNegotiation?: number,
+): number {
+  const raw =
+    Math.max(0, sponsorScale) * SPONSOR_SHARE_PCT_PER_SCALE * ownerNegotiationMultiplier(ownerNegotiation, table);
   const rounded = Math.round(raw * 100) / 100;
-  return Math.min(table.SHARE_PCT_CAP, rounded);
+  return Math.min(table.SHARE_PCT_CAP, Math.max(0, rounded));
 }
 
 export interface ProposeSponsorContractInput {
@@ -164,6 +229,11 @@ export interface ProposeSponsorContractInput {
   readonly requestedSeasonLength: number;
   /** 이 팀의 기존 `SponsorContract` 전체(활성 슬롯 판정용). */
   readonly existingContractsForTeam: readonly SponsorContract[];
+  /**
+   * 계약 체결 주체(D-35 결정②·③, 48일차, I-239) — `signedByOwnerId`에 그대로 대입된다.
+   * `wealth`/`negotiation`/`reputation`을 제안 금액·`sharePct` 산출에 반영한다(결정④).
+   */
+  readonly owner: Pick<ClubOwner, 'id' | 'wealth' | 'negotiation' | 'reputation'>;
 }
 
 export interface ProposeSponsorContractOptions {
@@ -191,15 +261,21 @@ export function proposeSponsorContract(
   const endSeason = input.startSeason + seasonLength - 1;
 
   const incomePerSeason = calculateSponsorIncome(
-    { teamReputation: input.teamReputation, sponsorScale: input.sponsor.scale },
+    {
+      teamReputation: input.teamReputation,
+      sponsorScale: input.sponsor.scale,
+      ownerWealth: input.owner.wealth,
+      ownerReputation: input.owner.reputation,
+    },
     { table },
   );
-  const sharePct = calculateSponsorSharePct(input.sponsor.scale, table);
+  const sharePct = calculateSponsorSharePct(input.sponsor.scale, table, input.owner.negotiation);
 
   return {
     id: input.id,
     sponsorId: input.sponsor.id,
     teamId: input.teamId,
+    signedByOwnerId: input.owner.id,
     startSeason: input.startSeason,
     endSeason,
     incomePerSeason,

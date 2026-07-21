@@ -7,6 +7,7 @@
 
 import { describe, expectTypeOf, it } from 'vitest';
 import type {
+  ClubOwner,
   Manager,
   Player,
   PlayerAttribute,
@@ -113,5 +114,23 @@ describe('person.ts — Manager/PlayerPosition (E-06, E-10)', () => {
 
   it('PlayerPosition.proficiency는 number다(1~5, FR-PL-006)', () => {
     expectTypeOf<PlayerPosition>().toHaveProperty('proficiency').toEqualTypeOf<number>();
+  });
+});
+
+describe('person.ts — ClubOwner (E-48, D-35, I-239, 48일차 신규)', () => {
+  it('ClubOwner.teamId는 nullable이다(공석 허용, Manager.teamId와 동일 패턴 승계)', () => {
+    expectTypeOf<ClubOwner['teamId']>().toBeNullable();
+  });
+
+  it('wealth/negotiation/reputation/sinceSeason/age는 number다(D-35 필드 명세)', () => {
+    expectTypeOf<ClubOwner>().toHaveProperty('wealth').toEqualTypeOf<number>();
+    expectTypeOf<ClubOwner>().toHaveProperty('negotiation').toEqualTypeOf<number>();
+    expectTypeOf<ClubOwner>().toHaveProperty('reputation').toEqualTypeOf<number>();
+    expectTypeOf<ClubOwner>().toHaveProperty('sinceSeason').toEqualTypeOf<number>();
+    expectTypeOf<ClubOwner>().toHaveProperty('age').toEqualTypeOf<number>();
+  });
+
+  it('name은 고유명사 string이다(번역 비대상, D-18)', () => {
+    expectTypeOf<ClubOwner>().toHaveProperty('name').toEqualTypeOf<string>();
   });
 });

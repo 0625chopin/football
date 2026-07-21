@@ -4,6 +4,11 @@
 > 정본: `docs/require/05-data-requirements.md` 5.1절(엔티티 개요) — 총 **47개 엔티티(E-01~E-47)**
 > 이 표는 정본의 각 엔티티가 **어느 파일의 어느 TypeScript 타입**에 대응하는지 추적하기 위한 것이며,
 > 필드 단위 상세 설명은 담지 않는다(필드 설명은 각 파일의 헤더/인라인 주석 참조).
+>
+> **48일차(2026-09-24) 추가**: D-35(`docs/ISSUES.md` I-239)로 `ClubOwner`(E-48)가 신설됐다 —
+> `05-data-requirements.md` 정본에는 없는 **신규 엔티티**다(사용자 요청 발 도메인 모델 변경,
+> E-45~47과 달리 원문 47종에 포함돼 있던 잔여분이 아니라 동결 이후 최초의 순수 신규 엔티티).
+> 이 표는 이제 총 **48개**를 추적한다.
 
 ## 사용법
 
@@ -27,7 +32,7 @@
 | E-04 | Team | `world.ts` | `Team` | ✅ |
 | E-05 | TeamSeason | `world.ts` | `TeamSeason` | ✅ |
 
-### 1.2 인물 (6)
+### 1.2 인물 (7)
 
 | ID | 엔티티 | 파일 | TS 타입 | 상태 |
 |---|---|---|---|---|
@@ -37,6 +42,7 @@
 | E-09 | PlayerAttributeHistory | `person.ts` | `PlayerAttributeHistory` (`PlayerAttributeValues` 재사용, C-6) | ✅ |
 | E-10 | PlayerPosition | `person.ts` | `PlayerPosition` | ✅ |
 | E-11 | PlayerState | `person.ts` | `PlayerState` | ✅ |
+| E-48 | ClubOwner | `person.ts` | `ClubOwner` | ✅ **48일차 신규**(D-35/I-239, Manager 대칭 — `teamId: null` 공석 허용) |
 
 ### 1.3 계약/이동 (3)
 
@@ -63,8 +69,8 @@
 | ID | 엔티티 | 파일 | TS 타입 | 상태 |
 |---|---|---|---|---|
 | E-19 | PlayerMatchStat | `stat.ts` | `PlayerMatchStat` (`PlayerStatCoreValues` 공유 블록) | ✅ |
-| E-20 | PlayerSeasonStat | `stat.ts` | `PlayerSeasonStat` (`PlayerStatCoreValues` 재사용) | ✅ |
-| E-21 | PlayerCareerStat | `stat.ts` | `PlayerCareerStat` (`PlayerStatCoreValues` 재사용) | ✅ |
+| E-20 | PlayerSeasonStat | `stat.ts` | `PlayerSeasonStat` (`PlayerStatCoreValues` 재사용) | ✅ (`avgRating` 필드 48일차 추가, D-34/I-238 — `PlayerStatCoreValues`에는 없음) |
+| E-21 | PlayerCareerStat | `stat.ts` | `PlayerCareerStat` (`PlayerStatCoreValues` 재사용) | ✅ (`avgRating` 필드 48일차 추가, D-34/I-238) |
 | E-22 | TeamSeasonStat | `stat.ts` | `TeamSeasonStat` (+ `TeamSplitRecord`/`TeamMarginResult` 보조 블록) | ✅ |
 | E-23 | Standing | `stat.ts` | `Standing` | ✅ |
 
@@ -82,7 +88,7 @@
 | ID | 엔티티 | 파일 | TS 타입 | 상태 |
 |---|---|---|---|---|
 | E-28 | Sponsor | `economy.ts` | `Sponsor` | ✅ |
-| E-29 | SponsorContract | `economy.ts` | `SponsorContract` | ✅ |
+| E-29 | SponsorContract | `economy.ts` | `SponsorContract` | ✅ (`signedByOwnerId` 필드 48일차 추가, D-35/I-239 — `teamId` 수입 귀속은 유지) |
 | E-30 | PointTransaction | `economy.ts` | `PointTransaction` | ✅ |
 
 ### 1.8 명예 (2)
@@ -141,10 +147,10 @@
 
 | 파일 | 담긴 엔티티/타입 |
 |---|---|
-| `brand.ts` | 브랜드 유틸(`Brand<T,TName>`) + ID 32종(E-01~E-47 PK 다수) + 시드 계층(`Seed`/`WorldSeed`/`SeasonSeed`/`MatchSeed`/`EventSeed`) + `Points` + `Timestamp` |
+| `brand.ts` | 브랜드 유틸(`Brand<T,TName>`) + ID 33종(E-01~E-47 PK 다수 + 48일차 `ClubOwnerId` E-48) + 시드 계층(`Seed`/`WorldSeed`/`SeasonSeed`/`MatchSeed`/`EventSeed`) + `Points` + `Timestamp` |
 | `enums.ts` | enum성 문자열 유니온 전량 (§3 참조) — 다른 파일에 재선언 금지(C-6) |
 | `world.ts` | E-01~E-05 (`World`/`League`/`Season`/`Team`/`TeamSeason`) |
-| `person.ts` | E-06~E-11 (`Manager`/`Player`/`PlayerAttributeValues`/`PlayerAttribute`/`PlayerAttributeHistory`/`PlayerPosition`/`PlayerState`) |
+| `person.ts` | E-06~E-11, E-48 (`Manager`/`Player`/`PlayerAttributeValues`/`PlayerAttribute`/`PlayerAttributeHistory`/`PlayerPosition`/`PlayerState`/`ClubOwner`, 48일차) |
 | `match.ts` | E-15~E-18 (`Fixture`/`MatchEvent`/`MatchLineup`/`Weather`) |
 | `stat.ts` | E-19~E-23, E-31, E-32 (`PlayerStatCoreValues`/`PlayerMatchStat`/`PlayerSeasonStat`/`PlayerCareerStat`/`TeamSplitRecord`/`TeamMarginResult`/`TeamSeasonStat`/`Standing`/`Award`/`Trophy`) |
 | `economy.ts` | E-12~E-14, E-28~E-30 (`Contract`/`Transfer`/`Loan`/`Sponsor`/`SponsorContract`/`PointTransaction`) |
@@ -153,7 +159,8 @@
 | `ops.ts` | E-24~E-27 (`Injury`/`YouthProspect`/`NewsFeedItem`/`Sanction`) + E-45~E-47 (`CronRun`/`CronGap`/`AuditLog`, 8일차 신규) |
 | `index.ts` | 공개 배럴(`export * from './xxx'`) + Task 002 진행 상태표 |
 
-**엔티티 개수 검산**: 5+6+3+4+5+4+3+2+5+3+7 = **47** (정본 5.1절과 일치, 8일차 E-45~47 반영 후 완결).
+**엔티티 개수 검산**: 5+7+3+4+5+4+3+2+5+3+7 = **48** (정본 5.1절의 47 + 48일차 D-35 신규 E-48
+`ClubOwner` 1종. 8일차 E-45~47 반영 후 완결됐던 47에서, 동결 이후 최초로 순수 엔티티 수가 늘었다).
 
 ---
 
@@ -206,8 +213,9 @@
 
 ## 4. 브랜드 ID (`brand.ts`) — 대응 PK
 
-32종 전량이 `Brand<string, 'Xxx'>`. 명칭 규칙은 `{Entity}Id` 1:1 대응이라 별도 표를 두지
-않는다 — 예: `E-45 CronRun` → `CronRunId`. 예외 없음(uuid PK 엔티티는 전부 이 규칙을 따른다).
+33종 전량이 `Brand<string, 'Xxx'>`. 명칭 규칙은 `{Entity}Id` 1:1 대응이라 별도 표를 두지
+않는다 — 예: `E-45 CronRun` → `CronRunId`, `E-48 ClubOwner` → `ClubOwnerId`(48일차, D-35).
+예외 없음(uuid PK 엔티티는 전부 이 규칙을 따른다).
 자연키를 쓰는 예외 1건: **E-41 CommonCodeGroup**은 PK가 `groupCode: string`(UPPER_SNAKE)이라
 브랜드 ID가 없다(`config.ts` 주석 참조).
 

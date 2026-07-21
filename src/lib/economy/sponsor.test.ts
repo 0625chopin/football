@@ -7,7 +7,17 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { NewsFeedItemId, SeasonId, Sponsor, SponsorContract, SponsorContractId, TeamId, Timestamp } from '@/types';
+import type {
+  ClubOwner,
+  ClubOwnerId,
+  NewsFeedItemId,
+  SeasonId,
+  Sponsor,
+  SponsorContract,
+  SponsorContractId,
+  TeamId,
+  Timestamp,
+} from '@/types';
 import {
   calculateSponsorIncome,
   judgeSponsorBankruptcy,
@@ -43,11 +53,22 @@ function activeContract(overrides: Partial<SponsorContract> = {}): SponsorContra
     id: 'sponsor-contract-x' as SponsorContractId,
     sponsorId: 'sponsor-x' as SponsorContract['sponsorId'],
     teamId: 'team-1' as TeamId,
+    signedByOwnerId: 'owner-x' as ClubOwnerId,
     startSeason: 1,
     endSeason: 5,
     incomePerSeason: 300 as SponsorContract['incomePerSeason'],
     sharePct: 10,
     status: 'ACTIVE',
+    ...overrides,
+  };
+}
+
+function owner(overrides: Partial<Pick<ClubOwner, 'id' | 'wealth' | 'negotiation' | 'reputation'>> = {}) {
+  return {
+    id: 'owner-1' as ClubOwnerId,
+    wealth: 15,
+    negotiation: 15,
+    reputation: 50,
     ...overrides,
   };
 }
@@ -97,6 +118,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
         startSeason: 5,
         requestedSeasonLength: 3,
         existingContractsForTeam: [],
+        owner: owner(),
       },
       { table: SPONSOR_PARAM_TABLE },
     );
@@ -123,6 +145,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
           startSeason: 5,
           requestedSeasonLength: 3,
           existingContractsForTeam: existing,
+          owner: owner(),
         },
         { table: SPONSOR_PARAM_TABLE },
       ),
@@ -145,6 +168,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
         startSeason: 5,
         requestedSeasonLength: 3,
         existingContractsForTeam: existing,
+        owner: owner(),
       },
       { table: SPONSOR_PARAM_TABLE },
     );
@@ -162,6 +186,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
         startSeason: 1,
         requestedSeasonLength: 0,
         existingContractsForTeam: [],
+        owner: owner(),
       },
       { table: SPONSOR_PARAM_TABLE },
     );
@@ -174,6 +199,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
         startSeason: 1,
         requestedSeasonLength: 999,
         existingContractsForTeam: [],
+        owner: owner(),
       },
       { table: SPONSOR_PARAM_TABLE },
     );
@@ -192,6 +218,7 @@ describe('proposeSponsorContract — 팀당 활성 계약 ≤ 3 (수락 기준)'
         startSeason: 1,
         requestedSeasonLength: 3,
         existingContractsForTeam: [],
+        owner: owner(),
       },
       { table: SPONSOR_PARAM_TABLE },
     );

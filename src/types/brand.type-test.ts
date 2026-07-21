@@ -14,6 +14,7 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type {
   AuditLogId,
   Brand,
+  ClubOwnerId,
   EventSeed,
   MatchSeed,
   PlayerId,
@@ -84,5 +85,13 @@ describe('brand.ts — Timestamp/Brand 유틸리티 형태', () => {
 
   it('8일차 신규 AuditLogId도 다른 uuid 브랜드와 동일한 규약(Brand<string,._.>)을 따른다', () => {
     expectTypeOf<AuditLogId>().toMatchTypeOf<string>();
+  });
+
+  it('48일차 신규 ClubOwnerId도 동일 규약을 따르고 TeamId 자리에 대입 불가능하다(D-35)', () => {
+    expectTypeOf<ClubOwnerId>().toMatchTypeOf<string>();
+    const ownerId = 'owner-1' as ClubOwnerId;
+    // @ts-expect-error — ClubOwnerId를 TeamId 자리에 넣을 수 없다(ID 혼용 방지)
+    const wrong: TeamId = ownerId;
+    void wrong;
   });
 });
