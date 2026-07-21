@@ -255,12 +255,22 @@ export default async function Page(
                 // link")을 쓴다. 링크 자체는 시각 텍스트가 없어 `aria-labelledby`로 나머지
                 // 3개 셀(홈/스코어/원정) + 상태 셀의 텍스트를 접근 가능한 이름으로 합성한다
                 // — 새 번역 템플릿을 만들지 않고 이미 화면에 그려지는 텍스트를 그대로 쓴다.
+                //
+                // ⚠️ **늘인 링크가 셀 내용보다 위에 있어야 한다**(`z-20` > 내용 `z-10`).
+                // 48일차까지 링크가 `z-0`이라 각 셀의 `relative z-10` 내용(상태 배지·팀명·
+                // 점수)이 링크를 완전히 덮었고, 결과적으로 셀 padding의 빈 틈을 정확히
+                // 눌렀을 때만 이동했다 — 모바일에서는 그 틈이 사실상 없어 "어디를 눌러도
+                // 반응 없음"으로 보였다. 내용에서 `z-10`을 빼는 대신 링크를 올리는 쪽을
+                // 택한 이유는, 내용의 `relative z-10`이 `<tr>`의 짝수행 배경(`bg-muted/30`)
+                // 위로 올리는 역할도 겸하고 있어서다. 링크는 배경이 없어 위에 있어도
+                // 텍스트를 가리지 않는다(텍스트 드래그 선택만 불가 — 행 전체 링크의 통상적
+                // 트레이드오프).
                 <TableRow key={card.id} className="relative">
                   <TableCell aria-label={statusAccessibleLabel}>
                     <Link
                       href={`/${locale}/matches/${card.id}`}
                       aria-labelledby={`${homeId} ${scoreId} ${awayId} ${statusId}`}
-                      className="absolute inset-0 z-0 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="absolute inset-0 z-20 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     />
                     <span
                       id={statusId}
