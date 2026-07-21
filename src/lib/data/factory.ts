@@ -35,6 +35,8 @@
  * 규약과는 무관). 이 파일 자체는 `@/types`를 참조하지 않는다.
  */
 
+import type { ConstantSource } from '@/lib/config/loader';
+
 import type { DataSource } from './DataSource';
 
 /** 지원하는 어댑터 종류 — Mock(3팀 Task 007) / Supabase(6팀 Task 034) */
@@ -61,6 +63,44 @@ const registry = new Map<DataSourceKind, DataSourceProvider>();
  */
 export function registerDataSource(kind: DataSourceKind, provider: DataSourceProvider): void {
   registry.set(kind, provider);
+}
+
+/**
+ * 공통코드 전역 기본값 소스(`@/lib/config/loader`의 `ConstantSource`) 프로바이더 레지스트리
+ * — **I-206(42일차) 등록 지점**. `registerDataSource`와 같은 self-registration 패턴을
+ * 그대로 따른다: `kind`별 `ConstantSource` 프로바이더를 등록만 하고, 실제로
+ * `setGlobalDefaultSource`를 호출하는 시점은 `bootstrap.ts`의 `bootstrapApp()`이 결정한다
+ * (이 파일은 등록·조회 계약만 소유 — `loadConstants`/`setGlobalDefaultSource` 자체는 3팀
+ * 소유 `./config/loader`에서 그대로 가져다 쓴다, 재선언하지 않음).
+ *
+ * **오늘(42일차) 시점에는 어떤 팀도 이 함수를 호출하지 않는다** — `common_code`를 읽는
+ * `ConstantSource` 구현체가 아직 없다(supabase 실데이터 어댑터=6팀, mock 쪽 판단=3팀 소관,
+ * I-206). 이 레지스트리는 그 구현체가 생겼을 때 각자 소유 파일(`src/lib/data/supabase/index.ts`,
+ * `src/lib/data/mock/index.ts`)에서 `registerDataSource(kind, ...)` 옆에 한 줄
+ * `registerConstantSource(kind, () => new XxxConstantSource(...))`만 추가하면 되도록 만든
+ * 확장 지점이다. **주의(mock 구현자용)**: `MockDataSource.getCommonCodes()`가 이미
+ * `loadConstants()`를 호출해 값을 읽는 구조라, 그 값을 그대로 다시 `ConstantSource`로 감싸
+ * 전역 기본값 소스로 등록하면 `loadConstants` → 전역 기본값 소스 → `loadConstants`로
+ * 순환 호출(스택 오버플로)이 난다 — mock 쪽 구현체는 `loadConstants`를 경유하지 않는
+ * 별도 값 테이블에서 직접 읽어야 한다.
+ */
+const constantSourceRegistry = new Map<DataSourceKind, () => ConstantSource>();
+
+/**
+ * 특정 `kind`에 대한 `ConstantSource` 프로바이더를 등록한다. 같은 `kind`로 재호출하면
+ * 이전 등록을 덮어쓴다(`registerDataSource`와 동일한 핫스왑·테스트 허용 정책).
+ */
+export function registerConstantSource(kind: DataSourceKind, provider: () => ConstantSource): void {
+  constantSourceRegistry.set(kind, provider);
+}
+
+/**
+ * `kind`에 등록된 `ConstantSource` 프로바이더를 호출해 반환한다. 미등록이면 `undefined`
+ * (에러를 던지지 않는다 — `registerDataSource`와 달리 이 소스는 선택적이다: 미등록이어도
+ * `loader.ts`가 하드코딩 폴백으로 안전하게 떨어지므로 조기 실패시킬 이유가 없다).
+ */
+export function getRegisteredConstantSource(kind: DataSourceKind): ConstantSource | undefined {
+  return constantSourceRegistry.get(kind)?.();
 }
 
 let cachedDataSource: DataSource | null = null;

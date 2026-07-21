@@ -18,7 +18,12 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { getDataSource, getDataSourceKind, resetDataSourceCache } from '@/lib/data/factory';
+import {
+  getDataSource,
+  getDataSourceKind,
+  getRegisteredConstantSource,
+  resetDataSourceCache,
+} from '@/lib/data/factory';
 import { NATIONALITY_NAME_POOLS } from '@/lib/naming/namePools';
 import type { NationalityNamePool } from '@/lib/naming/namePools';
 import { generateMockProgress } from '@/lib/mock/progress';
@@ -79,6 +84,19 @@ describe('H-07 — src/lib/data/mock/index.ts 등록 배선', () => {
 
     const leagues = await dataSource.getLeagues();
     expect(leagues).toHaveLength(3);
+  });
+
+  it('42일차(I-206) — registerConstantSource("mock", ...)도 함께 실행되어 조회 가능하다', async () => {
+    await import('./index');
+
+    const source = getRegisteredConstantSource('mock');
+    expect(source).toBeDefined();
+    expect(source?.name).toBe('mock-normal-defaults');
+    expect(source?.getGroupConstants('UI_PARAM')).toEqual({
+      POLL_INTERVAL_MS: 5000,
+      POLL_LIVE_MS: 3000,
+      LEADERBOARD_MIN_APPEARANCE_PCT: 30,
+    });
   });
 });
 

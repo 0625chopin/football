@@ -28,6 +28,13 @@ export const fixtures = {
     // FR-UI-004 명문 문구 — 프리시즌·월드 생성 직후 대진 생성 전에 실제 발생.
     emptySchedule: "일정이 생성되지 않았습니다.",
     errorLoadFailed: "일정을 불러오지 못했습니다.",
+    // 42일차(Task 016, 5팀) — I-210 해소: C2를 `<table>`로 전환하며 추가한 열 헤더
+    // 4종(`scope="col"`). 시각적으로는 `<thead>` 전체를 sr-only로 감춘다(와이어프레임
+    // 목업에 헤더 행이 그려져 있지 않다) — 텍스트는 스크린리더 전용이라 길이 제약이 없다.
+    statusHeader: "경기 상태",
+    homeHeader: "홈 팀",
+    scoreHeader: "스코어",
+    awayHeader: "원정 팀",
   },
   special: {
     title: "특수 대진",

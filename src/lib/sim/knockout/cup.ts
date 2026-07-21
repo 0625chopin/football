@@ -30,14 +30,16 @@
  * 규칙이 **모든 라운드·모든 매치업에서 "두 시드 중 더 큰 쪽이 홈"** 한 줄로 통일된다
  * (`pairToDraft()` 참조) — 리그 간 교차인지 리그 내부인지 분기할 필요가 없다.
  *
- * ## 1라운드 시딩 — D-24 우선순위를 일반화한 `crossPair()`
- * D-24 규칙(① 리그1↔리그3 우선, ② 리그1↔리그2, ③ 리그2↔리그3, ④ 그래도 남으면 동일
- * 티어 시드 순 상하위 교차)을 60/20/16 특정 숫자에 하드코딩하지 않고, "두 시드 풀을
- * 인덱스 순으로 최대한 맞짝짓고 남는 쪽을 다음 단계로 넘긴다"는 `crossPair()` 한 함수를
- * 세 번 적용해 구현한다. 실제 참가 규모(리그1 잔여 20·리그2 20·리그3 16)에서는 ①이
- * 리그1·리그3를 모두 소진하고, ②가 리그1 잔여 4를 리그2로 흡수하고, ③은 리그3가 이미
- * 0이라 공집합이며, 최종적으로 리그2 잔여 16팀만 남아 동일 티어 교차(④)로 8경기가
- * 나온다 — `assertRound1PairCount()`가 그 결과(28경기)를 값으로 검증한다.
+ * ## 1라운드 시딩 — 42일차부터 `seeding.ts`로 분리
+ * D-24 우선순위(① 리그1↔리그3 우선, ② 리그1↔리그2, ③ 리그2↔리그3, ④ 그래도 남으면
+ * 동일 티어 시드 순 상하위 교차)와 그것을 60/20/16 특정 숫자에 하드코딩하지 않는
+ * `crossPair()` 일반화는 **41일차에 이 파일에서 구현**했으나, 42일차 Task 027(2회차,
+ * `seeding.ts`)에서 재사용 가능한 순수 시딩 모듈로 옮겼다 — 규칙 자체는 그대로이고
+ * 중복 구현하지 않는다(`seeding.ts` 헤더 "41일차 인계" 절 참조). 이 파일은 이제
+ * `seedCupRound1()`이 반환한 시드 쌍을 `pairToDraft()`로 `Fixture` 초안으로 감싸는
+ * 일만 한다. `CupSeedPools`/`assertCupSeedPools`/`teamOfGlobalSeed`도 같은 이유로
+ * `seeding.ts`가 소유하며, 이 파일은 그 타입을 재노출(`export type { CupSeedPools }`)
+ * 할 뿐이다.
  *
  * ## 2라운드 이후 "시드 기반 무작위" — `derive.ts`가 시드를 소유, 이 파일은 셔플만
  * FR-LG-015 원문 "2라운드 이후 시드 기반 무작위"를 각 라운드(32강~결승)마다 잔여 참가
@@ -71,6 +73,14 @@
 import type { CompetitionType, SeasonId, TeamId } from '@/types';
 import { deriveCupDrawSeed, hashKey, stateForSeed } from '../rng/derive';
 import { nextIntBelow } from '../rng/prng';
+import {
+  assertCupSeedPools,
+  seedCupRound1,
+  teamOfGlobalSeed,
+  type CupSeedPools,
+} from './seeding';
+
+export type { CupSeedPools } from './seeding';
 
 const CUP: CompetitionType = 'CUP';
 
@@ -110,80 +120,6 @@ export interface CupFixtureDraft {
 /** 이전 라운드 한 경기의 승자 — 팀 ID가 아니라 전역 시드 번호로 표현한다(파일 헤더 참조). */
 export interface CupAdvancement {
   readonly winnerSeed: number;
-}
-
-/**
- * 전역 시드 1~60을 구성하는 3개 리그 팀 배열. 각 배열은 그 리그의 정규시즌 최종 순위
- * 1위→꼴찌 순으로 정렬돼 있어야 한다(리그1 1~4위가 곧 부전승 4팀, FR-LG-015).
- */
-export interface CupSeedPools {
-  /** 24팀, 1~24위 순. 시드 1~24. */
-  readonly league1: readonly TeamId[];
-  /** 20팀, 1~20위 순. 시드 25~44. */
-  readonly league2: readonly TeamId[];
-  /** 16팀, 1~16위 순. 시드 45~60. */
-  readonly league3: readonly TeamId[];
-}
-
-const LEAGUE1_COUNT = 24;
-const LEAGUE2_COUNT = 20;
-const LEAGUE3_COUNT = 16;
-const TOTAL_TEAM_COUNT = LEAGUE1_COUNT + LEAGUE2_COUNT + LEAGUE3_COUNT; // 60
-/** FR-LG-015: 전 시즌 리그1 1~4위 4팀 부전승. */
-const BYE_COUNT = 4;
-const ROUND1_MATCH_COUNT = 28;
-
-function assertPools(pools: CupSeedPools, fnName: string): void {
-  if (pools.league1.length !== LEAGUE1_COUNT) {
-    throw new RangeError(
-      `${fnName}: pools.league1.length는 ${LEAGUE1_COUNT}이어야 합니다 (받은 값: ${pools.league1.length}).`,
-    );
-  }
-  if (pools.league2.length !== LEAGUE2_COUNT) {
-    throw new RangeError(
-      `${fnName}: pools.league2.length는 ${LEAGUE2_COUNT}이어야 합니다 (받은 값: ${pools.league2.length}).`,
-    );
-  }
-  if (pools.league3.length !== LEAGUE3_COUNT) {
-    throw new RangeError(
-      `${fnName}: pools.league3.length는 ${LEAGUE3_COUNT}이어야 합니다 (받은 값: ${pools.league3.length}).`,
-    );
-  }
-  const all = [...pools.league1, ...pools.league2, ...pools.league3];
-  if (new Set(all).size !== all.length) {
-    throw new RangeError(`${fnName}: pools에 중복된 teamId가 있습니다.`);
-  }
-}
-
-/** 전역 시드 번호(1~60) → 팀 ID. */
-function teamOfGlobalSeed(pools: CupSeedPools, seed: number, fnName: string): TeamId {
-  if (seed >= 1 && seed <= LEAGUE1_COUNT) {
-    return pools.league1[seed - 1];
-  }
-  if (seed > LEAGUE1_COUNT && seed <= LEAGUE1_COUNT + LEAGUE2_COUNT) {
-    return pools.league2[seed - LEAGUE1_COUNT - 1];
-  }
-  if (seed > LEAGUE1_COUNT + LEAGUE2_COUNT && seed <= TOTAL_TEAM_COUNT) {
-    return pools.league3[seed - LEAGUE1_COUNT - LEAGUE2_COUNT - 1];
-  }
-  throw new RangeError(`${fnName}: seed=${seed}는 유효 범위(1~${TOTAL_TEAM_COUNT}) 밖입니다.`);
-}
-
-/**
- * 두 시드 풀을 인덱스 순으로 최대한 맞짝짓는다(1라운드 D-24 우선순위 적용용,
- * 파일 헤더 "1라운드 시딩" 절 참조). 짧은 쪽이 소진되면 긴 쪽의 남는 뒷부분을
- * `leftoverA`/`leftoverB`로 돌려줘 다음 우선순위 단계로 넘길 수 있게 한다.
- */
-function crossPair(
-  a: readonly number[],
-  b: readonly number[],
-): { pairs: ReadonlyArray<readonly [number, number]>; leftoverA: readonly number[]; leftoverB: readonly number[] } {
-  const n = Math.min(a.length, b.length);
-  const pairs: Array<readonly [number, number]> = [];
-  for (let i = 0; i < n; i += 1) {
-    pairs.push([a[i], b[i]]);
-  }
-  return { pairs, leftoverA: a.slice(n), leftoverB: b.slice(n) };
 }
 
 /** `[homeSeed, awaySeed]`를 "더 큰 시드가 홈"(파일 헤더 "전역 시드 번호" 절) 규칙으로 정렬한다. */
@@ -232,51 +168,12 @@ export interface CupRound1Result {
 }
 
 /**
- * 1라운드 — 리그1 1~4위 bye, 나머지 56팀 28경기. 시딩은 D-24 우선순위(리그1↔리그3 →
- * 리그1↔리그2 → 리그2↔리그3 → 동일 티어 시드 순 상하위 교차)를 그대로 적용한다.
+ * 1라운드 — 리그1 1~4위 bye, 나머지 56팀 28경기. 시딩 규칙(D-24 우선순위 계산) 자체는
+ * `seeding.ts`의 `seedCupRound1()`이 소유한다(파일 헤더 "1라운드 시딩" 절 참조) — 이
+ * 함수는 그 결과(시드 쌍)를 `Fixture` 초안으로 감싸기만 한다.
  */
 export function generateCupRound1(seasonId: SeasonId, pools: CupSeedPools): CupRound1Result {
-  assertPools(pools, 'generateCupRound1');
-
-  const byeSeeds: readonly [number, number, number, number] = [1, 2, 3, 4];
-
-  let l1 = Array.from({ length: LEAGUE1_COUNT - BYE_COUNT }, (_, i) => BYE_COUNT + 1 + i); // 5~24
-  let l2 = Array.from({ length: LEAGUE2_COUNT }, (_, i) => LEAGUE1_COUNT + 1 + i); // 25~44
-  let l3 = Array.from({ length: LEAGUE3_COUNT }, (_, i) => LEAGUE1_COUNT + LEAGUE2_COUNT + 1 + i); // 45~60
-
-  const pairs: Array<readonly [number, number]> = [];
-
-  const step1 = crossPair(l1, l3); // ① 리그1 ↔ 리그3 우선
-  pairs.push(...step1.pairs);
-  l1 = [...step1.leftoverA];
-  l3 = [...step1.leftoverB];
-
-  const step2 = crossPair(l1, l2); // ② 리그1 ↔ 리그2
-  pairs.push(...step2.pairs);
-  l1 = [...step2.leftoverA];
-  l2 = [...step2.leftoverB];
-
-  const step3 = crossPair(l2, l3); // ③ 리그2 ↔ 리그3
-  pairs.push(...step3.pairs);
-  l2 = [...step3.leftoverA];
-  l3 = [...step3.leftoverB];
-
-  const sameTierRemaining = [...l1, ...l2, ...l3]; // ④ 잔여는 항상 동일 티어만 남는다
-  if (sameTierRemaining.length % 2 !== 0) {
-    throw new RangeError(
-      `generateCupRound1: 동일 티어 잔여 인원이 홀수입니다(${sameTierRemaining.length}) — 시드 풀 구성을 확인하세요.`,
-    );
-  }
-  const half = sameTierRemaining.length / 2;
-  for (let i = 0; i < half; i += 1) {
-    pairs.push([sameTierRemaining[i], sameTierRemaining[sameTierRemaining.length - 1 - i]]);
-  }
-
-  if (pairs.length !== ROUND1_MATCH_COUNT) {
-    throw new RangeError(
-      `generateCupRound1: 대진이 ${ROUND1_MATCH_COUNT}경기여야 하는데 ${pairs.length}경기가 만들어졌습니다.`,
-    );
-  }
+  const { byeSeeds, pairs } = seedCupRound1(pools);
 
   const fixtures = pairs.map((pair) =>
     pairToDraft(seasonId, pools, 1, '1라운드', 'ROUND_1', pair, false, 'generateCupRound1'),
@@ -326,7 +223,7 @@ function drawRandomRound(
   seasonSeed: number,
   fnName: string,
 ): readonly CupFixtureDraft[] {
-  assertPools(pools, fnName);
+  assertCupSeedPools(pools, fnName);
   assertUniqueSeeds(entrantSeeds, meta.expectedCount, fnName);
 
   // 오름차순으로 먼저 정규화 — 입력 배열이 어떤 순서로 들어오든 같은 참가 구성이면

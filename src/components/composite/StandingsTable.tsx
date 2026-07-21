@@ -33,6 +33,12 @@ import { type ZoneKind } from "./standings-zone";
  * `#`+팀명 열만 sticky로 묶고 승/무/패/득/실/득실/승점/최근5는 스크롤 영역에 둔 것은
  * 와이어프레임 3-1/3-2 레이아웃 그대로다 — 데스크톱(1024+)에선 컨테이너 폭이 전 열을
  * 담아 스크롤이 사실상 발생하지 않는다.
+ *
+ * 42일차(Task 016, 5팀) — I-210 점검 중 §7 NFR-A11Y-005 "축약 헤더(경/승/무/패 등)는
+ * `<abbr title="...">`로 풀네임 제공" 항목이 `rank` 열에만 반영돼 있던 것을 확인해
+ * 나머지 8개 숫자·문자 열(경기/승/무/패/득/실/득실/승점/최근5)에도 동일하게 적용했다.
+ * `<caption>`(sr-only)·`scope="col"`/`scope="row"`는 39일차에 이미 충족돼 있어 손대지
+ * 않았다.
  */
 
 const ZONE_ICON: Record<Exclude<ZoneKind, "NEUTRAL">, string> = {
@@ -146,30 +152,50 @@ export function StandingsTable({ locale, state, className }: StandingsTableProps
             {t(locale, "league.table.team")}
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.played")}
+            <abbr title={t(locale, "league.table.playedFull")} className="no-underline">
+              {t(locale, "league.table.played")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.won")}
+            <abbr title={t(locale, "league.table.wonFull")} className="no-underline">
+              {t(locale, "league.table.won")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.drawn")}
+            <abbr title={t(locale, "league.table.drawnFull")} className="no-underline">
+              {t(locale, "league.table.drawn")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.lost")}
+            <abbr title={t(locale, "league.table.lostFull")} className="no-underline">
+              {t(locale, "league.table.lost")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.goalsFor")}
+            <abbr title={t(locale, "league.table.goalsForFull")} className="no-underline">
+              {t(locale, "league.table.goalsFor")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.goalsAgainst")}
+            <abbr title={t(locale, "league.table.goalsAgainstFull")} className="no-underline">
+              {t(locale, "league.table.goalsAgainst")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.goalDifference")}
+            <abbr title={t(locale, "league.table.goalDifferenceFull")} className="no-underline">
+              {t(locale, "league.table.goalDifference")}
+            </abbr>
           </TableHead>
           <TableHead scope="col" numeric>
-            {t(locale, "league.table.points")}
+            <abbr title={t(locale, "league.table.pointsFull")} className="no-underline">
+              {t(locale, "league.table.points")}
+            </abbr>
           </TableHead>
-          <TableHead scope="col">{t(locale, "league.table.form")}</TableHead>
+          <TableHead scope="col">
+            <abbr title={t(locale, "league.table.formFull")} className="no-underline">
+              {t(locale, "league.table.form")}
+            </abbr>
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

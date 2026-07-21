@@ -3,13 +3,39 @@ import { notFound } from "next/navigation";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
-import { computeElapsedMinutes, MatchCard, type MatchCardData } from "@/components/composite/MatchCard";
+import { computeElapsedMinutes, type MatchCardData } from "@/components/composite/MatchCard";
 import { RoundNav } from "@/components/composite/RoundNav";
+import { TeamBadge } from "@/components/domain/TeamBadge";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { t } from "@/i18n/t";
+import { formatKickoff } from "@/i18n/format";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
+import type { TranslationKey } from "@/i18n/keys";
 import type { DataSource } from "@/lib/data/DataSource";
 import type { WorldClockSnapshot } from "@/lib/sim/schedule/worldclock";
 import type { Fixture, FixtureStatus, LeagueId, SeasonId, Team, TeamId, Timestamp } from "@/types";
+
+/**
+ * 42일차 — row 밀도의 비-LIVE 상태 배지(아이콘+라벨). `MatchCard`의 `ROW_STATUS_BADGE`와
+ * 매핑은 동일하되(같은 번역키를 가리킨다 — 문구 자체는 중복 선언하지 않는다), 저 상수는
+ * 그 컴포넌트 파일 안에 비공개(`export`되지 않음)로 있어 여기서 직접 import할 수 없다.
+ * `<table>`로 전환하며 `<td>` 단위로 쪼개 그려야 해서(`MatchCard`는 `<div>` 블록 하나로
+ * 상태·팀·점수를 묶어 그린다) 이 화면 로컬 렌더링이 필요해졌다 — 와이어프레임이 애초에
+ * `MatchRow`(C2-r)를 "화면 로컬" 컴포넌트로 지정해 둔 이유이기도 하다(§8 사용 컴포넌트).
+ */
+const NON_LIVE_STATUS_BADGE: Record<Exclude<FixtureStatus, "LIVE">, { icon: string; labelKey: TranslationKey }> = {
+  SCHEDULED: { icon: "⏱", labelKey: "match.card.scheduledLabel" },
+  FINISHED: { icon: "✓", labelKey: "match.card.finishedLabel" },
+  VOID: { icon: "⚠", labelKey: "match.card.voidLabel" },
+};
 
 /**
  * `/[lang]/leagues/[leagueId]/fixtures` 일정/결과 — Task 016(41일차, 5팀), 와이어프레임
@@ -23,16 +49,30 @@ import type { Fixture, FixtureStatus, LeagueId, SeasonId, Team, TeamId, Timestam
  * 대응"), 없으면 `getFixtureRoundBounds().currentRound`(진행 중 라운드)로 기본 선택한다
  * (I-1). 범위를 벗어난 값은 clamp한다 — 존재하지 않는 라운드로 빈 화면을 만들지 않는다.
  *
- * ## C2 마크업 — 의도적으로 `<table>`이 아니라 `<ul>`이다 (§7 NFR-A11Y-005와의 편차)
- * 와이어프레임은 "데스크톱 2열 배치여도 마크업은 단일 테이블"을 요구하지만, 이 목록은
- * `MatchCard`(`density="row"`, 34일차 신설 — 애초에 "일정/결과 목록 재사용"을 염두에 두고
- * 인터페이스만 미리 갖춰 뒀던 컴포넌트, 그 파일 헤더 참조)를 재사용한다. `MatchCard`는
- * `<div>` 트리라 `<tr>`/`<td>`로 감쌀 수 없다 — 새 테이블 전용 행 컴포넌트를 또 만들면
- * "동일 데이터·다른 밀도" 중복이 하나 더 생긴다(이미 W-02/SP-2 통합 대상으로 지정돼 있음).
- * 대신 홈 A3(다음 킥오프, `[lang]/page.tsx`)와 같은 판단을 따른다 — 열 헤더가 시각적
- * 배치일 뿐 표 탐색(셀 단위 스크린리더 이동)의 이득이 크지 않은 목록이라 `<ul>` +
- * `aria-label`(캡션 동등)로 마크업한다. **완료 보고에서 이 편차를 팀장에게 알린다** —
- * 필요하면 04(경기상세)와 함께 SP-2 통합 시 진짜 `<table>` 행으로 다시 검토한다.
+ * ## C2 마크업 — 42일차, I-210 결론: `<table>`로 전환 (41일차 `<ul>` 편차 해소)
+ * 41일차엔 `MatchCard`(`density="row"`)를 재사용하려고 `<ul>` + `aria-label`로 마크업했다
+ * (그 판단과 근거는 40일차 인계·`docs/dailyWorkLog/41Day.md` 참조, I-210 제보). 오늘
+ * 와이어프레임 원문을 다시 확인한 결과 이 화면은 "카드 리스트"가 아니라 명시적으로
+ * "표"를 의도한다 — 결론 근거:
+ * ① §3-2 데스크톱 목업 캡션이 "2열 그리드, **테이블 시맨틱 유지**"라고 못 박는다.
+ * ② §3 본문이 "데스크톱 2열은 시각적 배치만 2열이고 **마크업은 하나의 테이블**을
+ *    유지한다(NFR-A11Y-005)"라고 명시한다 — "목록"은 병기일 뿐 대안이 아니다.
+ * ③ §7 NFR-A11Y-005가 "C2에 `<caption>`, 열 헤더 `scope="col"`"을 요구하는데, `scope`는
+ *    HTML상 `<th>`/표 밖에서 의미가 없다 — 즉 표 시맨틱이 전제다.
+ * ④ 자매 화면 B3(순위표, `02-리그-순위표.md` §7)는 이미 실제 `<table>`이고 같은
+ *    NFR-A11Y-005를 표로 만족한다 — 두 화면이 같은 요구사항을 다르게 해석할 이유가 없다.
+ * 따라서 `<ul>` 유지는 "편차가 아니라 의도"라는 41일차 판단을 재검토해 뒤집는다.
+ *
+ * `MatchCard`(`<div>` 트리)는 그대로 `<td>` 셀 4개(상태/홈/스코어/원정)로 쪼개 그릴 수
+ * 없어(내부에서 이미 하나의 블록으로 합쳐 그린다), 이 화면 로컬로 행을 다시 그린다 —
+ * 파일 상단 `NON_LIVE_STATUS_BADGE` 참조. 와이어프레임 §8이 애초에 `MatchRow`(C2-r)를
+ * "[신규] 화면 로컬"로 지정해 둔 것과 같은 결론이다(W-02/SP-2 통합 후보는 유지).
+ *
+ * **데스크톱 2열 시각 배치는 오늘 구현하지 않는다** — CSS Grid/Columns로 `<table>`
+ * 자체의 `display`를 바꾸면 Firefox/Chrome 조합에서 암묵적 표 ARIA 시맨틱(row/cell)이
+ * 사라지는 알려진 회귀가 있다(표를 만들어 놓고 접근성 트리에서 다시 잃는 꼴). "마크업은
+ * 하나의 테이블"이라는 명시 요구가 "2열 시각 배치"보다 우선한다고 판단해, 전 너비 1열
+ * 표로 통일했다 — 필요하면 이슈로 남긴다(완료 보고 참조).
  *
  * ## LIVE 경과분 — H-24 계약(2팀 `worldclock.ts`) 그대로
  * 홈 A2(`[lang]/page.tsx`, 34~35일차)와 동일하게 `getMatchClockContext`로 `now`/`clock`을
@@ -141,36 +181,133 @@ export default async function Page(
           {t(locale, "fixtures.match.emptySchedule")}
         </p>
       ) : (
-        <>
-          <h2 className="sr-only">
+        <Table className="table-fixed">
+          <TableCaption className="sr-only">
             {t(locale, "fixtures.match.caption", {
               league: league.name,
               season: seasonLabel,
               round: currentRound,
             })}
-          </h2>
-          <ul
-            aria-label={t(locale, "fixtures.match.caption", {
-              league: league.name,
-              season: seasonLabel,
-              round: currentRound,
+          </TableCaption>
+          {/* 헤더 행의 "텍스트"만 sr-only로 감춘다(§3 목업엔 시각적 헤더 행이 없다) — `<thead>`/
+              `<th>` 자체를 sr-only로 감추면 `table-fixed`가 열 너비를 첫 행(헤더) 셀 너비에서
+              가져오다가 sr-only의 `width:1px`를 열 너비로 오인해 4열이 균등폭으로 무너진다
+              (42일차 실렌더 중 발견 — 320px에서 홈 팀명이 통째로 잘렸다). 그래서 `<th>`엔
+              데이터 셀과 동일한 폭 클래스를 주고, 시각적으로 비우는 건 `h-0 overflow-hidden`
+              (텍스트가 sr-only라 어차피 안 보이지만 셀 자체 높이도 접어 빈 줄을 없앤다)로
+              처리한다 — 열 너비 기준은 살리고 화면엔 빈 행이 뜨지 않는다. */}
+          <TableHeader>
+            {/* 열 폭 — `table-fixed`라 이 첫 행(헤더)의 지정폭이 열 전체 폭을 정한다. 4열
+                모두 `width`(고정 px, `min-w`가 아니다 — 시험해 보니 `table-fixed`는 `width`
+                없는 열을 `min-w`와 무관하게 잔여폭만 나눠 줘서 팀명이 다시 짓눌렸다)를 준다.
+                4열 합(80+128+64+128=400px)이 320px 컨테이너보다 커, 그 초과분이 컨테이너의
+                `overflow-x:auto`(수락 기준 "모바일 가로 스크롤 컨테이너")로 스크롤된다 —
+                팀명을 문자 0개로 짓뭉개는 것(42일차 실렌더 중 첫 시도에서 재현)보다 스크롤
+                한 번이 낫다는 판단이다. */}
+            <TableRow className="h-0 border-0">
+              <TableHead scope="col" className="h-0 w-20 overflow-hidden p-0">
+                <span className="sr-only">{t(locale, "fixtures.match.statusHeader")}</span>
+              </TableHead>
+              <TableHead scope="col" className="h-0 w-32 overflow-hidden p-0">
+                <span className="sr-only">{t(locale, "fixtures.match.homeHeader")}</span>
+              </TableHead>
+              <TableHead scope="col" className="h-0 w-16 overflow-hidden p-0">
+                <span className="sr-only">{t(locale, "fixtures.match.scoreHeader")}</span>
+              </TableHead>
+              <TableHead scope="col" className="h-0 w-32 overflow-hidden p-0">
+                <span className="sr-only">{t(locale, "fixtures.match.awayHeader")}</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {cards.map((card) => {
+              const hasScore = card.homeScore !== null && card.awayScore !== null;
+              const scoreLabel = hasScore
+                ? t(locale, "match.card.scoreFormat", { home: card.homeScore, away: card.awayScore })
+                : card.status === "SCHEDULED"
+                  ? formatKickoff(card.kickoffAt, locale, "time")
+                  : "–";
+              const isLive = card.status === "LIVE";
+              const elapsedLabel =
+                isLive && card.elapsedMinutes !== null
+                  ? t(locale, "match.card.elapsedFormat", { minute: card.elapsedMinutes })
+                  : null;
+              // 42일차 팀장 피드백 반영 — 상태 셀 접근명을 상태값 하나로 고정한다.
+              // `aria-label`을 이 값 그대로 셀(`<td>`)에 직접 얹으면(아래 TableCell) accname
+              // 알고리즘이 자식(늘인 링크 + 텍스트) 순회를 건너뛰어 셀 이름 = 이 문자열
+              // 하나가 된다 — 늘인 링크 자신의 접근명(행 전체 요약)은 그 링크 자체의
+              // `aria-labelledby`로 별도 계산되므로 영향받지 않는다(자식 엘리먼트의 접근명은
+              // 조상의 `aria-label`이 아니라 그 엘리먼트 자신의 속성으로 계산된다).
+              const statusLabelText = isLive
+                ? t(locale, "match.live.label")
+                : t(locale, NON_LIVE_STATUS_BADGE[card.status].labelKey);
+              const statusAccessibleLabel = elapsedLabel
+                ? `${statusLabelText} ${elapsedLabel}`
+                : statusLabelText;
+              const statusId = `fx-${card.id}-status`;
+              const homeId = `fx-${card.id}-home`;
+              const scoreId = `fx-${card.id}-score`;
+              const awayId = `fx-${card.id}-away`;
+
+              return (
+                // I-4(41Day.md 이전 인계) "행 전체가 링크" — `<tr>`은 앵커가 될 수 없어
+                // 첫 셀에 `absolute inset-0`으로 늘인 링크를 겹치는 통상적인 패턴("stretched
+                // link")을 쓴다. 링크 자체는 시각 텍스트가 없어 `aria-labelledby`로 나머지
+                // 3개 셀(홈/스코어/원정) + 상태 셀의 텍스트를 접근 가능한 이름으로 합성한다
+                // — 새 번역 템플릿을 만들지 않고 이미 화면에 그려지는 텍스트를 그대로 쓴다.
+                <TableRow key={card.id} className="relative">
+                  <TableCell aria-label={statusAccessibleLabel}>
+                    <Link
+                      href={`/${locale}/matches/${card.id}`}
+                      aria-labelledby={`${homeId} ${scoreId} ${awayId} ${statusId}`}
+                      className="absolute inset-0 z-0 rounded-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    />
+                    <span
+                      id={statusId}
+                      className="relative z-10 flex items-center gap-1 text-xs text-muted-foreground"
+                    >
+                      {isLive ? (
+                        <span className="inline-flex items-center gap-1.5 text-live">
+                          <span aria-hidden className="live-dot" />
+                          <span className="eyebrow">{t(locale, "match.live.label")}</span>
+                        </span>
+                      ) : (
+                        <>
+                          <span aria-hidden>{NON_LIVE_STATUS_BADGE[card.status].icon}</span>
+                          <span className="eyebrow">
+                            {t(locale, NON_LIVE_STATUS_BADGE[card.status].labelKey)}
+                          </span>
+                        </>
+                      )}
+                      {elapsedLabel && <span className="scoreboard">{elapsedLabel}</span>}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span id={homeId} className="relative z-10 flex min-w-0 items-center gap-1.5 text-sm">
+                      {card.homeTeam && (
+                        <TeamBadge locale={locale} size="sm" state={{ status: "ready", data: card.homeTeam }} />
+                      )}
+                      <span className="min-w-0 truncate">{card.homeTeamName}</span>
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span id={scoreId} className="scoreboard relative z-10">
+                      {scoreLabel}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span id={awayId} className="relative z-10 flex min-w-0 items-center gap-1.5 text-sm">
+                      <span className="min-w-0 truncate">{card.awayTeamName}</span>
+                      {card.awayTeam && (
+                        <TeamBadge locale={locale} size="sm" state={{ status: "ready", data: card.awayTeam }} />
+                      )}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
             })}
-            className="flex flex-col gap-2 md:grid md:grid-cols-2"
-          >
-            {cards.map((card) => (
-              <li key={card.id}>
-                <Link href={`/${locale}/matches/${card.id}`} className="block focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-md">
-                  <MatchCard
-                    locale={locale}
-                    state={{ status: "ready", data: card }}
-                    density="row"
-                    hideLeagueName
-                  />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
+          </TableBody>
+        </Table>
       )}
 
       {specialFixtures.length > 0 && (

@@ -54,14 +54,27 @@ export const league = {
     rankFull: "순위",
     team: "팀",
     played: "경기",
+    // 42일차(Task 016, 5팀) — 축약 헤더(경/승/무/패 등) 풀네임. 와이어프레임 §7
+    // NFR-A11Y-005 "축약 헤더는 `<abbr title="...">`로 풀네임 제공"에 맞춰 추가했다.
+    // `played`("경기")는 그 자체로 완전한 단어라 축약이 아니지만, 나머지 6열과 표기를
+    // 통일해 전 숫자열에 동일하게 `<abbr>`을 적용한다(StandingsTable 참조).
+    playedFull: "경기 수",
     won: "승",
+    wonFull: "승리",
     drawn: "무",
+    drawnFull: "무승부",
     lost: "패",
+    lostFull: "패배",
     goalsFor: "득",
+    goalsForFull: "득점",
     goalsAgainst: "실",
+    goalsAgainstFull: "실점",
     goalDifference: "득실",
+    goalDifferenceFull: "득실차",
     points: "승점",
+    pointsFull: "승점",
     form: "최근5",
+    formFull: "최근 5경기 결과",
     // FR-UI-003 명문 문구 — 프리시즌/월드 생성 직후 실제 발생.
     emptySeason: "시즌이 아직 시작되지 않았습니다.",
   },

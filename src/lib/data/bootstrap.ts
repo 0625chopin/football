@@ -58,14 +58,16 @@
  * 않는다.
  *
  * ## import 규약
- * `DataSourceKind`/`getDataSourceKind`는 같은 디렉터리의 `./factory`에서 가져온다.
- * `installHardcodedFallback`은 3팀 소유 `@/lib/config/fallback`에서 **읽기 전용으로 소비**한다
- * (그 파일을 수정하지 않는다). `@/types` 도메인 타입은 이 파일과 무관하다(참조하지 않음).
+ * `DataSourceKind`/`getDataSourceKind`/`getRegisteredConstantSource`는 같은 디렉터리의
+ * `./factory`에서 가져온다. `installHardcodedFallback`은 3팀 소유 `@/lib/config/fallback`에서,
+ * `setGlobalDefaultSource`는 3팀 소유 `@/lib/config/loader`에서 각각 **읽기 전용으로
+ * 소비**한다(두 파일 다 수정하지 않는다). `@/types` 도메인 타입은 이 파일과 무관하다(참조하지 않음).
  */
 
 import { installHardcodedFallback } from '@/lib/config/fallback';
+import { setGlobalDefaultSource } from '@/lib/config/loader';
 
-import { getDataSourceKind } from './factory';
+import { getDataSourceKind, getRegisteredConstantSource } from './factory';
 
 let dataSourceBootstrapPromise: Promise<void> | null = null;
 let appBootstrapPromise: Promise<void> | null = null;
@@ -100,12 +102,30 @@ export async function bootstrapDataSource(): Promise<void> {
  * 캐시된 결과를 재사용하고, **실패**하면 캐시를 비워 다음 호출이 다시 시도한다(22일차,
  * 위 파일 헤더 참조). **새 초기화가 필요해지면 이 함수 본문에 한 줄만 추가할 것** — 4팀
  * 레이아웃에 새 호출을 늘리지 않는다(위 파일 헤더 "절충 설계" 절 참조).
+ *
+ * **42일차 추가 — 공통코드 전역 기본값 소스 등록(I-206)**: `bootstrapDataSource()`가
+ * 어댑터 모듈(`./mock` 또는 `./supabase`)을 로드해 `kind`가 확정된 직후, `factory.ts`의
+ * `getRegisteredConstantSource(kind)`로 그 어댑터가 등록해 둔 `ConstantSource`가 있는지
+ * 조회해 있으면 `setGlobalDefaultSource`로 승격한다. **미등록(현재 두 어댑터 다 미등록)이면
+ * `undefined`를 그대로 `setGlobalDefaultSource(undefined)`로 넘기지 않고 호출 자체를
+ * 건너뛴다** — `null`을 넘기면 `loader.ts`가 무조건 캐시를 전체 무효화하므로, 실제로 등록할
+ * 소스가 없는 매 부트스트랩마다 불필요한 무효화가 반복되는 것을 막기 위함이다. 실제
+ * `ConstantSource` 구현체(supabase=6팀, mock=3팀)가 아직 없어 오늘은 이 줄이 사실상
+ * no-op이다 — `factory.ts`의 `registerConstantSource` JSDoc 참조. 설치 순서는
+ * `installHardcodedFallback()`(항상 먼저, 안전망 확보) → `bootstrapDataSource()`(어댑터
+ * 등록) → 전역 기본값 소스 승격(있으면) 순으로, 전역 기본값 소스 조회가 실패하거나 비어
+ * 있어도 폴백은 이미 준비돼 있어 `loadConstants`가 항상 값을 반환할 수 있다.
  */
 export async function bootstrapApp(): Promise<void> {
   if (!appBootstrapPromise) {
     appBootstrapPromise = (async () => {
       installHardcodedFallback();
       await bootstrapDataSource();
+
+      const constantSource = getRegisteredConstantSource(getDataSourceKind());
+      if (constantSource) {
+        setGlobalDefaultSource(constantSource);
+      }
     })().catch((error: unknown) => {
       appBootstrapPromise = null;
       throw error;

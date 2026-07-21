@@ -15,6 +15,10 @@ export const fixtures: FixturesMessages = {
     vsFormat: "{home} vs {away}",
     emptySchedule: "The schedule hasn't been generated yet.",
     errorLoadFailed: "Failed to load the fixtures.",
+    statusHeader: "Match status",
+    homeHeader: "Home team",
+    scoreHeader: "Score",
+    awayHeader: "Away team",
   },
   special: {
     title: "Special fixtures",

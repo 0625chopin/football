@@ -115,6 +115,7 @@ import type {
   CommonCodeId,
   FixtureId,
   LeagueId,
+  ManagerId,
   PlayerId,
   SeasonId,
   SponsorId,
@@ -449,6 +450,29 @@ export interface DataSource {
 
   /** 공석이면 null(F3 "임시 감독" 표기는 UI 책임 — `Manager.isActing` 참조) */
   getTeamManager(teamId: TeamId): Promise<Manager | null>;
+
+  /**
+   * `ManagerId` 단건 역조회(I-213, 42일차 판정). `getTeamManager(teamId)`는 팀의 **현재**
+   * 감독만 반환하므로, `Award.managerId`(E-31, `teamId`를 함께 갖지 않는 개인 수상 레코드)처럼
+   * "이 감독이 지금 어느 팀에 있는지" 없이 감독 ID만 주어지는 조회를 표현할 수 없었다
+   * (41일차 「올해의 감독」 수상자 화면이 실제로 이 갭에 부딪혀 3건 전부 "감독 정보 없음"으로
+   * 표시됨). 존재하지 않는 ID는 null.
+   *
+   * **선택 메서드로 추가한 이유**: `DataSource`의 다른 56개 메서드는 전부 필수이지만, 이
+   * 메서드를 필수로 추가하면 `MockDataSource`(3팀)·`SupabaseDataSource`(6팀) 둘 다 오늘
+   * 당장 `tsc` 컴파일이 깨진다 — 팀 규약("타 팀 파일을 깨뜨리는 변경은 판단만 먼저 회신하고
+   * 조율 후 반영")에 따라 구현체 파일은 이 판정에서 건드리지 않는다. 두 구현체가
+   * `getManager`를 채우면(각자 소유 파일에서, 이미 가진 감독 저장소를 `id`로 조회하면 되므로
+   * 구현 자체는 간단할 것으로 예상) `?` 를 제거해 필수로 승격하는 것을 다음 정리 대상으로
+   * 남긴다 — 그때까지 소비 측(4팀)은 `dataSource.getManager?.(managerId)`처럼 옵셔널
+   * 체이닝으로 호출해야 한다.
+   *
+   * **범위 밖**: "감독 통산 랭킹"(41일차 수상 화면이 안내 문구로 대체한 또 다른 항목)은 이
+   * 메서드만으로 해결되지 않는다 — `PlayerCareerStat`/`TeamSeasonStat`에 대응하는
+   * `ManagerCareerStat`/`ManagerSeasonStat` 계열 타입이 `@/types`에 아예 없다(8일차 타입
+   * 동결 이후 이슈 배치 반영 대상). 별도 판정 필요.
+   */
+  getManager?(managerId: ManagerId): Promise<Manager | null>;
 
   /** 스쿼드 명단(F2) — `pa` 미노출(위 `PublicPlayerProfile`과 동일 원칙) */
   getTeamSquad(teamId: TeamId): Promise<readonly PublicPlayerProfile[]>;

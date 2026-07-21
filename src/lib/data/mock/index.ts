@@ -21,9 +21,17 @@
  * `getDataSource()`를 부르지 않는 경로(예: `NEXT_PUBLIC_DATA_SOURCE=supabase`로
  * 부트스트랩만 되고 실제로는 조회하지 않는 테스트)에서 불필요한 계산 비용을 지불하지 않기
  * 위함이다.
+ *
+ * ## 42일차 추가 — 전역 기본값 소스 등록(I-206 mock 쪽 해소)
+ * `registerDataSource` 바로 옆에 `registerConstantSource('mock', ...)`을 함께 등록한다
+ * (1팀 `factory.ts` "구현 팀 유의사항" 절이 예고한 확장 지점). 값 정의·순환 재귀 회피
+ * 근거는 `./mock-constant-source`(같은 디렉터리, 이 팀 소유) 파일 헤더 참조 — 이 파일은
+ * 등록만 하고 로직을 두지 않는다(위 "이 파일이 하는 것 / 하지 않는 것" 절과 동일 원칙).
  */
 
-import { registerDataSource } from '@/lib/data/factory';
+import { registerConstantSource, registerDataSource } from '@/lib/data/factory';
 import { MockDataSource } from './MockDataSource';
+import { mockConstantSource } from './mock-constant-source';
 
 registerDataSource('mock', () => new MockDataSource());
+registerConstantSource('mock', () => mockConstantSource);

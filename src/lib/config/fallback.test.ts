@@ -10,6 +10,12 @@
  * 이 파일은 상대경로 import만 사용한다(loader.test.ts 관례).
  *
  * 모듈 스코프 전역 상태(loader.ts의 캐시·소스)를 공유하므로 각 테스트 뒤 반드시 리셋한다.
+ *
+ * 42일차 추가: `warnFallbackUsed`가 그룹별 "최초 1회만 WARN"으로 바뀌면서
+ * (`obs/alert.ts`의 `FallbackWarnRecorder` 경유, I-206 대응) 그 누적 상태도 모듈 스코프
+ * 전역이므로 같은 이유로 매 테스트 뒤 `resetFallbackWarnTracking()`으로 리셋한다 —
+ * 리셋하지 않으면 같은 그룹을 두 번째로 조회하는 테스트에서 `console.warn`이 호출되지
+ * 않아(이미 첫 WARN을 다른 테스트가 소비한 상태) 테스트 순서에 결과가 좌우된다.
  */
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -18,6 +24,7 @@ import {
   SAFE_DEFAULT_VALUES,
   hardcodedFallbackSource,
   installHardcodedFallback,
+  resetFallbackWarnTracking,
 } from './fallback';
 import { invalidateConstants, loadConstants, setFallbackSource, setGlobalDefaultSource } from './loader';
 
@@ -25,6 +32,7 @@ afterEach(() => {
   setGlobalDefaultSource(null);
   setFallbackSource(null);
   invalidateConstants();
+  resetFallbackWarnTracking();
   vi.restoreAllMocks();
 });
 

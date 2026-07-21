@@ -81,23 +81,60 @@
  * C-5·C-6)가 필요해졌다 — `RatingWeightTable`의 키를 이 인터페이스의 필드명으로 한정하는
  * 타입 전용(`import type`) 참조일 뿐, 값을 만들지는 않는다. `src/lib/sim/**`(2팀
  * `rating.ts` 포함)는 이 작업에서 읽기만 하고 수정하지 않는다.
+ *
+ * **42일차 추가 — WARN 노이즈 억제(I-206 대응)**: `setGlobalDefaultSource()` 호출처가
+ * 아직 프로덕션 코드에 없어(등록은 1팀 `bootstrapApp()` 소관, I-206) 이 시점 기준
+ * 모든 공통코드 조회가 이 폴백을 상시로 탄다 — 매 조회마다 WARN을 출력하면 dev 로그가
+ * 45건/요청씩 묻힌다. 그래서 `warnFallbackUsed`는 이제 직접 `console.warn`을 내지 않고
+ * `obs/alert.ts`의 `FallbackWarnRecorder`를 거친다 — 그룹별 **최초 1회만** 실제 WARN을
+ * 내고, 이후 같은 그룹 조회는 카운트만 누적한다(전체 현황은 `getFallbackWarnSnapshot()`).
+ * 설계 근거 전문은 `obs/alert.ts` 파일 헤더 "왜 최초 1회만 WARN인가" 절 참조. I-206이
+ * 해소되면(전역 기본값 소스가 채워지면) 이 폴백 경로 자체를 타지 않게 되므로 카운터도
+ * 자연히 조용해진다 — 별도 해제 작업이 필요 없다.
  */
 
 import type { PlayerStatCoreValues } from '@/types';
+import { createFallbackWarnRecorder, type FallbackWarnSnapshot } from '@/lib/obs/alert';
 import { COMMON_CODE_GROUP_CATALOG, type CommonCodeGroupCode } from './catalog';
 import type { ConstantGroupValues, ConstantSource } from './loader';
 import { setFallbackSource } from './loader';
 
 /**
- * 폴백 조회 발생 시 WARN 로그를 남긴다(NFR-CFG-005 ②, AS-13). `console.warn` 기반으로
+ * 그룹별 폴백 조회 횟수 카운터(42일차, I-206 대응). 모듈 스코프 싱글턴 — `fallback.ts`
+ * 자신이 유일한 쓰기 주체이고, 외부에는 `getFallbackWarnSnapshot()`(읽기)과
+ * `resetFallbackWarnTracking()`(테스트 전용 리셋)만 노출한다.
+ */
+const fallbackWarnRecorder = createFallbackWarnRecorder();
+
+/**
+ * 폴백 조회 발생 시 WARN 로그를 남긴다(NFR-CFG-005 ②, AS-13). 그룹별 최초 1회만 실제로
+ * `console.warn`을 낸다 — 위 파일 헤더 "42일차 추가" 절 참조. `console.warn` 기반으로
  * 캡슐화했다 — 39일차 `obs/logger.ts`가 생기면 이 함수 내부만 교체한다. 외부에는 로그
  * 포맷을 노출하지 않는다(export하지 않음).
  */
 function warnFallbackUsed(group: CommonCodeGroupCode): void {
+  const { isFirstOccurrence } = fallbackWarnRecorder.record(group);
+  if (!isFirstOccurrence) return;
   console.warn(
     `[config/fallback] "${group}" 그룹이 전역 기본값 소스에 없어 하드코딩 안전 기본값으로 ` +
-      '폴백했다. 공통코드 미등록·손상 상태일 수 있으니 확인이 필요하다(NFR-CFG-005, AS-13).',
+      '폴백했다. 공통코드 미등록·손상 상태일 수 있으니 확인이 필요하다(NFR-CFG-005, AS-13). ' +
+      '이 그룹에 대한 이후 폴백은 카운트만 누적하고 재출력하지 않는다 ' +
+      '(getFallbackWarnSnapshot()으로 조회).',
   );
+}
+
+/**
+ * 폴백 WARN 카운터 스냅샷을 읽는다(42일차) — 5팀 어드민 대시보드, `obs/alert.ts`의
+ * 이상 탐지 로직 등이 "폴백이 상시화됐는지" 조회하는 용도. 쓰기 메서드는 노출하지
+ * 않는다(그룹별 최초 1회 WARN 불변식을 이 파일 밖에서 깨지 못하게 한다).
+ */
+export function getFallbackWarnSnapshot(): FallbackWarnSnapshot {
+  return fallbackWarnRecorder.snapshot();
+}
+
+/** 테스트 전용 — 그룹별 "최초 1회 WARN" 누적 상태를 리셋한다(`fallback.test.ts` 관례). */
+export function resetFallbackWarnTracking(): void {
+  fallbackWarnRecorder.reset();
 }
 
 /**

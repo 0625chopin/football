@@ -12,6 +12,7 @@ import { enums as enumsKo } from "./ko/enums";
 import { sample as sampleKo } from "./ko/sample";
 import { transfers as transfersKo } from "./ko/transfers";
 import { awards as awardsKo } from "./ko/awards";
+import { archive as archiveKo } from "./ko/archive";
 import { common as commonEn } from "./en/common";
 import { league as leagueEn } from "./en/league";
 import { fixtures as fixturesEn } from "./en/fixtures";
@@ -25,6 +26,7 @@ import { enums as enumsEn } from "./en/enums";
 import { sample as sampleEn } from "./en/sample";
 import { transfers as transfersEn } from "./en/transfers";
 import { awards as awardsEn } from "./en/awards";
+import { archive as archiveEn } from "./en/archive";
 
 // Task 011(16일차) 메시지 카탈로그 — locale → 9개 네임스페이스.
 // enums.*(3팀 기여, 값은 전부 자리표시자 echo)는 22일차에 합류했다 — Provider 실배선과
@@ -47,6 +49,7 @@ export const messages = {
     sample: sampleKo,
     transfers: transfersKo,
     awards: awardsKo,
+    archive: archiveKo,
   },
   en: {
     common: commonEn,
@@ -62,6 +65,7 @@ export const messages = {
     sample: sampleEn,
     transfers: transfersEn,
     awards: awardsEn,
+    archive: archiveEn,
   },
 } as const satisfies Record<(typeof SUPPORTED_LOCALES)[number], unknown>;
 
