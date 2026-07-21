@@ -292,24 +292,42 @@ function SiteHeader({ lang }: { lang: SupportedLocale }) {
  * 라우트가 무엇에 대한 것인지(대회 / 구성원 / 기록)를 말한다. 홈은 어느 그룹에도 속하지
  * 않는 진입점이라 그룹 밖 맨 위에 단독으로 둔다.
  */
+interface NavItem {
+  readonly labelKey: TranslationKey;
+  readonly path: string;
+  /**
+   * 36일차(I-186 확정) — **목록(인덱스) 화면이 아직 없어 404가 나는 라우트**를 표시한다.
+   *
+   * `leagues`/`matches`/`players`/`teams`/`playoffs` 다섯은 `leagues/[leagueId]`처럼 동적
+   * 자식만 있고 `page.tsx`가 없다. 12일차에 `NAV_ITEMS`를 만들 때부터 그랬으나 34일차까지
+   * 홈 외 화면을 실제로 열어 본 적이 없어 드러나지 않았다(36일차 Playwright 검증에서 발견).
+   *
+   * 화면 신설은 Task 016~021 스코프라 여기서 만들지 않는다(임의 생성 금지 규약). 대신
+   * **헤더의 placeholder 3종과 같은 관례**로 비활성 표시한다 — 감추면 제품의 전체 지도가
+   * 보이지 않고, 그대로 두면 11개 중 5개가 앱 밖으로 튕겨 낸다. 해당 Task가 화면을 채우면
+   * 이 플래그만 지운다.
+   */
+  readonly pending?: true;
+}
+
 const NAV_GROUPS: {
   readonly sectionKey: TranslationKey;
-  readonly items: readonly { readonly labelKey: TranslationKey; readonly path: string }[];
+  readonly items: readonly NavItem[];
 }[] = [
   {
     sectionKey: "common.nav.sectionCompetition",
     items: [
-      { labelKey: "common.nav.leagues", path: "leagues" },
-      { labelKey: "common.nav.matches", path: "matches" },
-      { labelKey: "common.nav.playoffs", path: "playoffs" },
+      { labelKey: "common.nav.leagues", path: "leagues", pending: true },
+      { labelKey: "common.nav.matches", path: "matches", pending: true },
+      { labelKey: "common.nav.playoffs", path: "playoffs", pending: true },
       { labelKey: "common.nav.cup", path: "cup" },
     ],
   },
   {
     sectionKey: "common.nav.sectionSquad",
     items: [
-      { labelKey: "common.nav.teams", path: "teams" },
-      { labelKey: "common.nav.players", path: "players" },
+      { labelKey: "common.nav.teams", path: "teams", pending: true },
+      { labelKey: "common.nav.players", path: "players", pending: true },
       { labelKey: "common.nav.transfers", path: "transfers" },
     ],
   },
@@ -323,6 +341,39 @@ const NAV_GROUPS: {
     ],
   },
 ];
+
+/**
+ * 목록 화면이 아직 없는 내비 항목. 링크가 아니므로 `<a>`로 내지 않는다 — 누를 수 없는 것을
+ * 링크로 두면 키보드 사용자가 탭으로 도달한 뒤 아무 일도 일어나지 않는다.
+ *
+ * 상태는 세 경로로 함께 전달한다(NFR-A11Y-002 — 흐린 색 단독 금지):
+ * ① 낮은 명도 ② `aria-disabled` ③ 스크린 리더 전용 "(준비 중)" 접미. 시각 사용자에게는
+ * 흐린 명도 + 커서 변화가 신호이고, 그 신호를 못 받는 사용자에게는 ③이 같은 말을 한다.
+ */
+function PendingNavItem({
+  lang,
+  labelKey,
+  orientation = "vertical",
+}: {
+  lang: SupportedLocale;
+  labelKey: TranslationKey;
+  orientation?: "vertical" | "horizontal";
+}) {
+  return (
+    <span
+      aria-disabled="true"
+      title={t(lang, "common.action.comingSoon")}
+      className={
+        orientation === "horizontal"
+          ? "block shrink-0 cursor-not-allowed px-3 py-3 text-sm whitespace-nowrap text-sidebar-foreground/30"
+          : "block cursor-not-allowed py-1.5 pr-2 pl-3.5 text-sm text-sidebar-foreground/30"
+      }
+    >
+      {t(lang, labelKey)}
+      <span className="sr-only"> ({t(lang, "common.action.comingSoon")})</span>
+    </span>
+  );
+}
 
 /**
  * 모바일 가로 내비 레일 — `md`(768px) 미만에서 `SideNav`를 대신한다.
@@ -357,9 +408,13 @@ function MobileNav({ lang }: { lang: SupportedLocale }) {
           <li key={`${group.sectionKey}-divider`} aria-hidden className="my-2.5 w-px bg-sidebar-border" />,
           ...group.items.map((item) => (
             <li key={item.path}>
-              <NavLink href={`/${lang}/${item.path}`} orientation="horizontal">
-                {t(lang, item.labelKey)}
-              </NavLink>
+              {item.pending ? (
+                <PendingNavItem lang={lang} labelKey={item.labelKey} orientation="horizontal" />
+              ) : (
+                <NavLink href={`/${lang}/${item.path}`} orientation="horizontal">
+                  {t(lang, item.labelKey)}
+                </NavLink>
+              )}
             </li>
           )),
         ])}
@@ -398,7 +453,11 @@ function SideNav({ lang }: { lang: SupportedLocale }) {
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => (
                 <li key={item.path}>
-                  <NavLink href={`/${lang}/${item.path}`}>{t(lang, item.labelKey)}</NavLink>
+                  {item.pending ? (
+                    <PendingNavItem lang={lang} labelKey={item.labelKey} />
+                  ) : (
+                    <NavLink href={`/${lang}/${item.path}`}>{t(lang, item.labelKey)}</NavLink>
+                  )}
                 </li>
               ))}
             </ul>

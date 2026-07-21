@@ -82,7 +82,11 @@ export function LiveMatchGrid({
   }
 
   return (
-    <div className={className ?? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"}>
+    // 36일차(I-184 확정) — `sm:grid-cols-2`에서 `md:`로. 이 프로젝트는 `sm`을 375px로
+    // 재정의해 뒀고(`docs/wireframe/00-공통규약.md` §5는 sm을 "320과 동일 취급"으로 정의),
+    // Tailwind 관용구를 그대로 쓰면 휴대폰 폭에서 바로 2열이 돼 팀명이 잘린다.
+    // 열 수가 바뀌는 첫 지점은 `md`(768px)다 — CLAUDE.md 스타일링 절 규약.
+    <div className={className ?? "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"}>
       {cards.map((data) => (
         <MatchCard
           key={data.id}

@@ -172,10 +172,6 @@ export default async function Page(props: PageProps<"/[lang]">) {
             teamNameById={teamNameRecord}
             leagueNameById={leagueNameRecord}
             surface="board"
-            // 기본 그리드(`sm:grid-cols-2`)를 쓰지 않는다 — 이 프로젝트는 `sm`을 375px로
-            // 재정의해 뒀어(globals.css 24일차 브레이크포인트) 모바일 폭에서 바로 2열이
-            // 되고, 팀명이 "Moorhaven …"으로 잘린다. 2열은 md(768px)부터 연다.
-            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
           />
         </div>
       </section>
