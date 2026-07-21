@@ -12,8 +12,12 @@ echo "[gate 1/4] next typegen"
 # 않는다 — 매 실행 시 이 명령으로 직접 생성해야 한다(next.md "next typegen" 절 처방).
 npx next typegen
 
-echo "[gate 2/4] tsc --noEmit"
-npx tsc --noEmit
+echo "[gate 2/4] tsc --noEmit (typecheck.mjs 경유, I-181)"
+# 로컬에서 dev 서버가 함께 떠 있으면 .next/dev/types/**가 계속 재생성돼 raw `npx tsc --noEmit`이
+# 무작위로 실패할 수 있다(WSL DrvFs torn write, I-181/I-62 계열) — CI는 dev 서버가 없어
+# 이 경합 자체가 발생하지 않지만, 로컬 실행과 스크립트를 하나로 유지하기 위해 여기서도
+# node scripts/typecheck.mjs(재시도 래퍼)를 쓴다.
+node scripts/typecheck.mjs
 
 echo "[gate 3/4] lint"
 npm run lint

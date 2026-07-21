@@ -5,8 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
 import { formatKickoff } from "@/i18n/format"
+import type { TranslationKey } from "@/i18n/keys"
 import type { SupportedLocale } from "@/i18n/locales"
-import type { Timestamp } from "@/types"
+import type { NewsFeedItemType, Timestamp } from "@/types"
 import type { CompositeViewState } from "./types"
 
 // Task 013B(28일차, 5팀) — 뉴스 피드 카드 한 장.
@@ -20,7 +21,16 @@ export interface NewsItemData {
   title: string
   summary: string
   publishedAt: Timestamp
-  category?: string
+  /**
+   * 35일차(Task 015, 5팀, I-169/enums 후속) — 이미 번역된 라벨 문자열이 아니라 원본
+   * 엔티티(`NewsFeedItem`, E-26)의 enum 값을 그대로 받는다(필드명은 28일차 계약을 유지 —
+   * `src/app/[lang]/sample/page.tsx`(4팀)가 이미 이 이름·enum 값으로 소비 중이라 이름을
+   * 바꾸면 그 파일이 깨진다, 실측 확인). 배지 라벨 번역은 이 컴포넌트가 `locale` prop으로
+   * 직접 한다(`enums.newsFeedItemType` 경유) — `MatchCard`가 `FixtureStatus` 라벨을 호출부
+   * 대신 자신이 번역하는 것과 동일한 경계. 화면마다 각자 번역해 호출하지 않도록, 재사용
+   * 가능한 이 복합 컴포넌트가 한 곳에서 담당한다.
+   */
+  category?: NewsFeedItemType
   imageUrl?: string
   href?: string
 }
@@ -74,11 +84,17 @@ export function NewsItem({ locale, state, className }: NewsItemProps) {
 
   const { data } = state
   const publishedLabel = formatKickoff(data.publishedAt, locale, "date")
+  // enum 값을 그대로 배지에 얹으면 D-18(하드코딩 금지) 위반이라 번역키를 거친다 —
+  // `enums.newsFeedItemType`(3팀, 10종 전량)이 모든 `NewsFeedItemType` 멤버를 커버해
+  // 이 경로는 항상 존재한다(`PhaseIndicator`의 `enums.seasonPhase.*` 캐스트와 동일 근거).
+  const categoryLabel = data.category
+    ? t(locale, `enums.newsFeedItemType.${data.category}` as TranslationKey)
+    : null
 
   const body = (
     <>
       <div className="flex items-center gap-2">
-        {data.category ? <Badge variant="secondary">{data.category}</Badge> : null}
+        {categoryLabel ? <Badge variant="secondary">{categoryLabel}</Badge> : null}
         <span className="text-xs text-muted-foreground">{publishedLabel}</span>
       </div>
       <h3 className="text-sm font-medium">{data.title}</h3>

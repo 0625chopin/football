@@ -8,7 +8,11 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
-    include: ['**/*.{test,spec}.ts'],
+    // I-151(35일차, 4팀) — jsdom + @testing-library/react 도입과 함께 첫 UI 렌더
+    // 테스트(badge.render.test.tsx)가 .tsx 확장자를 쓰므로 include에 tsx를 추가한다.
+    // environment는 전역으로 바꾸지 않는다(파일별 `@vitest-environment` 매직 코멘트로
+    // jsdom을 필요한 파일에만 적용 — 다른 팀 테스트의 기본 environment에 영향 없음).
+    include: ['**/*.{test,spec}.{ts,tsx}'],
     // 15일차(Task 008) — 3단 머지 게이트(scripts/gate.sh)의 test 단계가 스코프를 좁혀
     // 실행될 때(예: 특정 디렉터리만 변경된 PR) 매치되는 테스트가 0건이어도 게이트가
     // "No test files found"로 실패하지 않도록 한다. coverage 임계(위 thresholds)는
@@ -79,10 +83,33 @@ export default defineConfig({
     // *.type-test.ts는 런타임 include가 아니라 typecheck 모드로 검증한다.
     // esbuild 트랜스폼은 expectTypeOf를 소거해 런타임 include에 넣으면 항상 통과하는 vacuous 테스트가 되므로
     // (docs/ISSUES.md I-46, 팀장 2차 검증 실증), 실제 tsc 프로세스를 띄우는 typecheck 모드로만 실행한다.
+    //
+    // tsconfig(35일차, I-180): 루트 tsconfig.json을 그대로 쓰면 그 include의
+    // `.next/dev/types/**/*.ts`(Next dev 서버가 라우트 방문 시 계속 재생성하는 휘발성
+    // 산출물)까지 같은 tsc 프로그램에 끌려 들어와, dev 서버가 그 파일을 다시 쓰는 순간과
+    // 이 typecheck가 읽는 순간이 겹치면 "파일을 찾을 수 없음"/구문 오류가 무작위로 난다
+    // (dev 서버 가동 여부에 따라 로컬·CI 판정이 달라지는 결과). `*.type-test.ts`는
+    // `@/types`·순수 도메인 모듈만 검증하고 Next 라우트 타입과 무관하므로,
+    // `tsconfig.typecheck.json`(같은 compilerOptions을 상속하되 include를 이 typecheck의
+    // `include` 글롭과 동일한 `**/*.type-test.ts`로 좁힘 — `src/app/**`를 프로그램에
+    // 끌어들이면 그쪽은 `.next/types/**`가 생성하는 전역 `PageProps`/`LayoutProps`가
+    // 필요해 `src/**` 전체로 넓히면 오히려 새 오류가 난다, 실측 확인)으로 분리했다 —
+    // Next 라우트 타입 자체의 검증은 여전히 루트 `tsconfig.json` 기반의
+    // `npx tsc --noEmit` 게이트가 담당하므로 커버리지 손실은 없다.
+    //
+    // **정정(35일차, I-181)**: 위 문장을 쓸 때 "루트 게이트는 이 문제가 없다"고 가정했으나
+    // 틀렸다 — 루트 `tsconfig.json`도 정확히 같은 이유로 dev 서버 가동 중에는 `npx tsc
+    // --noEmit`이 무작위로 실패했다(팀장·4팀 각자 재현). 다만 그 tsconfig는 여기처럼 좁힐 수
+    // 없다 — Next가 `.next/dev/types/**`를 `next dev`/`next build`마다 자동으로 다시 채워
+    // 넣는다(`node_modules/next/dist/lib/typescript/writeConfigurationDefaults.js`, 의도된
+    // 동작 — I-181 상세). 대신 `scripts/typecheck.mjs`(재시도 래퍼)로 완화했다. **CI는 이
+    // 경합 자체가 없다**(클린 체크아웃엔 동시에 쓰는 dev 서버가 없으므로) — 로컬에서 dev
+    // 서버를 띄운 채로 게이트를 돌릴 때만 해당하는 문제였다.
     typecheck: {
       enabled: true,
       checker: 'tsc',
       include: ['**/*.type-test.ts'],
+      tsconfig: './tsconfig.typecheck.json',
     },
   },
 });

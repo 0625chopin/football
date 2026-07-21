@@ -114,4 +114,17 @@ export const enums: EnumsMessages = {
     CUP_TITLE: "Cup Title",
     PROMOTION: "Promotion",
   },
+  // 35일차(5팀 제보) — `newsFeedItemType` 그룹 신설, ko와 동일한 10종.
+  newsFeedItemType: {
+    TRANSFER: "Transfer",
+    LOAN: "Loan",
+    RETIREMENT: "Retirement",
+    YOUTH_DEBUT: "Youth Debut",
+    MANAGER_CHANGE: "Manager Change",
+    SPONSOR_BANKRUPT: "Sponsor Bankruptcy",
+    AWARD: "Award",
+    INJURY: "Injury",
+    MILESTONE: "Milestone",
+    SANCTION: "Sanction",
+  },
 };

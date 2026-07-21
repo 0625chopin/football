@@ -427,7 +427,7 @@
     - **chart·admin 섹션은 골격 + "미구현" 표기** — 해당 카테고리 컴포넌트가 아직 없다. `MatchCard`는 같은 날 5팀이 신규 생성했으므로 **35일차에 등록해 22종으로 맞춘다**
     - 데이터는 `getDataSource()` 어댑터만 경유한다. 어댑터가 아직 빈 배열만 반환하는 4종(Injury·Trophy·Award·PlayerAttributeHistory)은 **쇼케이스 전용 인라인 표본**으로 처리해 `no-restricted-imports` 가드레일(21일차 결함 A)을 우회하지 않았다
     - ⚠️ **수락 기준의 Playwright 스크린샷 검증은 I-128(Chromium 미설치)로 여전히 불가.** 34일차 판정은 팀장이 dev 서버(webpack, 재기동 후) 실응답을 curl로 받아 `/ko/sample`·`/en/sample` 200 + 에러 마커 0건 + 앵커 5종을 확인한 것으로 갈음했다
-  - [ ] 컴포넌트별 4상태 토글 컨트롤 + 뷰포트 프리뷰 전환(모바일/태블릿/데스크톱)
+  - [x] 컴포넌트별 4상태 토글 컨트롤 + 뷰포트 프리뷰 전환(모바일/태블릿/데스크톱) *(35일차 — `StateToggleSlot.tsx`·`ViewportFrame.tsx` 신규, 22종 배선(`MatchCard` 등록으로 21→22). **Playwright 실측으로 판정** — 토글 실조작 시 렌더 전환 확인(스크린샷 `testPng/ability-radar-*`), 콘솔 에러 0건. **뷰포트 프리뷰는 실측 중 결함을 발견해 재구현**: 최초 구현이 컨테이너 `max-width`만 바꿨는데 Tailwind `sm:`/`lg:`는 뷰포트 기준이라 그리드가 실제로 재배치되지 않았다(코드 리뷰로는 못 잡는 결함) → Tailwind v4 컨테이너 쿼리(`@container`+`@sm:`/`@lg:`)로 교체해 모바일 1열·태블릿 3열 실재배치 확인)*
   - [ ] **로케일 전환 컨트롤** — 각 컴포넌트를 ko/en으로 즉시 비교 확인 (D-18)
   - [ ] 개별 컴포넌트를 `ErrorBoundary`로 격리해 하나가 깨져도 쇼케이스가 살아있게 구성
   - [ ] 커버리지 체크리스트 자동 표기 — 등록 컴포넌트 수 / 4상태 구현 수 / 번역 키 누락 수 카운터
@@ -445,8 +445,8 @@
     - `MatchCard`는 named export·서버 컴포넌트·**I-156 단일 prop 규약 준수**(`state: CompositeViewState<MatchCardData>`, 리터럴 `loading|empty|error|ready`). `density:"card"|"row"`로 목록형 재사용 여지를 열어 뒀다(오늘은 card만 사용)
     - 데이터는 `getDataSource()`(`getLiveFixtures`/`getTeamsByIds`/`getLeagues`)만 경유 — Mock 팩토리 직접 호출 0건
     - **경과분은 의도적으로 미표시(`elapsedMinutes: null`)** — H-24 계약대로 UI가 `(now − kickoff)`를 계산하지 않는데, 정작 `now`의 출처가 없다. `DataSource`에 시각 메서드가 없고, `MOCK_NOW` 직접 import는 `eslint.config.mjs:82` 가드레일 위반이며, `Date.now()`는 Mock 세계 시각(2026-08월 고정)과 어긋나 음수가 된다. **가드레일을 뚫는 대신 기능을 축소한 판단을 팀장이 지지**했다. 순수 함수 `computeElapsedMinutes`는 테스트까지 완비되어 `now` 소스가 생기면 즉시 연결 가능 → **I-169(1팀 판정, 35일차 폴링 훅 차단성 있음)**
-  - [ ] 다음 킥오프 카운트다운, 시즌·페이즈 인디케이터, 주요 뉴스 요약, 로케일 스위처
-  - [ ] 폴링 훅 적용(기본 5초, 공통코드 주기, 탭 비활성 시 중단)
+  - [x] 다음 킥오프 카운트다운, 시즌·페이즈 인디케이터, 주요 뉴스 요약, 로케일 스위처 *(35일차 5팀 — A1 `PhaseIndicator`+`CountdownTimer`(**정지 중 카운트다운 정지 = `isPaused` prop으로 성립**, 팀장 실측 3초에 3초 감소 확인) / A3 다음 킥오프 목록(리그별 라운드 경계로 상위 5건 병합 — `getNextKickoff`가 1건만 반환하기 때문. 현재 라운드 SCHEDULED 0건인 경계 시점 리그 누락 한계를 파일 헤더에 명시) / A4 뉴스 요약 + 카테고리 배지(`enums.newsFeedItemType` 경유, 3팀이 10종 ko·en 채움) / 로케일 스위처는 헤더에 기배치·동작 확인. **「배속 변경 시 즉시 재동기화」는 D-2로 021(54일차) 이월**)*
+  - [~] 폴링 훅 적용(기본 5초, 공통코드 주기, 탭 비활성 시 중단) *(35일차 — `LiveMatchGrid.tsx` 신규(클라이언트)가 `usePollingList`(1팀 H-02) 소비, 경과분은 I-169 신설분 `getMatchClockContext`로 `now`/`clock` 원자 조회. 훅 계약·카운트다운 실동작은 팀장 실측 확인. ⚠️ **단 fetcher가 35일차 확정 규약을 위반한다 — I-182**: 클라이언트에서 `bootstrapApp()`/`getDataSource()`를 직접 호출해 Route Handler(`src/app/api/live/**`)를 우회하며, 실측 결과 **12초간 네트워크 요청 0건** + **클라이언트 번들에 `bootstrapApp` 심볼 실재**. 034b 전환 시 Supabase 어댑터도 같은 경로로 브라우저에 노출된다. **36일차 5팀 최우선**(1팀 응답 타입 계약 선행))*
   - [ ] 4상태 — 카드 스켈레톤 6개 / "진행 중 경기 없음 + 다음 킥오프 시각" 빈 상태 / 재시도 에러
   - [ ] 킥오프 시각은 UTC 저장값을 로케일 로컬 시각으로 변환 표기 (DC-07, D-18)
   - [ ] 모바일 세로 우선 레이아웃, LCP ≤ 2.5s / CLS ≤ 0.1 목표
@@ -646,7 +646,7 @@
 - **구현 사항**
   - [~] 후처리 7종을 단일 트랜잭션으로 — 스코어 확정 / 순위 갱신 / 스탯 누적 / 컨디션·피로 / 부상 판정 / 카드·정지 / 정산 트리거 *(33일차 골격 완료 — `sim/postmatch/pipeline.ts`의 `POST_MATCH_STAGE_ORDER`가 순서 단일 소스, `executedStages` 런타임 트레이스로 순서 증명. **4종 실배선**(스코어 확정·스탯 누적·카드 정지·정산 트리거) / **3종 `implemented:false` 계약뿐**(순위 갱신·컨디션 피로·부상 판정 — 하위 모듈 부재, 실산식 착수 일차 미배정). 실패 시 throw 전파로 원자성 확보)*
   - [x] 실패 시 전체 롤백 + 최대 3회 재시도 + 알림, 재실행 멱등(중복 누적 0) *(34일차 — `runPostMatchPipelineWithRetry()` 기본 3회·첫 성공 즉시 반환, 전부 실패 시 throw 없이 `ok:false` + 알림 페이로드(발송은 오케스트레이션 계층). **실패 분기가 `PostMatchPipelineResult`의 어떤 필드도 담지 않는 유니온 타입**이라 "전체 롤백"이 구조적으로 강제된다. 멱등: `computePostMatchIdempotencyKey()` + 파이프라인 무상태성(매 호출 새 `Map`)으로 스탯 이중 누적 0. **단 이 키는 `fixtureId` 단독이라 Tier B 재시뮬레이션 구분자가 아니다 — I-171**)*
-  - [ ] 7단계 타이브레이커 — 승점 → 골득실 → 다득점 → 승자승 미니리그 → 다승 → 페어플레이 → 시드 추첨
+  - [x] 7단계 타이브레이커 — 승점 → 골득실 → 다득점 → 승자승 미니리그 → 다승 → 페어플레이 → 시드 추첨 *(35일차 — `sim/standing/tiebreak.ts` `resolveStandings()`, 재귀 그룹 분해로 각 단계는 직전까지 완전 동률인 그룹에서만 실행하고 갈리는 즉시 `tiebreakApplied`에 단계 번호 기록. 시드 추첨은 `rng/derive.ts`에 `LAYER_TAG.STANDING` 신설 + `deriveStandingDrawSeed()`, `nextIntBelow` 기반 Fisher–Yates. `MATCH_POINTS`는 파라미터 주입(I-83 패턴). **19개 테스트가 7단계를 각각 단독 결정 케이스로 덮음** — 3팀 이상 동률 미니리그 재계산·동률 그룹 밖 경기 필터링·**PRNG `state` 이어받기를 독립 재구현 Fisher–Yates와 대조**(5팀 이상으로 뽑아 우연 일치 배제) 포함. `precision.ts` 미경유는 적용 대상 아님 — 확률 임계 비교가 아니라 정수 인덱스 뽑기)*
   - [ ] 승강 경계 동률 시 `competition_type = TIEBREAK` Fixture 자동 생성
   - [ ] 사전 집계 `standing` 테이블 갱신(라운드별 스냅샷), 경기 평점 산출(FR-ST-003)
   - [ ] 선수·팀 지표 풀세트 집계 및 이벤트 로그 기반 재계산 함수 (FR-ST-005)
@@ -862,7 +862,10 @@
     - **팀장 검증 지적 → 재수정**: 최초 구현이 `toFixed(2)`로 표시 문자열을 자체 생성했으나, 4팀 H-09 인계물 `src/i18n/format.ts:53`의 `formatOdds(odds, locale)`가 이미 있고 같은 파일이 "포인트/배당 단일 경유지 원칙"을 명시한다. ko/en 모두 소수점이 `.`이라 **자체 테스트 9건이 전부 통과했고 육안으로도 잡히지 않았다.** `display` 필드를 제거해 원시값만 반환하고 문자열화는 소비 측(컴포넌트)이 `formatOdds`로 수행하도록 전환 — `src/lib/odds/**`가 로케일을 모르는 순수 계층으로 남는다. 유한 양수 검증은 `assertValidDecimalOdds`로 분리 유지
   - [ ] 표시 형식은 decimal 고정(Q-03 기본 가정) + **로케일 숫자 서식 적용**(D-18), 2차 착수 전 Q-03 재확인
 - **수락 기준**: 경기당 산출 ≤ 10초, 라운드 전체 ≤ 60초. KPI-4 — 1X2 Brier Score ≤ 0.21(1,000경기 누적).
+  - **35일차 실측(3팀)**: 경기당 **~165~180ms**(MC_N_MATCH=3,000) / 라운드 전체(20팀 10경기) **~1.28초** — 둘 다 기준 대비 여유 큼. 33일차 `worker.ts` 주석의 추정(~1.5s/경기)보다 실측이 빠르며 상한 위반 방향이 아니다.
+  - ⚠️ **KPI-4는 미확정** — 실측 **Brier 0.1701**(≤0.21)이 나왔으나, I-160(`MANAGER_STYLE_XG` 실값 미확정)을 회피하려 **테스트 전용 고정 픽스처 기반 self-consistency 추정치**(프리시뮬 N=800 확률 대 본경기 1회 실현, 30경기)로 산출한 것이다. "모델이 자기 자신과 일관적"임을 보인 것이지 **예측력 검증이 아니며 1,000경기 누적도 아니다.** 3팀이 파일 주석에 한계를 명시했고 회귀 고정 assertion(≤0.21)만 걸어 뒀다. **I-160 해소 후 실데이터로 재산출해야 최종 판정된다.**
 - **테스트**: Vitest — 프리시뮬 시드 ≠ 본경기 시드, 확률 합 = 1, 오버라운드 검증. Playwright MCP — 경기 상세 배당 패널 표시 및 버튼 비활성 확인.
+  - [x] Vitest 3종 — **35일차 완료(3팀)**. 27~29일차 `runner`/`match-market`/`overround.test.ts`가 이미 모듈별로 세 항목을 덮고 있어 **중복 없이 세 모듈을 잇는 통합 파이프라인 회귀 1건 + 성능·KPI 측정**으로 좁혔다(`src/lib/odds/pipeline-kpi.test.ts` 신규). 확률 합 검증도 부동소수 직접 비교가 아니라 `precision.ts` 기준. `vitest run src/lib/odds/` 9 files·96 tests 통과.
 
 ### Task 036: 1차 릴리스 통합 테스트와 재현성 검증을 수행한다
 

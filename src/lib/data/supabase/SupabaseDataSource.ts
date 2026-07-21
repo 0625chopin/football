@@ -122,8 +122,10 @@ import type {
   MultiAwardRankingEntry,
   PlayerStatRankingMetric,
   PublicPlayerProfile,
+  WorldClockContext,
 } from '../DataSource';
 import type { SupabaseQueryClient } from './client';
+import { worldMinutesAt } from '@/lib/sim/schedule/worldclock';
 import {
   mapAuditLogRow,
   mapAwardRow,
@@ -397,6 +399,37 @@ export class SupabaseDataSource implements DataSource {
       .filter((f) => f.status !== 'FINISHED')
       .reduce<number | null>((min, f) => (min === null || f.round < min ? f.round : min), null);
     return { minRound, maxRound, currentRound: inProgressRound ?? maxRound };
+  }
+
+  /**
+   * I-169/I-174 — `now`(서버 실시각, `resolveElapsedMinutes`와 동일하게 `Date.now()` 기준)와
+   * `clock`(`world` 단일 행)을 원자적으로 반환한다. `kickoffWorldMinutesByFixtureId`는
+   * I-174가 완전히 해소되기 전까지의 근사값(킥오프 이후 배속 전이가 없었다는 가정 — 킥오프
+   * 순간 앵커를 영속할 컬럼이 `fixture`에 아직 없다) — 현재 `clock`으로 `worldMinutesAt`을
+   * `fixture.kickoff_at`에 대해 호출해 산출한다.
+   */
+  async getMatchClockContext(fixtureIds: readonly FixtureId[]): Promise<WorldClockContext> {
+    const worldRow = await this.fetchWorldRow();
+    if (worldRow === null) {
+      throw new Error(
+        '[src/lib/data/supabase/SupabaseDataSource.ts] world 테이블에 레코드가 없습니다 (D-15 단일 월드 불변식 위반).',
+      );
+    }
+    const clock = mapWorldRow(worldRow);
+    const now = new Date(Date.now()).toISOString();
+
+    const kickoffWorldMinutesByFixtureId: Record<FixtureId, number> = {};
+    if (fixtureIds.length > 0) {
+      const { data, error } = await this.client.from('fixture').select('*').in('id', fixtureIds);
+      if (error === null && data !== null) {
+        for (const row of data) {
+          const fixture = mapFixtureRow(row);
+          kickoffWorldMinutesByFixtureId[fixture.id] = worldMinutesAt(clock, fixture.kickoffAt);
+        }
+      }
+    }
+
+    return { now, clock, kickoffWorldMinutesByFixtureId };
   }
 
   /* ============================================================

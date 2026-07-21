@@ -68,8 +68,9 @@
 import { installHardcodedFallback } from '@/lib/config/fallback';
 import { COMMON_CODE_GROUP_CATALOG, type CommonCodeGroupCode } from '@/lib/config/catalog';
 import { loadConstants } from '@/lib/config/loader';
-import type { PublicPlayerProfile, FixtureRoundBounds, MatchTeamStatComparison, CronRunMetrics, PlayerStatRankingMetric, MultiAwardRankingEntry } from '@/lib/data/DataSource';
+import type { PublicPlayerProfile, FixtureRoundBounds, MatchTeamStatComparison, CronRunMetrics, PlayerStatRankingMetric, MultiAwardRankingEntry, WorldClockContext } from '@/lib/data/DataSource';
 import type { DataSource } from '@/lib/data/DataSource';
+import { worldMinutesAt } from '@/lib/sim/schedule/worldclock';
 import { toPublicProfile } from '@/lib/data/player-profile';
 import { CURRENT_ROUND, deriveStandingsFromFixtures, generateSeasonSchedule } from '@/lib/mock/fixtures/schedule';
 import type { MockSeasonSchedule } from '@/lib/mock/fixtures/schedule';
@@ -492,6 +493,26 @@ export class MockDataSource implements DataSource {
     const minRound = Math.min(...rounds);
     const inProgressRound = bracket.find((f) => f.status !== 'FINISHED')?.round;
     return { minRound, maxRound, currentRound: inProgressRound ?? maxRound };
+  }
+
+  /**
+   * I-169/I-174 — `now`(`MOCK_NOW`, 이 Mock 월드의 고정 앵커)와 `clock`(`this.world.world`의
+   * 시계 필드)을 원자적으로 반환한다. `kickoffWorldMinutesByFixtureId`는 I-174가 완전히
+   * 해소되기 전까지의 근사값(킥오프 이후 배속 전이가 없었다는 가정) — `worldMinutesAt`을
+   * 현재 `clock`으로 `fixture.kickoffAt`에 대해 호출해 산출한다. 이 Mock 월드는 생성자에서
+   * 배속/정지 전이를 만들지 않으므로(고정 `speedChangedAt` 앵커) 근사 오차가 없다.
+   */
+  async getMatchClockContext(fixtureIds: readonly FixtureId[]): Promise<WorldClockContext> {
+    const clock = this.world.world;
+    const kickoffWorldMinutesByFixtureId: Record<FixtureId, number> = {};
+    for (const fixtureId of fixtureIds) {
+      const fixture = this.fixturesById.get(fixtureId);
+      if (fixture === undefined) {
+        continue;
+      }
+      kickoffWorldMinutesByFixtureId[fixtureId] = worldMinutesAt(clock, fixture.kickoffAt);
+    }
+    return { now: MOCK_NOW, clock, kickoffWorldMinutesByFixtureId };
   }
 
   /* ============================================================

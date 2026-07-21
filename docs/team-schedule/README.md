@@ -37,11 +37,23 @@
 | **1** | **코어·품질팀** | 팀원 4(아키텍트) 일부 + 팀원 10(QA) 전량 | E-01~E-47 타입, FR-UI-023·024, NFR-MT-001·002·005·008·009, NFR-QA 전량, NFR-SEC-004 | `src/types/**`, `src/lib/data/*.ts`(인터페이스), `vitest.config.ts`, `eslint.config.mjs`, `tsconfig.json`, `package.json`, `.github/**` | 27.0인일 | 77% |
 | **2** | **시뮬레이션엔진팀** | 팀원 5 전량 | FR-LG-001~017, FR-MT-001~016, FR-ST-003·005, NFR-DT-001~008, NFR-PF-001~003·006 | `src/lib/sim/**` | 40.5인일 | **115% (최대 부하)** |
 | **3** | **데이터·밸런싱·배당팀** | 팀원 6 전량 + 팀원 7 중 배당 산출 | FR-PL, FR-TM, FR-TR, FR-EC, FR-YT, FR-AW, FR-AD-011~016, FR-BT-005·006·014, NFR-CFG, NFR-OB-003, NFR-PF-004·005 | `src/lib/config/**`, `src/lib/mock/**`, `src/lib/naming/**`, `src/lib/economy/**`, `src/lib/odds/**`, `src/lib/data/mock/**`, `src/i18n/messages/*/enums.*` | 38.5인일 | 109% |
-| **4** | **UI기반·i18n팀** | 팀원 8 중 기반·디자인시스템 + 팀원 4 중 라우트 골격 | FR-UI-000·001·008·009·010·011·012·013·014·020·021·025·026, D-18, NFR-RS, NFR-A11Y | `src/app/**`(layout·loading·error·not-found·라우트 골격), `src/app/sample/**`, `src/app/globals.css`, `components.json`, `src/i18n/**`(enums 제외), `src/components/ui/**`, `src/components/domain/**`, `src/components/state/**`, `src/app/(stats\|awards\|archive\|transfers\|playoffs\|cup\|sponsors)/**` | 35.75인일 | 101% |
-| **5** | **화면·배팅UX팀** | 팀원 8 중 화면·운영콘솔 + 팀원 7 중 배팅 UX·정산 | FR-UI-002~007·015~017·019, FR-AD-001~005, FR-BT-001~004·007·009~013, FR-ST-001·002 | `src/components/composite/**`, `src/app/(홈\|leagues\|matches\|players\|teams\|admin\|bet\|my)/**` page 본문, `src/lib/betting/**` | 35.25인일 | 100% |
-| **6** | **DB·인프라팀** | 팀원 9 전량 + 팀원 3(예산·요금제 입력) | E-01~E-47 물리 스키마, FR-AD-017~022, NFR-CR, NFR-SEC-001~003·006~012, NFR-SC, NFR-PF-008·011~014 | `supabase/**`, `docs/db/**`, `src/lib/data/supabase/**`, `src/app/api/health/**` | 34.5인일 | 98% |
+| **4** | **UI기반·i18n팀** | 팀원 8 중 기반·디자인시스템 + 팀원 4 중 라우트 골격 | FR-UI-000·001·008·009·010·011·012·013·014·020·021·025·026, D-18, NFR-RS, NFR-A11Y | `src/app/**`(layout·loading·error·not-found·라우트 골격), `src/app/[lang]/sample/**`, `src/app/globals.css`, `components.json`, `src/i18n/**` 규약 파일 + stat·sample·브래킷/수상/아카이브 키(enums=3팀, bet·admin·league·team·player=5팀 — 35일차 개정), `src/components/ui/**`, `src/components/domain/**`, `src/components/state/**`, `src/app/[lang]/(stats\|awards\|archive\|transfers\|playoffs\|cup\|sponsors)/**`, `src/proxy.ts` | 35.75인일 | 101% |
+| **5** | **화면·배팅UX팀** | 팀원 8 중 화면·운영콘솔 + 팀원 7 중 배팅 UX·정산 | FR-UI-002~007·015~017·019, FR-AD-001~005, FR-BT-001~004·007·009~013, FR-ST-001·002 | `src/components/composite/**`, `src/app/[lang]/(홈\|leagues\|matches\|players\|teams\|admin\|bet\|my)/**`(page 본문 + 세그먼트 layout·4상태), `src/app/api/live/**`, `src/i18n/messages/*/(bet\|admin\|league\|team\|player).ts` page 본문, `src/lib/betting/**` | 35.25인일 | 100% |
+| **6** | **DB·인프라팀** | 팀원 9 전량 + 팀원 3(예산·요금제 입력) | E-01~E-47 물리 스키마, FR-AD-017~022, NFR-CR, NFR-SEC-001~003·006~012, NFR-SC, NFR-PF-008·011~014 | `supabase/**`, `docs/db/**`, `src/lib/data/supabase/**`, `src/app/api/health/**`, `src/app/api/admin/**` | 34.5인일 | 98% |
 
 **합계 211.5인일** (평균 35.25인일 = 부하율 100%)
+
+> **소유 경로 정정·개정(35일차)** — 위 표의 경로는 ⓐ 11일차 로케일 재배치(`src/app/[lang]/**`) 이후
+> 19일간 갱신되지 않아 `[lang]` 세그먼트가 빠져 있었고 ⓑ `src/proxy.ts`·`src/app/api/**`(health 외)에
+> 소유자가 없었습니다. 34일차 6팀 합동 리뷰에서 적발되어 정정했습니다. 함께 확정된 것:
+> - **`src/app/api/**` 분할** — `health`·`admin`=6팀(service-role 취급 집중), `live`(화면 폴링)=5팀,
+>   응답 타입 계약=1팀. 폴링 fetcher는 **반드시 Route Handler 경유**(클라이언트에서 `getDataSource()`를
+>   부르면 registry가 비어 예외, 클라이언트 부트스트랩은 Mock 월드 생성기를 브라우저 번들에 실음)
+> - **세그먼트 `loading`/`error`/`not-found`** — 라우트 소유 팀(5팀). 루트 3종과 `global-not-found.tsx`는
+>   4팀. 단 **I-170(로케일 고정)을 4팀이 먼저 처리한 뒤** 5팀이 복제할 것
+> - **i18n 소유 규약 개정** — 화면 소유 팀이 자기 키 파일을 소유. 상세는 `04-UI기반i18n팀.md` 소유 경로 절
+>
+> 판정 근거 전문은 `docs/devStep/10.화면구간사전리스크리뷰_6팀합동_34일차.md` 4-3·4-4·4-5절.
 
 > 부하율 = 팀 공수 / 평균(35.25). 코어·품질팀만 77%로 낮은데, 이 팀은 **24~68일차 동안 전 팀 Task의 리뷰 게이트(`docs/TEAM.md` 6.3절 9개 조건)를 상시 수행**합니다. 이 상시 업무는 Task 공수에 계상하지 않았습니다.
 

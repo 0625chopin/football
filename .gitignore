@@ -48,3 +48,7 @@ shrimp_data/
 
 # Turbopack이 WSL에서 Windows 경로를 그대로 디렉터리명으로 만든 산출물 (I-62)
 E:\\*
+
+# Playwright MCP 스크린샷 산출물 (I-173, 35일차)
+/testPng/
+/.playwright-mcp/

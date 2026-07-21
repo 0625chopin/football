@@ -16,7 +16,7 @@ export const sample: SampleMessages = {
     domainTitle: "Domain Components",
     domainDescription: "8 components that represent a single entity such as a player or team.",
     compositeTitle: "Composite Components",
-    compositeDescription: "7 components that combine multiple data points into one screen fragment.",
+    compositeDescription: "8 components that combine multiple data points into one screen fragment (incl. MatchCard).",
     stateTitle: "State & Utility Components",
     stateDescription: "6 shared loading/empty/error and utility components (not subject to the 4-state contract).",
     chartTitle: "Chart",
@@ -28,5 +28,18 @@ export const sample: SampleMessages = {
   status: {
     notImplemented: "Not implemented",
     componentCount: "{count} registered",
+  },
+  state: {
+    toggleLabel: "Switch preview state",
+    loading: "Loading",
+    empty: "Empty",
+    error: "Error",
+    ready: "Ready",
+  },
+  viewport: {
+    toggleLabel: "Switch viewport preview",
+    mobile: "Mobile",
+    tablet: "Tablet",
+    desktop: "Desktop",
   },
 };

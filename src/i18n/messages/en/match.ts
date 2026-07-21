@@ -28,6 +28,7 @@ export const match: MatchMessages = {
     loading: "Loading news…",
     empty: "No news to display.",
     error: "Failed to load news.",
+    sectionTitle: "Top News",
   },
   lineup: {
     loading: "Loading lineup…",
@@ -48,5 +49,10 @@ export const match: MatchMessages = {
     error: "Failed to load match info.",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
+  },
+  upcoming: {
+    sectionTitle: "Next Kickoff",
+    empty: "No upcoming matches.",
+    matchupFormat: "{home} vs {away}",
   },
 };

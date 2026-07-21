@@ -7,6 +7,7 @@ import type {
   InjuryStatus,
   ManagerStyle,
   MatchEventType,
+  NewsFeedItemType,
   Position,
   SeasonPhase,
   TrophyType,
@@ -153,6 +154,23 @@ const trophyType: EnumTranslationCatalog<TrophyType> = {
   PROMOTION: "승격",
 };
 
+// 35일차(5팀 제보) — `NewsFeedItem.type`(E-26, 10종) 표시명 카탈로그 신설. 5팀이 홈 뉴스
+// 요약 배지를 배선하다 이 그룹이 없어 D-18(하드코딩 금지) 위반을 피하려고 배지 자체를
+// 생략해 두었던 공백을 메운다. 값은 `src/types/enums.ts`(8일차 동결) `NewsFeedItemType`
+// 전량이다.
+const newsFeedItemType: EnumTranslationCatalog<NewsFeedItemType> = {
+  TRANSFER: "이적",
+  LOAN: "임대",
+  RETIREMENT: "은퇴",
+  YOUTH_DEBUT: "유소년 데뷔",
+  MANAGER_CHANGE: "감독 교체",
+  SPONSOR_BANKRUPT: "스폰서 파산",
+  AWARD: "수상",
+  INJURY: "부상",
+  MILESTONE: "마일스톤",
+  SANCTION: "제재",
+};
+
 export const enums = {
   position,
   matchEvent,
@@ -164,6 +182,7 @@ export const enums = {
   betMarketStatus,
   awardScope,
   trophyType,
+  newsFeedItemType,
 };
 
 export type EnumsMessages = typeof enums;

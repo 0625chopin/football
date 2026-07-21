@@ -25,6 +25,23 @@
  *
  * 이 스크립트는 오탐이 섞일 수 있는 휴리스틱 검사다(같은 정수가 우연히 일치하는 경우
  * 포함). 발견 = 확정 결함이 아니라 **1팀 리뷰 대상 후보**로 취급한다.
+ *
+ * ## 35일차 갱신 — I-172 해소(식별자명 관련성 필터)
+ * 값만으로 일치를 판정하면 순수 우연(예: `postmatch/pipeline.ts`의 재시도 횟수
+ * `DEFAULT_MAX_ATTEMPTS = 3`이 `CRON_PARAM.RETRY_MAX = 3`과 숫자만 겹침)까지 전량
+ * 보고되어 신호 대비 잡음이 과도했다(34일차 2팀 자진 보고, 팀장 동의). `collectProtectedNumbers`가
+ * 이제 각 보호 숫자를 **그 숫자가 나온 최상위 그룹명**과 함께 기록하고, `findResidualLiterals`는
+ * 매치된 줄의 식별자 토큰이 그 그룹명 토큰과 하나라도 겹칠 때만 보고한다(예: `GK_CROSS_
+ * POSITION_MODIFIER_DEFAULT`는 `POSITION_PROFICIENCY_MULT` 그룹의 `position` 토큰과 겹쳐
+ * 그대로 보고되지만, `DEFAULT_MAX_ATTEMPTS`는 어떤 그룹명과도 겹치지 않아 걸러진다).
+ * `PARAM`/`MULT`/`MIN`/`MAX` 등 그룹명에 범용적으로 붙는 접미사(`GENERIC_NAME_TOKENS`)는
+ * 토큰에서 제외한다 — 안 그러면 거의 모든 그룹이 겹쳐 필터가 무의미해진다.
+ *
+ * **무조건 경고를 줄이는 것이 목적이 아니다** — 그룹명 단위(개별 키 단위가 아님)로만
+ * 관련성을 요구해 보수적으로 좁혔고, 그룹명과 식별자명이 다른 어휘를 쓰는 실제 중복(예:
+ * "강퇴"를 `dismissal`로 부르는 코드와 그룹명 `CARD_PARAM.RED_MAX`)은 이 필터로도 못
+ * 잡을 수 있다 — 그런 위음성 사례가 쌓이면 그때 조건을 더 넓힌다(팀장 지침 "오탐 사례를
+ * 축적해 조건을 좁히는 방향").
  */
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
@@ -43,6 +60,36 @@ const EXCLUDE_FILE_SUFFIXES = [".test.ts", ".type-test.ts", ".test.tsx"];
 //   (경기 시간 90/45/120분, 시간 환산 60, 백분율 분모 100 등 — GENERIC_ALLOWLIST)
 const TRIVIAL_VALUES = new Set([-1, 0, 1, 2]);
 const GENERIC_ALLOWLIST = new Set([45, 60, 90, 100, 120]);
+
+// 공통코드 그룹명에 구조적으로 반복되는 접미사·범용어(I-172) — 토큰 비교에서 제외하지
+// 않으면 대부분의 그룹이 서로 겹쳐 식별자 관련성 필터가 무력화된다.
+const GENERIC_NAME_TOKENS = new Set([
+  "param",
+  "mult",
+  "min",
+  "max",
+  "default",
+  "base",
+  "value",
+  "pct",
+  "step",
+  "range",
+  "factor",
+  "cap",
+  "ratio",
+  "count",
+  "limit",
+  "rate",
+]);
+
+/** 식별자를 스네이크/카멜 구분 없이 소문자 토큰으로 쪼갠다(길이 3 미만·범용어는 제외). */
+function tokenize(identifier) {
+  return identifier
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .split(/[^A-Za-z0-9]+/)
+    .map((t) => t.toLowerCase())
+    .filter((t) => t.length >= 3 && !GENERIC_NAME_TOKENS.has(t));
+}
 
 function extractSafeDefaultValuesSource(source) {
   const marker = "export const SAFE_DEFAULT_VALUES";
@@ -67,15 +114,78 @@ function extractSafeDefaultValuesSource(source) {
   throw new Error("SAFE_DEFAULT_VALUES 객체의 닫는 중괄호를 찾지 못했습니다.");
 }
 
+const NUMBER_RE = /(?<![\w.])-?\d+(?:\.\d+)?(?!\w)/g;
+
+/**
+ * `SAFE_DEFAULT_VALUES` 객체를 최상위 그룹(`GROUP_NAME: { ... }`) 단위로 쪼갠다. 이 파일이
+ * `Record<CommonCodeGroupCode, ...>` 형태(1단계 그룹 키 → 값 객체)로만 구성된다는 전제에
+ * 기대므로(90행 타입 주석 참조), 중첩 깊이만 추적하면 각 그룹의 소스 구간을 정확히 자를 수
+ * 있다. `objectSource`는 이미 `stripCommentsAndStrings`를 거친 문자열이어야 한다.
+ */
+function splitTopLevelGroups(objectSource) {
+  const groups = [];
+  const n = objectSource.length - 1; // 마지막 '}' 제외
+  let i = 1; // 첫 '{' 건너뜀
+  while (i < n) {
+    while (i < n && /[\s,]/.test(objectSource[i])) i++;
+    if (i >= n) break;
+    const keyMatch = /^[A-Za-z_][A-Za-z0-9_]*/.exec(objectSource.slice(i, n));
+    if (keyMatch === null) {
+      i++;
+      continue;
+    }
+    const groupName = keyMatch[0];
+    i += groupName.length;
+    while (i < n && /\s/.test(objectSource[i])) i++;
+    if (objectSource[i] !== ":") continue; // 그룹 키는 항상 `:`로 이어진다(방어적 스킵)
+    i++;
+    while (i < n && /\s/.test(objectSource[i])) i++;
+    if (objectSource[i] !== "{") {
+      // 그룹 값은 항상 객체다(90행 타입 주석) — 예상 밖 형태면 다음 콤마까지 건너뛴다.
+      while (i < n && objectSource[i] !== ",") i++;
+      continue;
+    }
+    const start = i;
+    let depth = 0;
+    for (; i < n; i++) {
+      if (objectSource[i] === "{") depth++;
+      else if (objectSource[i] === "}") {
+        depth--;
+        if (depth === 0) {
+          i++;
+          break;
+        }
+      }
+    }
+    groups.push({ name: groupName, body: objectSource.slice(start, i) });
+  }
+  return groups;
+}
+
+/**
+ * 보호 숫자마다 "이 값이 어느 그룹에서 나왔는가"의 식별자 토큰 집합을 함께 기록한다
+ * (I-172, 위 파일 헤더 "35일차 갱신" 절). 한 값이 여러 그룹에 우연히 겹치면(예: `3`은
+ * 6개 그룹에 등장) 그 그룹들의 토큰을 합집합으로 둔다 — 어느 한 그룹과만 관련 있어도
+ * 리뷰 후보로 남긴다.
+ */
 function collectProtectedNumbers(objectSource) {
   const withoutComments = stripCommentsAndStrings(objectSource);
-  const matches = withoutComments.matchAll(/(?<![\w.])-?\d+(?:\.\d+)?(?!\w)/g);
-  const values = new Set();
-  for (const [text] of matches) {
-    const n = Number(text);
-    if (!TRIVIAL_VALUES.has(n) && !GENERIC_ALLOWLIST.has(n)) values.add(n);
+  const groups = splitTopLevelGroups(withoutComments);
+  const contexts = new Map();
+  for (const group of groups) {
+    const groupTokens = tokenize(group.name);
+    for (const [text] of group.body.matchAll(NUMBER_RE)) {
+      const n = Number(text);
+      if (TRIVIAL_VALUES.has(n) || GENERIC_ALLOWLIST.has(n)) continue;
+      const existing = contexts.get(n);
+      if (existing === undefined) {
+        contexts.set(n, new Set(groupTokens));
+      } else {
+        for (const t of groupTokens) existing.add(t);
+      }
+    }
   }
-  return values;
+  return contexts;
 }
 
 function stripCommentsAndStrings(text) {
@@ -112,18 +222,37 @@ function walk(dir, out) {
   }
 }
 
-function findResidualLiterals(file, protectedNumbers) {
+const IDENTIFIER_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
+
+/** 한 줄의 모든 식별자를 토큰화해 합집합으로 모은다(선언 대상뿐 아니라 줄 전체를 본다 —
+ * `input.condition * 0.7`처럼 리터럴과 같은 줄에 있는 참조도 관련성 신호로 유효하다). */
+function lineTokens(line) {
+  const tokens = new Set();
+  for (const [identifier] of line.matchAll(IDENTIFIER_RE)) {
+    for (const t of tokenize(identifier)) tokens.add(t);
+  }
+  return tokens;
+}
+
+function hasOverlap(a, b) {
+  for (const t of a) {
+    if (b.has(t)) return true;
+  }
+  return false;
+}
+
+function findResidualLiterals(file, protectedNumberContexts) {
   const source = readFileSync(file, "utf8");
   const cleaned = stripCommentsAndStrings(source);
   const lines = cleaned.split("\n");
   const findings = [];
-  const numberRe = /(?<![\w.])-?\d+(?:\.\d+)?(?!\w)/g;
   lines.forEach((line, idx) => {
-    for (const [text] of line.matchAll(numberRe)) {
+    for (const [text] of line.matchAll(NUMBER_RE)) {
       const n = Number(text);
-      if (protectedNumbers.has(n)) {
-        findings.push({ line: idx + 1, value: n, text: line.trim() });
-      }
+      const groupTokens = protectedNumberContexts.get(n);
+      if (groupTokens === undefined) continue;
+      if (!hasOverlap(groupTokens, lineTokens(line))) continue;
+      findings.push({ line: idx + 1, value: n, text: line.trim() });
     }
   });
   return findings;
@@ -132,7 +261,7 @@ function findResidualLiterals(file, protectedNumbers) {
 function main() {
   const fallbackSource = readFileSync(FALLBACK_FILE, "utf8");
   const objectSource = extractSafeDefaultValuesSource(fallbackSource);
-  const protectedNumbers = collectProtectedNumbers(objectSource);
+  const protectedNumberContexts = collectProtectedNumbers(objectSource);
 
   const files = [];
   for (const root of SCAN_ROOTS) {
@@ -141,7 +270,7 @@ function main() {
 
   let totalFindings = 0;
   for (const file of files) {
-    const findings = findResidualLiterals(file, protectedNumbers);
+    const findings = findResidualLiterals(file, protectedNumberContexts);
     if (findings.length === 0) continue;
     const relPath = relative(ROOT, file).split("\\").join("/");
     console.log(`\n${relPath}`);

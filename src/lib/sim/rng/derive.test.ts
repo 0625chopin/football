@@ -13,6 +13,7 @@ import {
   deriveEventSeed,
   deriveMatchSeed,
   deriveSeasonSeed,
+  deriveStandingDrawSeed,
   hashKey,
   isSameNamespace,
   namespaceOf,
@@ -185,5 +186,36 @@ describe('derive — 53비트 시드 폭 (I-39 / D-28 회귀 방지)', () => {
     const worldSeed = Number.MAX_SAFE_INTEGER;
     const seeds = Array.from({ length: 500 }, (_, seasonNumber) => deriveSeasonSeed(worldSeed, seasonNumber));
     expect(new Set(seeds).size).toBe(seeds.length);
+  });
+});
+
+describe('deriveStandingDrawSeed — 026(35일차) 순위표 시드 추첨', () => {
+  it('동일 (seasonSeed, round, tiedGroupKey)는 항상 동일 시드를 낸다', () => {
+    const seasonSeed = deriveSeasonSeed(1, 1);
+    const a = deriveStandingDrawSeed(seasonSeed, 10, hashKey('team-a|team-b'));
+    const b = deriveStandingDrawSeed(seasonSeed, 10, hashKey('team-a|team-b'));
+    expect(a).toBe(b);
+  });
+
+  it('라운드가 다르면(같은 동률 그룹이라도) 다른 시드를 낸다', () => {
+    const seasonSeed = deriveSeasonSeed(1, 1);
+    const groupKey = hashKey('team-a|team-b');
+    expect(deriveStandingDrawSeed(seasonSeed, 10, groupKey)).not.toBe(
+      deriveStandingDrawSeed(seasonSeed, 11, groupKey),
+    );
+  });
+
+  it('같은 라운드라도 동률 그룹이 다르면 다른 시드를 낸다', () => {
+    const seasonSeed = deriveSeasonSeed(1, 1);
+    expect(deriveStandingDrawSeed(seasonSeed, 10, hashKey('team-a|team-b'))).not.toBe(
+      deriveStandingDrawSeed(seasonSeed, 10, hashKey('team-c|team-d')),
+    );
+  });
+
+  it('MATCH 계층과 값 집합이 겹치지 않는다(같은 인덱스를 넣어도 다른 값)', () => {
+    const seasonSeed = deriveSeasonSeed(1, 1);
+    const matchSeed = deriveMatchSeed(seasonSeed, 10);
+    const standingSeed = deriveStandingDrawSeed(seasonSeed, 10, 0);
+    expect(matchSeed).not.toBe(standingSeed);
   });
 });

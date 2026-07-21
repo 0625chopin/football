@@ -20,7 +20,7 @@ export const sample = {
     domainTitle: "도메인 표현 컴포넌트",
     domainDescription: "선수·팀 등 단일 엔티티를 표현하는 컴포넌트 8종.",
     compositeTitle: "복합 컴포넌트",
-    compositeDescription: "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 7종.",
+    compositeDescription: "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 8종(MatchCard 포함).",
     stateTitle: "상태·유틸 컴포넌트",
     stateDescription: "로딩/빈/에러 등 공용 상태와 유틸리티 컴포넌트 6종(4상태 규약 비대상).",
     chartTitle: "차트",
@@ -32,6 +32,19 @@ export const sample = {
   status: {
     notImplemented: "미구현",
     componentCount: "{count}종 등록",
+  },
+  state: {
+    toggleLabel: "상태 미리보기 전환",
+    loading: "로딩",
+    empty: "비어있음",
+    error: "에러",
+    ready: "정상",
+  },
+  viewport: {
+    toggleLabel: "뷰포트 미리보기 전환",
+    mobile: "모바일",
+    tablet: "태블릿",
+    desktop: "데스크톱",
   },
 };
 

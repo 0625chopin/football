@@ -126,6 +126,8 @@ const LAYER_TAG = {
   SEASON: 0x5ea50401,
   MATCH: 0x4d415401,
   EVENT: 0x45564e01,
+  /** 026(35일차) 순위표 7단계 타이브레이커 — 마지막 단계(시드 추첨) 전용. */
+  STANDING: 0x53544401,
 } as const;
 
 /** 부호 없는 32비트로 정규화. */
@@ -347,7 +349,44 @@ export function deriveEventSeed(matchSeed: number, tick: number, eventIndex = 0)
 }
 
 /**
+ * 순위표 타이브레이커 7단계(승점→골득실→다득점→승자승→다승→페어플레이→시드 추첨)의
+ * 마지막 단계 전용 — 6단계까지 전부 동률인 팀들만의 결정론적 추첨 시드를 만듭니다
+ * (`standing/tiebreak.ts`, 026/35일차 산출물).
+ *
+ * `matchKey`를 재사용하지 않고 별도 `LAYER_TAG.STANDING`을 둔 이유: `deriveMatchSeed`의
+ * `matchKey`는 실제 경기 식별자 도메인이라, 추첨용으로 임의 상수 키를 얹으면 그 상수와
+ * 우연히 같은 값을 가진 실제 경기 시드와 값 집합이 섞일 여지가(무시할 수준이라도) 생깁니다.
+ * 별도 계층 태그를 두면 이 파일의 "계층 태그가 다르면 같은 인덱스라도 값이 겹치지 않는다"
+ * 보장이 그대로 적용되어 그 여지 자체가 구조적으로 사라집니다.
+ *
+ * @param seasonSeed `deriveSeasonSeed()` 결과
+ * @param round 라운드 번호(`Standing.round`) — 라운드가 바뀌면 동률 팀 구성도 바뀌므로
+ *   같은 팀 조합이라도 다른 라운드에서는 독립된 추첨이 되어야 합니다.
+ * @param tiedGroupKey 동률 그룹을 식별하는 32비트 정수. 호출부는 동률 팀들의 `teamId`를
+ *   정렬 후 `hashKey()`로 접어 넘기십시오(입력 배열 순서에 무관하게 같은 그룹은 같은
+ *   키가 되도록 하기 위함). 한 라운드에 동률 그룹이 여러 개면 이 키로 서로 다른 스트림이
+ *   됩니다.
+ */
+export function deriveStandingDrawSeed(
+  seasonSeed: number,
+  round: number,
+  tiedGroupKey: number,
+): number {
+  assertSafeSeed(seasonSeed, 'seasonSeed');
+  assertIndex(round, 'round');
+  assertUint32(tiedGroupKey, 'tiedGroupKey');
+
+  return derive(seasonSeed, LAYER_TAG.STANDING, [round, tiedGroupKey]);
+}
+
+/**
  * 파생 시드를 곧바로 PRNG 상태로 바꿉니다.
+ *
+ * **이 함수는 `prng.ts`가 아니라 이 파일(`derive.ts`)에 있습니다**(35일차 I-178 —
+ * `createState`와 이름이 비슷해 어느 파일 소속인지 혼동된 전례가 있어 명시합니다).
+ * `prng.ts`의 `createState()`를 감싸면서 `assertSafeSeed()`로 53비트 안전 정수
+ * 범위를 강제하는 상위 래퍼입니다 — 파생 시드(`deriveSeasonSeed` 등 이 파일이 만든
+ * 값)는 언제나 이 함수로 상태를 만들고, `createState()`를 직접 호출하지 마십시오.
  *
  * `createState`가 6일차 개정으로 53비트 시드 전 구간을 소비하도록
  * 확장되었으므로(`prng.ts`의 `foldSeed` 참조), 서로 다른 시드는 (해시

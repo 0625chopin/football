@@ -109,6 +109,14 @@ function foldSeed(seed: number): number {
  *   `Number.MAX_SAFE_INTEGER`까지)을 전량 소비합니다** — 32비트로 절단하지
  *   않습니다. 이 함수는 범용 저수준 프리미티브이므로 값 범위를 강제하지
  *   않습니다(도메인 시드의 범위 검증은 `derive.ts`가 담당).
+ *
+ * **`deriveSeasonSeed`/`deriveMatchSeed`/`deriveEventSeed`/`deriveStandingDrawSeed`
+ * 등 파생 시드로 상태를 만들 때는 이 함수를 직접 쓰지 말고 `rng/derive.ts`의
+ * `stateForSeed()`를 쓰십시오** (35일차 I-178 — 이 함수와 이름이 비슷해 혼동된
+ * 전례가 있습니다). `stateForSeed()`는 이 함수를 감싸면서 안전 정수 범위 검증
+ * (`assertSafeSeed`)을 추가로 하는 상위 래퍼입니다 — `derive.ts`가 소유한
+ * 도메인 시드 계층 규약이 이 파일(범용 저수준 PRNG)에 섞이지 않도록 의도적으로
+ * 분리돼 있습니다.
  */
 export function createState(seed: number): PrngState {
   let counter = foldSeed(seed);

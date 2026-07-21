@@ -119,6 +119,8 @@ import type {
   SeasonId,
   SponsorId,
   TeamId,
+  // 원시값 브랜드
+  Timestamp,
   // enum성 값
   AuditActorType,
   AwardType,
@@ -217,6 +219,43 @@ export interface MatchTeamStatComparison {
   readonly xg: number;
 }
 
+/**
+ * 월드 시계 컨텍스트(H-24 / I-169 / I-174, 35일차 6팀 합동 리뷰 판정) — 진행 중 경기 경과분·
+ * 킥오프 카운트다운 계산에 필요한 "지금" 3종을 **원자적으로 한 번에** 반환하는 합성 DTO.
+ * `now`와 `clock`을 따로 조회하면 두 호출 사이에 배속이 바뀌어 앵커와 질의 시각이 어긋난다
+ * (`worldMinutesAt`가 어긋난 스냅샷을 받으면 경과분이 오염된다) — 반드시 이 메서드 하나로
+ * 묶어 조회한다.
+ *
+ * `clock`은 `src/lib/sim/schedule/worldclock.ts`의 `WorldClockSnapshot`과 **같은 `World`
+ * 부분 필드**를 다시 `Pick`한 것이다. import해 재사용하지 않고 로컬로 재선언한 이유는 이
+ * 파일의 import 규약(위 파일 헤더 "반환 타입 원칙" — 반환 타입은 `@/types` 도메인 타입이거나
+ * **이 파일 로컬 DTO**여야 함) 때문이다. 두 선언 모두 `World`에서 파생되므로 `World` 필드가
+ * 바뀌면 두 파일 모두 `tsc`가 독립적으로 어긋남을 잡는다(단일 소스는 여전히 `World`).
+ *
+ * `kickoffWorldMinutesByFixtureId`는 **I-174가 완전히 해소되기 전까지는 근사값**이다 — 킥오프
+ * 순간의 월드분 앵커를 영속할 필드가 `Fixture`(`src/types/match.ts`)에도 원격 스키마에도 아직
+ * 없어(I-174), 구현체(Mock/Supabase)가 "킥오프 이후 배속 전이가 없었다"는 가정 하에
+ * `kickoffAt`으로부터 근사 산출한다. 그 가정이 깨지는 경우(경기 중 배속 변경)의 오차는
+ * I-174가 앵커 영속 경로(6팀 마이그레이션)를 확정해야 완전히 없어진다 — **이 메서드 신설만
+ * 으로 I-169를 "해소 완료"로 보고하지 말 것**(ISSUES.md I-169/I-174 참조).
+ *
+ * `fixtureIds`에 없거나 존재하지 않는 경기는 결과 맵에서 생략한다(발명하지 않음).
+ */
+export type WorldClockContext = {
+  readonly now: Timestamp;
+  readonly clock: Pick<
+    World,
+    | 'speedMultiplier'
+    | 'isPaused'
+    | 'pausedTotalMinutes'
+    | 'speedChangedAt'
+    | 'worldMinutesAtSpeedChange'
+    | 'pausedAt'
+    | 'clockRevision'
+  >;
+  readonly kickoffWorldMinutesByFixtureId: Readonly<Record<FixtureId, number>>;
+};
+
 /** 일정/결과 화면(FR-UI-004)의 라운드 네비게이션 경계 — 순수 파생값(전부 `number`) */
 export interface FixtureRoundBounds {
   readonly minRound: number;
@@ -310,6 +349,16 @@ export interface DataSource {
     readonly seasonId?: SeasonId;
     readonly competitionType?: CompetitionType;
   }): Promise<FixtureRoundBounds>;
+
+  /**
+   * 월드 시계 컨텍스트 — `now`/`clock`/킥오프 앵커를 원자적으로 한 번에 반환한다(I-169/
+   * I-174, `WorldClockContext` 주석 참조). 5팀 폴링 훅(Task 015, 기본 5초 간격)이 진행 중
+   * 경기 경과분과 다음 킥오프 카운트다운을 계산할 때 이 메서드 하나로 조회한다 — `now`를
+   * `Date.now()`로 직접 얻거나 `getWorldStatus()`를 별도 호출해 `clock`만 얻는 방식은 둘
+   * 다 금지(전자는 Mock 세계 시각과 어긋나 음수 경과분이 나오고, 후자는 두 호출 사이
+   * 배속 변경으로 앵커가 어긋난다).
+   */
+  getMatchClockContext(fixtureIds: readonly FixtureId[]): Promise<WorldClockContext>;
 
   /* ============================================================
    * 3. 경기 (Match detail) — FR-UI-007 `/matches/[matchId]`

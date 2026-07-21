@@ -94,9 +94,25 @@ export interface ConditionModifierInput {
   readonly condition: number;
 }
 
-/** 컨디션 계수. `M = 0.70 + 0.30×(C−1)/9` — C=1.0→0.70, C=10.0→1.00 */
-export function conditionModifier(input: ConditionModifierInput, options?: ClampOpts): number {
-  const raw = 0.7 + (0.3 * (input.condition - 1)) / 9;
+/** `CONDITION_MULT.BASE` 안전 기본값(0.70, I-83 주입 패턴 — 35일차 check-literals 리뷰 반영). */
+export const CONDITION_MULT_BASE_DEFAULT = 0.7;
+/** `CONDITION_MULT.RANGE` 안전 기본값(0.30). */
+export const CONDITION_MULT_RANGE_DEFAULT = 0.3;
+
+/** `conditionModifier` 오버라이드 — I-83 주입 패턴. 미지정 필드는 안전 기본값을 쓴다. */
+export interface ConditionModifierOptions extends AbilityModifierClampOptions {
+  readonly base?: number;
+  readonly range?: number;
+}
+
+/** 컨디션 계수. `M = BASE + RANGE×(C−1)/9`(기본 0.70/0.30) — C=1.0→0.70, C=10.0→1.00 */
+export function conditionModifier(
+  input: ConditionModifierInput,
+  options?: ConditionModifierOptions,
+): number {
+  const base = options?.base ?? CONDITION_MULT_BASE_DEFAULT;
+  const range = options?.range ?? CONDITION_MULT_RANGE_DEFAULT;
+  const raw = base + (range * (input.condition - 1)) / 9;
   return clampAbilityModifier(raw, options);
 }
 
@@ -105,9 +121,25 @@ export interface FitnessModifierInput {
   readonly fitness: number;
 }
 
-/** 피로 계수. `M = 0.75 + 0.25×(fitness/100)` — fitness=0→0.75, fitness=100→1.00 */
-export function fitnessModifier(input: FitnessModifierInput, options?: ClampOpts): number {
-  const raw = 0.75 + 0.25 * (input.fitness / 100);
+/** `FITNESS_PARAM.MULT_BASE` 안전 기본값(0.75, I-83 주입 패턴 — 35일차 check-literals 리뷰 반영). */
+export const FITNESS_PARAM_MULT_BASE_DEFAULT = 0.75;
+/** `FITNESS_PARAM.MULT_RANGE` 안전 기본값(0.25). */
+export const FITNESS_PARAM_MULT_RANGE_DEFAULT = 0.25;
+
+/** `fitnessModifier` 오버라이드 — I-83 주입 패턴. 미지정 필드는 안전 기본값을 쓴다. */
+export interface FitnessModifierOptions extends AbilityModifierClampOptions {
+  readonly base?: number;
+  readonly range?: number;
+}
+
+/** 피로 계수. `M = BASE + RANGE×(fitness/100)`(기본 0.75/0.25) — fitness=0→0.75, fitness=100→1.00 */
+export function fitnessModifier(
+  input: FitnessModifierInput,
+  options?: FitnessModifierOptions,
+): number {
+  const base = options?.base ?? FITNESS_PARAM_MULT_BASE_DEFAULT;
+  const range = options?.range ?? FITNESS_PARAM_MULT_RANGE_DEFAULT;
+  const raw = base + range * (input.fitness / 100);
   return clampAbilityModifier(raw, options);
 }
 

@@ -6,14 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 시작됐습니다 — 12일차 진행 완료(2026-08-05 기준).**
+`create-next-app`에서 출발한 Next.js 프로젝트입니다 (Next.js 16.2.10 / React 19.2.4 / App Router). **구현이 진행 중입니다 — 35일차 완료(2026-09-07 기준).** 일차별 상세는 `docs/dailyWorkLog/NDay.md`가 단일 소스이며, 이 절에는 **"새로 만들기 전에 알아야 할 현재 구조"만** 적습니다.
 
-- **화면 코드가 생겼습니다(10~12일차).** `src/app/[lang]/`에 **루트 레이아웃 1개 + 빈 라우트 17개**(정규 14 + 2차 예약 3)가 있고, **전역 레이아웃 골격(헤더·사이드 내비·푸터)은 12일차에 루트 레이아웃 안에 들어갔습니다**(Task 005, 4팀). 남은 것은 각 라우트의 `loading`/`error`/`not-found` 3종(13일차)입니다.
-  - 헤더의 4개 자리(리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머·로케일 스위처)는 전부 **비활성 placeholder**입니다. 데이터소스·i18n이 붙는 시점(013A 28일차 이후 / 011 22일차)에 교체되니 임의로 채우지 마세요.
-  - `SiteHeader`/`SideNav`/`SiteFooter`는 `src/components/`가 아직 없어 **루트 레이아웃의 로컬 함수**로 두었습니다(4팀 23일차 이후 분리 예정).
+- **라우트 골격과 전역 레이아웃은 완성돼 있습니다.** `src/app/[lang]/`에 루트 레이아웃 1개 + 라우트 20개(각각 `page.tsx` + `loading`/`error`/`not-found` 3종 = 4상태 파일 60개)가 있습니다.
+  - **`page.tsx` 20개 중 18개는 아직 `params`를 JSON으로 출력만 하는 자리표시자입니다.** 실제 화면이 들어간 것은 홈(`[lang]/page.tsx`)과 `[lang]/sample/page.tsx` 둘뿐이며(34일차), 나머지는 5팀이 35일차 이후 Task 015~021로 채웁니다. **임의로 채우지 마세요.**
+  - 헤더 4개 자리 중 **로케일 스위처만 실동작**(`src/components/ui/LocaleSwitcher.tsx`)이고, 리그 스위처·시즌/페이즈 인디케이터·다음 킥오프 타이머는 여전히 **비활성 placeholder**입니다. 데이터소스가 붙는 시점에 교체되니 임의로 채우지 마세요.
+  - `SiteHeader`/`SideNav`/`SiteFooter`는 아직 **루트 레이아웃의 로컬 함수**입니다(23일차 이후 분리 예정이 34일차까지 미이행 — 4팀 소유).
   - **최상단 `src/app/layout.tsx`는 없습니다.** `src/app/[lang]/layout.tsx`가 루트 레이아웃이며 `<html lang>`을 `params.lang`으로 동적 설정합니다. 레이아웃은 자기보다 상위 세그먼트의 `params`를 읽을 수 없어, 분리하면 로케일을 반영할 수 없기 때문입니다(10일차 결정). **최상단에 `layout.tsx`를 다시 만들지 마세요.**
-  - 각 `page.tsx`는 `params`를 JSON으로 출력만 하는 **자리표시자**입니다. 화면 본문은 5팀이 28일차 이후 채웁니다.
-- **⚠️ WSL 마운트(`/mnt/...`)에서 Turbopack이 실패합니다(I-62).** dev는 **`npm run dev`가 `next dev --webpack`으로 고정돼 있어 그대로 쓰면 됩니다**(13일차 조치). Turbopack으로 직접 띄우면(`npx next dev`) 청크 쓰기가 EPERM으로 죽어 모든 페이지가 500이 되니 쓰지 마세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npx tsc --noEmit` / `npm run lint` / `npm run test`로 판정하세요.
+- **컴포넌트 33종이 `src/components/`에 이미 있습니다**(`ui/` 11 · `domain/` 8 · `composite/` 7 · `state/` 6 + 순수 로직 파일). **새로 만들기 전에 반드시 목록부터 확인하세요.** 소유는 `ui`/`domain`/`state` = 4팀, `composite` = 5팀입니다.
+- **⚠️ WSL 마운트(`/mnt/...`)에서 Turbopack이 실패합니다(I-62).** dev는 **`npm run dev`가 `next dev --webpack`으로 고정돼 있어 그대로 쓰면 됩니다**(13일차 조치). Turbopack으로 직접 띄우면(`npx next dev`) 청크 쓰기가 EPERM으로 죽어 모든 페이지가 500이 되니 쓰지 마세요. **프로덕션 빌드는 번들러와 무관하게 실패**하므로(webpack 경로도 최종 `copyfile`에서 EPERM) 빌드 성공을 검증 수단으로 쓰지 말고 `npm run typecheck`(35일차부터 — 이전엔 `npx tsc --noEmit`, I-181로 대체됨) / `npm run lint` / `npm run test`로 판정하세요.
 - **이미 만들어진 코드가 있습니다. 새로 만들기 전에 반드시 확인하세요.**
   - `src/types/**` — 도메인 타입 **단일 소스**(1팀 소유). 11파일, E-01~E-08 정의 완료. **8일차(2026-07-30)에 동결**되며 이후 변경은 이슈 배치 반영만 가능합니다. **여기 있는 타입을 다른 곳에 다시 선언하지 마세요.** import는 배럴(`@/types`)로만 하고, `@/types/match` 같은 서브경로 직접 import는 쓰지 않습니다(체크리스트 C-5·C-6).
   - `src/lib/sim/rng/**` — 시드 PRNG·결정론 유틸(2팀 소유). `prng.ts`(xoshiro128\*\*) / `derive.ts`(시드 계층 파생) / `precision.ts`(확률 6자리 정수 비교). **난수와 확률 비교는 전부 이 모듈을 경유합니다.**
@@ -45,15 +46,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev     # 개발 서버 (http://localhost:3000)
 npm run build   # 프로덕션 빌드
 npm run start   # 프로덕션 서버
-npm run lint    # ESLint (eslint.config.mjs, flat config)
-npm run test    # Vitest 1회 실행 (vitest run)
+npm run lint      # ESLint (eslint.config.mjs, flat config)
+npm run test      # Vitest 1회 실행 (vitest run)
+npm run typecheck # tsc --noEmit 재시도 래퍼 (35일차, I-181 — 아래 참조)
 ```
 
 - **Vitest는 5일차에 선도입**됐고(2팀 PRNG 결정론 검증용), **12일차에 `vitest.config.ts`가 생겼습니다**(1팀 Task 008). 정식 정비(coverage 임계·`test:watch`/`test:coverage` 스크립트)는 15일차까지 이어집니다.
   - **`@/*` 별칭이 테스트에서도 해석됩니다** (`resolve.tsconfigPaths: true` — Vite 8 네이티브 옵션, `tsconfig.json`이 단일 소스). 기존 테스트의 상대경로 import도 그대로 유효하니 일괄 전환하지 마세요.
   - **타입 레벨 테스트(`*.type-test.ts`)는 런타임 `include`가 아니라 `typecheck` 모드로 실행됩니다.** vitest는 esbuild 트랜스폼만 하므로 런타임 include에 넣으면 `expectTypeOf` 단언이 소거돼 **항상 통과하는 무의미한 테스트**가 됩니다(I-46·I-84). `test.typecheck.enabled: true`가 실제 `tsc`를 띄워 검증하며, 이 때문에 `npm run test`가 약 5초 느립니다. **`*.type-test.ts`를 `test.include`에 추가하지 마세요.**
-- **Prettier / typecheck 스크립트 / pre-commit 훅 없습니다.** (Husky, lint-staged 미설치)
-  - 타입체크가 필요하면 `npx tsc --noEmit`을 직접 실행하세요.
+- **Prettier / pre-commit 훅 없습니다.** (Husky, lint-staged 미설치)
+  - **타입체크는 `npx tsc --noEmit`을 직접 실행하지 말고 `npm run typecheck`을 쓰세요**(35일차, I-181). `tsconfig.json`의 `.next/dev/types/**` include는 Next.js 16이 dev/build 전환 시 tsconfig가 흔들리지 않도록 **의도적으로 관리하는 것**이라(지워도 다음 `next dev`/`next build`가 되살림) 손댈 수 없는데, 그 경로가 로컬에서 dev 서버가 띄워진 채로 있을 때 **계속 재생성되는 휘발성 산출물**이라 raw `npx tsc --noEmit`이 그 파일을 쓰는 도중에 읽어 무작위로 실패한다(WSL DrvFs torn write, I-62 계열). `npm run typecheck`(`scripts/typecheck.mjs`)은 오류가 전부 `.next/` 아래에서만 났을 때만 재시도하고, `src/**` 등 실제 오류가 하나라도 섞이면 재시도 없이 그대로 실패시킨다 — CI(dev 서버가 없어 이 경합 자체가 없음)에서도 안전하게 동일 명령을 쓸 수 있다. `npm run gate`(`scripts/gate.sh`)도 내부적으로 이 명령을 쓴다.
 
 ## 실제 구성
 
@@ -61,7 +63,7 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 - **`src/` 디렉터리를 사용합니다.** App Router는 `src/app/`.
 - `tsconfig.json`의 경로 별칭: `@/*` → `./src/*`. 예: `@/components/...`, `@/lib/...`
-- `src/types/`(도메인 타입)와 `src/lib/sim/rng/`(시드 PRNG)는 **이미 존재합니다.** `src/components/`는 아직 없습니다(4팀 23일차 이후 생성).
+- `src/types/`(도메인 타입)·`src/lib/sim/`(엔진)·`src/lib/data/`(어댑터)·`src/components/`(33종)·`src/i18n/`은 **전부 이미 존재합니다.** 만들기 전에 목록부터 확인하세요.
 - 새 코드는 `src/` 하위에 두되, **팀별 소유 경로를 먼저 확인하세요** — `docs/team-schedule/<팀>.md`의 "소유 경로" 절에 어느 디렉터리를 어느 팀이 커밋하는지 갈라 두었습니다. 남의 경로를 고치면 병렬 작업이 충돌합니다.
 
 ### 빌드 / 툴링
@@ -73,8 +75,12 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 - **TailwindCSS v4** (CSS-first). 설정은 `src/app/globals.css`의 `@import "tailwindcss"` + `@theme inline`에 있습니다. **`tailwind.config.ts`는 없습니다.**
 - PostCSS는 `@tailwindcss/postcss` (`postcss.config.mjs`). autoprefixer는 v4 내장이라 미사용.
-- 현재 테마 토큰은 create-next-app 기본형(`--background` / `--foreground` hex 2색)이며, 다크모드는 `@media (prefers-color-scheme: dark)` 기반입니다. 클래스 기반 다크모드 토글은 없습니다.
-- 폰트: `next/font/google`의 Geist / Geist_Mono (`src/app/layout.tsx`에서 CSS 변수로 주입).
+- **테마 토큰은 24~26일차(Task 012)에 확장 완료됐습니다. 새로 만들지 마세요.** `src/app/globals.css`(202줄, 커스텀 프로퍼티 130개)에 shadcn 표준 토큰 전량(oklch, `--background`~`--sidebar-*`·`--chart-1~5`·`--radius-*`), **시맨틱 컬러 5종**(`--promotion`/`--playoff`/`--relegation`/`--live`/`--warning` + `--warning-foreground`), **반응형 브레이크포인트 6종**(320/375/768/1024/1440/1920px)이 들어 있습니다.
+  - 시맨틱 5종은 **색상 단독 사용 금지**입니다(NFR-A11Y-002) — 아이콘·라벨을 반드시 병기하세요. `--warning`은 라이트 배경 대비가 1.34:1이라 **단독 채움 금지**, 항상 `--warning-foreground`와 함께 씁니다.
+  - 토큰 값을 바꾸면 `src/lib/a11y/contrast.test.ts`가 `globals.css`를 직접 파싱해 CVD ΔE·색역·대비를 단언합니다. **ΔE 하한 12 대비 실측 최소치가 12.56이라 여유가 0.56뿐입니다**(I-144) — 토큰을 건드리면 먼저 이 테스트를 돌리세요.
+  - 타이포·간격은 Tailwind v4 기본 스케일을 **채택 결정**한 것입니다(오버라이드 없음). 그 결정 기록은 `globals.css` 주석이 단일 소스입니다.
+  - 다크모드는 `@media (prefers-color-scheme: dark)` 기반이며 클래스 기반 토글은 없습니다(`.dark` 셀렉터 0건).
+- 폰트: `next/font/google`의 Geist / Geist_Mono (**`src/app/[lang]/layout.tsx`**에서 CSS 변수로 주입). 최상단 `src/app/layout.tsx`는 존재하지 않습니다(위 "10일차 결정" 참조).
 
 ### Next.js 16 주의
 
@@ -84,7 +90,8 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 다음은 **설치/작성되어 있지 않습니다.** 있는 것처럼 가정하고 코드를 작성하지 마세요. 필요해지면 그때 새로 도입합니다.
 
-- Supabase 클라이언트 코드 (`@supabase/*` 패키지 자체가 미설치), 인증 라우트, 미들웨어(`proxy.ts`), DB 타입(`lib/database.types.ts`)
+- **`@supabase/*` 패키지** — 미설치가 맞습니다. 단 **Supabase 어댑터 자체는 있습니다**(`src/lib/data/supabase/`, REST 브리지 방식). DB 타입도 **`src/lib/data/database.types.ts`에 이미 생성돼 있습니다**(경로 주의 — `lib/database.types.ts`가 아닙니다).
+- 인증 라우트 (2차 릴리스, Task 037)
 - `next-themes` 다크모드 Provider
 
 ### ✅ 이미 도입된 것 (23일차 — 위 목록에서 빠졌던 항목)
@@ -114,7 +121,8 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 - 화면은 모두 component 단위로 만듭니다.
 - 화면의 모든 컴포넌트는 `http://localhost:3000/sample`에 보이도록 배치합니다.
-  - **`/sample` 라우트는 10일차에 생겼습니다** — `src/app/[lang]/sample/page.tsx`(빈 자리표시자). 쇼케이스 본문은 4팀 Task 014(34~38일차)에서 채웁니다. 임의로 채우지 말고 해당 팀 일정에 따르세요. 접근 경로는 `/ko/sample`·`/en/sample`입니다(로케일 없는 `/sample`은 `proxy.ts` 도입 전까지 404).
+  - **`/sample` 쇼케이스는 34일차에 실렌더되기 시작했습니다** — `src/app/[lang]/sample/page.tsx`에 5개 카테고리 섹션 + 앵커 내비가 있고 **컴포넌트 22종이 실제로 렌더**됩니다(4팀 Task 014, 38일차까지 계속). 35일차에 **4상태 토글(`StateToggleSlot`)과 뷰포트 프리뷰(`ViewportFrame`)**가 추가됐습니다 — 프리뷰는 Tailwind `sm:`/`lg:`가 뷰포트 기준이라 컨테이너 폭만 바꾸면 재배치되지 않으므로 **컨테이너 쿼리(`@container` + `@sm:`/`@lg:`)를 씁니다.** **4팀 소유이므로 임의로 채우지 마세요.** 신규 컴포넌트를 만들면 여기 등록해야 KPI-6 커버율이 유지됩니다.
+  - 접근 경로는 `/ko/sample`·`/en/sample`이며, **로케일 없는 `/sample`도 `src/proxy.ts`가 기본 로케일로 리다이렉트합니다**(더 이상 404가 아닙니다). 단 `matcher`가 `_next`·`api`·확장자 경로를 의도적으로 제외하므로, 무효 `lang` 차단은 `[lang]/layout.tsx`의 `notFound()`가 2중 방어합니다.
 - 개발은 더미 데이터(Mock Data)로 화면(UI)부터 구현합니다.
 - Database 설계 및 연결 전에 화면, 컴포넌트 구조, 사용자 경험(UX)을 먼저 완성합니다.
 - Mock 데이터와 실제 Database 데이터는 **동일한 TypeScript 타입**을 사용합니다.
@@ -124,7 +132,7 @@ npm run test    # Vitest 1회 실행 (vitest run)
 
 ### 개발중 이슈 관련사항 (결정 X, 개선사항)
 
-- `docs/ISSUES.md`에 기록합니다. 현재 **I-129**까지 등재되어 있으며 **제보는 전원, 반영(파일 편집)은 1팀 코어·품질팀**이 합니다(일차 마감 교차 점검에서 나온 항목은 팀장이 직접 등재하기도 합니다).
+- `docs/ISSUES.md`에 기록합니다. **최신 이슈 번호는 이 파일에 적지 않습니다 — `docs/ISSUES.md`가 단일 소스입니다**(번호를 여기 박아 두면 매 일차 갱신이 필요해 반드시 stale해집니다. 실제로 I-129로 43건 뒤처진 채 방치됐습니다). **제보는 전원, 반영(파일 편집)은 1팀 코어·품질팀**이 합니다(일차 마감 교차 점검에서 나온 항목은 팀장이 직접 등재하기도 합니다).
 - **확정된 결정**은 ISSUES가 아니라 `docs/require/06-prioritization-and-risks.md` 6.3절 결정 기록(D-\*)이 단일 소스입니다. 결정과 미결을 같은 곳에 쓰지 마세요.
 
 ### 테스트계정 (계정/비밀번호)

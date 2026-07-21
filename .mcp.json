@@ -7,8 +7,10 @@
     "playwright": {
       "type": "stdio",
       "command": "npx",
-      "args": ["@playwright/mcp@latest"],
-      "env": {}
+      "args": ["@playwright/mcp@latest", "--browser", "chromium", "--headless"],
+      "env": {
+        "LD_LIBRARY_PATH": "/home/cho/.local/share/playwright-deps"
+      }
     },
     "context7": {
       "type": "http",

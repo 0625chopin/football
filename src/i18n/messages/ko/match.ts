@@ -15,6 +15,12 @@
 //
 // 34일차(Task 015, 5팀): `card`(`MatchCard`) 그룹 추가. LIVE 배지 라벨은 기존 `live.label`을
 // 재사용하고(중복 선언 금지), 이 그룹은 카드 자체의 4상태 문구 + 점수/경과분 서식만 담는다.
+//
+// 35일차(Task 015, 5팀): `news.sectionTitle` 추가 — 홈 A4 "주요 뉴스 요약" 섹션 제목.
+// 새 네임스페이스(`home.*`) 대신 기존 `news` 그룹에 얹었다(뉴스 전용 네임스페이스 분리는
+// I-154 판정 대기 중이라 임의로 만들지 않음, 28일차 판단과 동일 근거).
+//
+// 35일차(Task 015, 5팀, I-169 해소 후속): `upcoming`(A3 "다음 킥오프 목록") 그룹 추가.
 export const match = {
   list: {
     title: "경기 목록",
@@ -43,6 +49,8 @@ export const match = {
     loading: "뉴스를 불러오는 중…",
     empty: "표시할 뉴스가 없습니다.",
     error: "뉴스를 불러오지 못했습니다.",
+    // 35일차(Task 015, 5팀) — 홈 A4 "주요 뉴스 요약" 섹션 제목.
+    sectionTitle: "주요 뉴스",
   },
   lineup: {
     loading: "라인업을 불러오는 중…",
@@ -63,6 +71,11 @@ export const match = {
     error: "경기 정보를 불러오지 못했습니다.",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
+  },
+  upcoming: {
+    sectionTitle: "다음 킥오프",
+    empty: "예정된 경기가 없습니다.",
+    matchupFormat: "{home} vs {away}",
   },
 };
 
