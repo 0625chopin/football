@@ -412,6 +412,39 @@
 
 ---
 
+### D-34 · 선수 평점 지표 4종의 노출과 저장 위치 (`docs/ISSUES.md` I-238)
+
+> 판정: 사용자 + 팀장, **2026-09-23(47일차)** / 제기: 사용자 요청("선수정보: 출전경기수, 최근경기평점, 리그평균평점, 지난리그평균평점") / 반영: 1팀 타입 · 3·6팀 어댑터 · 5팀 Task 018
+
+| 항목 | 내용 |
+|---|---|
+| **문제** | 요청된 4지표 중 **출전경기수만 존재**하고(`PlayerStatCoreValues.appearances`) 평점 3종은 타입에 없다. `matchRating`은 `PlayerMatchStat`(경기 단위)뿐이라 시즌 평균을 **파생으로도 얻을 수 없다.** 그런데 `docs/wireframe/05-선수상세.md` E6 표는 이미 `평점` 열을 명세하고 있어, Task 018을 그대로 진행하면 확정 명세를 채우지 못한 채 완료 처리된다 |
+| **결정 ①(저장)** | **`avgRating: number`(1.0~10.0)를 `PlayerSeasonStat`·`PlayerCareerStat`에만 추가한다.** `PlayerStatCoreValues`에는 넣지 않는다 — ⓐ 그 인터페이스는 파일 헤더가 못박은 "합산형만 저장, 파생 비율은 계산" 대상이고 ⓑ `PlayerStatRankingMetric = keyof PlayerStatCoreValues`(`src/lib/data/DataSource.ts:281`)라 키를 늘리면 **완료된 Task 019 통계 랭킹 화면의 지표 목록이 조용히 바뀐다**(회귀). 집계 인터페이스에 저장형 평균을 두는 선례는 같은 인터페이스의 `avgCondition`이다 |
+| **결정 ②(지난 시즌)** | **신규 필드·메서드를 만들지 않는다.** `getPlayerSeasonStats(playerId)`가 이미 전 시즌 행을 반환하므로 `avgRating` 하나로 현 시즌과 직전 시즌이 모두 해결된다 |
+| **결정 ③(벤치마크)** | 선수 평균과 함께 **리그 전체 평균을 병기**한다(사용자 선택). `getLeagueAverageRating({seasonId, leagueId, competitionType})`를 `DataSource`에 추가하며, 표본 0이면 `null`을 반환한다 |
+| **결정 ④(최근경기평점)** | `getPlayerRecentMatchStats({playerId, limit})`를 추가하고 **어댑터 레벨에서 `FINISHED` 경기만 거른다.** 진행 중 경기 평점 컷오프는 **UI 필터가 아니라 데이터 계약**이라는 기존 판정(와이어프레임 05 W-34 / S-4~S-8, R-11, NFR-SEC-004)의 연장이며 Mock·Supabase 양쪽이 동일하게 보장한다 |
+| **범위 밖(명시)** | **평점 랭킹 개방**(`PlayerStatRankingMetric`을 `keyof PlayerStatCoreValues \| 'avgRating'`로 확장)은 FR-ST-004가 요구하지만 4팀 `/stats` 드롭다운 동반 수정이 필요해 **이번 반영에서 분리**한다. I-238에 잔여로 남긴다 |
+| **기각안** | ⓐ `PlayerStatCoreValues`에 `ratingSum`(합산형)을 넣고 평균을 파생하는 안 — 원칙에는 가장 정합하나 `PlayerMatchStat`에서 `ratingSum === matchRating`이 되는 중복이 생기고, 위 ⓑ의 랭킹 메트릭 회귀를 똑같이 유발한다 ⓑ 화면에서 경기별 평점을 매번 평균 내는 안 — 시즌 전 경기를 조회해야 해 목록·상세 p95(≤300ms, NFR-PF) 예산을 깬다 |
+| **반영 위치** | `src/types/stat.ts`, `src/types/stat.type-test.ts`, `src/lib/data/DataSource.ts`, `src/lib/mock/**`·`src/lib/data/mock/MockDataSource.ts`(3팀), `src/lib/data/supabase/mapper.ts` + 신규 마이그레이션(6팀), `src/app/[lang]/players/[playerId]/page.tsx` E1·E6(5팀 Task 018) |
+
+---
+
+### D-35 · 구단주(ClubOwner) 도입 — 스폰서 계약의 주체는 구단주, 수입 귀속은 팀 (`docs/ISSUES.md` I-239)
+
+> 판정: 사용자 + 팀장, **2026-09-23(47일차)** / 제기: 사용자 요청("구단주가 있고 구단주가 스폰서와 계약하는 방식으로 변경") / 반영: 전 팀
+
+| 항목 | 내용 |
+|---|---|
+| **문제** | 현재 `SponsorContract`는 `sponsorId ↔ teamId` 직결이라 **계약 주체 개념이 없다.** 구단주에 해당하는 엔티티·필드·문서는 저장소 전체에 0건이라(전수 grep 확인) 겹치는 Task·일차도 없다 |
+| **결정 ①(엔티티)** | **E-48 `ClubOwner`를 신설**하고 팀과 **1:1**로 둔다. `teamId: null` = 공석을 허용해 **E-06 Manager(D-20/T19·T21)의 독립 엔티티 패턴을 그대로 승계**한다 — 새 관계 패턴을 만들지 않는다. 필드는 `id`/`teamId`/`name`/`age`/`nationality`/`wealth`/`negotiation`/`reputation`/`sinceSeason`. `wealth`·`negotiation`은 **1~30 정수 스케일**(T5 관례, 브랜드 없음), 이름은 3팀 공유 생성기 경유 고유명사(D-17)이며 **번역 비대상**(D-18/T14) |
+| **결정 ②(자금 모델 — 핵심)** | **계약 주체만 구단주로 바꾸고 돈 흐름은 건드리지 않는다.** `SponsorContract.teamId`(수입 귀속처)를 **유지한 채** `signedByOwnerId: ClubOwnerId`를 추가한다. 스폰서 수입의 zero-sum 2건 기록(팀 잔고 +, 스폰서 잔고 −)이 그대로이므로 **26일차에 검증 끝난 회계 항등식(NFR-QA-005)과 `src/lib/economy/accounting-identity.test.ts`가 한 줄도 깨지지 않는다.** **`PointTransactionOwnerType`에 `'OWNER'`를 추가하지 않는다** |
+| **결정 ③(명명)** | **`ClubOwner` / `club_owner` / `ClubOwnerId`로 고정한다.** `Owner` 단독 명칭 금지 — `PointTransaction.ownerType`/`ownerId`와 물리 테이블 `point_transaction.owner_id`(다형 참조, `core_tables_phase1.sql:581`)가 이미 "원장 소유자"라는 **다른 뜻**으로 `owner`를 점유하고 있어 혼용 시 잘못된 조인이 컴파일을 통과한다 |
+| **결정 ④(협상 반영)** | `proposeSponsorContract()`(3팀 `src/lib/economy/sponsor.ts`)가 구단주 축(`wealth`·`negotiation`·`reputation`)을 제안 금액·`sharePct` 산출에 반영한다. **신규 계수는 05문서에 근거 수치가 없으므로 억측하지 않고**, 키 부재 시 중립값(배율 1)으로 처리한다(`valuation.ts`의 `AGE_*` 선례) — 임시값은 Task 031b(63~66일차) 실값 정렬 대상에 넣는다(I-136 계열). **팀당 ACTIVE ≤ 3 제약은 팀 축 그대로**이며 1구단주=1팀이라 해석 변경이 없다 |
+| **기각안** | ⓐ **구단주가 자체 잔고를 갖고 팀에 출자**하는 안(사용자 검토 후 기각) — `PointTransactionOwnerType` 확장이 원장·회계 항등식 테스트·DB CHECK 제약·zero-sum 검증을 전부 재작업 대상으로 만든다. 요청의 본질("계약 주체가 구단주")은 결정 ②로 충족된다 ⓑ **1구단주 다팀(멀티클럽 오너십)** — 밸런싱 축이 하나 늘고 스폰서 슬롯 제약 해석을 재정의해야 한다 ⓒ **`Team.ownerId`로 팀에 필드만 추가**하는 안 — 감독을 팀 속성으로 두지 않기로 한 D-20과 정면으로 어긋난다 |
+| **반영 위치** | `src/types/brand.ts`(`ClubOwnerId`)·`src/types/person.ts`(`ClubOwner`)·`src/types/economy.ts`(`signedByOwnerId`)·`src/types/index.ts`, `src/lib/data/DataSource.ts`(`getClubOwner`), `src/lib/economy/sponsor.ts`·`src/lib/mock/world.ts`·`src/lib/data/mock/MockDataSource.ts`(3팀), `supabase/migrations/**`·`src/lib/data/supabase/mapper.ts`(6팀), `src/app/[lang]/teams/[teamId]/page.tsx` F3-o·F6(5팀), `src/app/[lang]/sponsors/page.tsx`(4팀), `docs/wireframe/06-클럽상세.md` |
+
+---
+
 ## 6.4 리스크 목록
 
 | ID | 리스크 | 영향도 | 발생 가능성 | 완화책 | 관련 요구사항 |
