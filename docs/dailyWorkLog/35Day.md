@@ -75,7 +75,11 @@
 
 `npm run test`가 매 실행 **`Errors 1`**을 보고했는데 **5개 팀 전원이 "1331 passed"만 보고 통과 판정**했다. 격리 확인(`--typecheck.enabled=false` → 0건) 후 1팀 제보 → I-180 종결.
 
-이어 **더 심각한 사실** — 프로젝트 지정 검증 명령인 **`npx tsc --noEmit` 자체가 EXIT 1**이었다(`src/` 0건, `.next/dev/types` 4건). `CLAUDE.md`가 "빌드 대신 tsc/lint/test로 판정하라"고 못박은 그 명령이 **dev 서버 가동 여부로 통과/실패가 갈렸다.** CI가 종료 코드로 판정하면 오늘 산출물 전부가 실패다 → I-181 종결(`npm run typecheck` 신설).
+이어 **더 심각한 사실** — 프로젝트 지정 검증 명령인 **`npx tsc --noEmit` 자체가 EXIT 1**이었다(`src/` 0건, `.next/dev/types` 4건). `CLAUDE.md`가 "빌드 대신 tsc/lint/test로 판정하라"고 못박은 그 명령이 **dev 서버 가동 여부로 통과/실패가 갈렸다** → I-181 종결(`npm run typecheck` 신설).
+
+⚠️ **팀장 서술 정정**: 최초 제보에서 "CI가 종료 코드로 판정하면 오늘 산출물 전부가 실패한다"고 썼으나 **과장이었다.** 1팀이 확인한 대로 **CI에는 이 경합 자체가 없다** — `gate.sh`가 클린 체크아웃에서 `next typegen`으로 산출물을 새로 만들고, 그 시점에 동시에 쓰는 dev 서버가 없기 때문이다. **현상은 로컬(dev 서버 동시 가동) 전용**이다. 다만 판정 명령이 환경에 따라 흔들린다는 문제 자체는 유효해 수정은 그대로 진행했다.
+
+**tsconfig는 손댈 수 없음이 확정됐다**(1팀, Next.js 소스 근거) — `.next/types`와 `.next/dev/types`를 함께 include하는 것은 **dev/build 전환 시 tsconfig 흔들림을 막기 위한 Next.js 16의 의도적 설계**이며(`lib/typescript/type-paths.js` 주석), `writeConfigurationDefaults.js`가 `next dev`/`next build`마다 자동으로 되채운다. 따라서 "include에서 제거" 방향은 기각되고 래퍼 우회가 유일한 경로였다.
 
 부수 2건: ⓐ `vitest.config.ts`가 **존재하지 않는 I-180을 인용**했다(`grep -c` → 0). ⓑ 그 주석의 *"루트 tsc 게이트가 담당하므로 커버리지 손실 없다"*는 전제가 **틀렸다**(동일 결함 잔존). **팀장 자기 정정**: 최초 보고 시 파이프 뒤 `$?`를 읽어 `tail`의 종료 코드를 tsc 것으로 오독 → 재측정 후 정정.
 
