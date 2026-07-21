@@ -66,6 +66,21 @@ export const match: MatchMessages = {
   playoffs: {
     title: "{league} Playoffs",
   },
+  playoffsList: {
+    title: "Playoffs",
+    description: "Check each league's playoff bracket, then jump to the full bracket or the cup.",
+    slotsLabel: "Playoff slots",
+    roundsGeneratedLabel: "Rounds generated",
+    roundsGeneratedFormat: "{count} rounds",
+    nextMatchLabel: "Next match",
+    finalResultLabel: "Final round result",
+    bracketEmptyTitle: "Bracket not generated",
+    bracketEmptyDescription: "This league's playoff bracket hasn't been generated yet.",
+    detailLinkLabel: "View bracket",
+    cupSectionTitle: "Cup",
+    cupSectionDescription: "Check the combined 3-league cup tournament bracket.",
+    cupLinkLabel: "View cup bracket",
+  },
   cup: {
     title: "Cup",
     summaryFormat: "{teams} teams · {rounds} rounds · {matches} matches",

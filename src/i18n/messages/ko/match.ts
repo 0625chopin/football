@@ -143,6 +143,28 @@ export const match = {
     // {league}는 League.name 그대로 치환된다(고유명사, 번역 대상 아님, D-17).
     title: "{league} 플레이오프",
   },
+  // 50일차(Task 048, 4팀): `playoffsList`(`/[lang]/playoffs` 인덱스) 그룹 추가. 대회 선택
+  // 화면이라 `playoffs`(위, `[leagueId]` 상세 제목)와 분리했다 — `league.ts`가 `list`/`detail`
+  // 두 그룹으로 나눈 것과 동일 판단. 슬롯 수·킥오프 표기는 새 키를 만들지 않고
+  // `league.header.teamCountFormat`·`match.upcoming.matchupFormat`·`match.cup.matchupFormat`·
+  // `fixtures.round.kickoffLabel`을 재사용한다.
+  playoffsList: {
+    title: "플레이오프",
+    description: "리그별 플레이오프 대진을 확인하고, 대진표 또는 컵대회로 이동합니다.",
+    slotsLabel: "진출 슬롯",
+    roundsGeneratedLabel: "생성 라운드",
+    roundsGeneratedFormat: "{count}라운드",
+    nextMatchLabel: "다음 경기",
+    finalResultLabel: "최종 라운드 결과",
+    // I-227(mock 리그1 WC 절삭)로 실제 생성 라운드 수가 명세와 달라도 이 카드는 어댑터
+    // 반환값을 그대로 보여준다 — 별도의 "정상" 라운드 수를 가정하지 않는다.
+    bracketEmptyTitle: "대진표 미생성",
+    bracketEmptyDescription: "이 리그는 플레이오프 대진이 아직 생성되지 않았습니다.",
+    detailLinkLabel: "대진표 보기",
+    cupSectionTitle: "컵대회",
+    cupSectionDescription: "3개 리그 통합 토너먼트 대진표를 확인합니다.",
+    cupLinkLabel: "컵대회 대진표 보기",
+  },
   // 45일차(Task 020, 4팀): `cup`(`/[lang]/cup`) 그룹 추가. 컵은 3개 리그 통합 단일
   // 대회라 `playoffs`처럼 `{league}` 보간이 없다. 티어 라벨 자체는 `league.header.tierLabel`/
   // `teamCountFormat`을 재사용하고(재선언 금지) 여기는 컵 화면 전용 문구만 담는다.

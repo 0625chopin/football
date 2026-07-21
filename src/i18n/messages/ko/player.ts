@@ -137,6 +137,55 @@ export const player = {
     // 라벨로 구분).
     leagueBenchmarkFormat: "리그 벤치마크 {value}",
     previousSeasonLabel: "지난시즌",
+    // 50일차(Task 018 2/2) — E6 스탯 테이블(`PlayerStatTable`, 화면 로컬 신규) 확장.
+    tableTitle: "스탯",
+    tabSeason: "시즌별",
+    tabCareer: "통산",
+    // {name}은 Player.name(고유명사) — 번역 대상 아님(D-17), 그대로 치환된다(R-7).
+    seasonCaption: "{name} 시즌별 기록",
+    careerCaption: "{name} 통산 기록",
+    tableEmpty: "출전 기록 없음",
+    seasonHeader: "시즌",
+    competitionHeader: "대회",
+    appearancesHeader: "출전",
+    appearancesHeaderFull: "출전 경기 수",
+    startsHeader: "선발",
+    startsHeaderFull: "선발 출전 수",
+    minutesHeader: "분",
+    minutesHeaderFull: "출전 시간(분)",
+    goalsHeader: "득",
+    goalsHeaderFull: "득점",
+    assistsHeader: "도",
+    assistsHeaderFull: "도움",
+    ratingHeader: "평점",
+    ratingHeaderFull: "경기 평균 평점",
+    careerRowLabel: "통산",
+    moreGroupsTitle: "그룹 더보기",
+    groupAttack: "공격",
+    groupPassing: "패스",
+    groupDribbling: "드리블",
+    groupDefense: "수비",
+    groupDiscipline: "규율",
+    groupGk: "GK",
+    shotsHeader: "슈팅",
+    shotsOnTargetHeader: "유효슈팅",
+    xgHeader: "xG",
+    xaHeader: "xA",
+    passesCompletedHeader: "패스성공",
+    passesAttemptedHeader: "패스시도",
+    keyPassesHeader: "키패스",
+    dribblesCompletedHeader: "드리블성공",
+    dribblesAttemptedHeader: "드리블시도",
+    touchesHeader: "터치",
+    tacklesWonHeader: "태클성공",
+    interceptionsHeader: "인터셉트",
+    clearancesHeader: "클리어링",
+    foulsCommittedHeader: "파울",
+    yellowCardsHeader: "경고",
+    redCardsHeader: "퇴장",
+    savesHeader: "선방",
+    cleanSheetsHeader: "클린시트",
+    goalsConcededHeader: "실점",
   },
   empty: {
     message: "표시할 선수가 없습니다.",
@@ -149,6 +198,13 @@ export const player = {
     error: "성장 곡선을 불러오지 못했습니다.",
     // {min}/{max}는 시즌별 OVR 이력의 최솟값/최댓값(숫자)이 그대로 치환된다.
     ariaLabel: "선수 OVR 성장 곡선 ({min}~{max})",
+    // 50일차 — E7 섹션 제목 + 시각 정보 대체용 sr-only 표(NFR-A11Y-005, "곡선은
+    // 시즌별 OVR을 <table> sr-only로 병기").
+    sectionTitle: "성장 곡선",
+    // {name}은 고유명사 변수 주입(D-17).
+    srTableCaption: "{name} 시즌별 OVR",
+    srSeasonHeader: "시즌",
+    srOvrHeader: "OVR",
   },
   injuryTimeline: {
     empty: "표시할 부상 기록이 없습니다.",
@@ -157,6 +213,54 @@ export const player = {
     roundLabel: "R{round}",
     // {start}/{end}는 라운드 번호(숫자)가 그대로 치환된다.
     roundRangeFormat: "R{start}–R{end}",
+    // 50일차 — E8 섹션 제목 + 통산 요약(FR-PL-009 ③).
+    sectionTitle: "부상 타임라인",
+    // {count}/{rounds}는 숫자가 그대로 치환된다.
+    summaryFormat: "통산 부상 {count}회 · 결장 {rounds}R",
+  },
+  value: {
+    // 50일차(Task 018 2/2) — E5 몸값·계약. 단위는 포인트(L-03), 원화 기호·"원" 표기 금지.
+    sectionTitle: "몸값 · 계약",
+    marketValueLabel: "몸값",
+    // {amount}는 `formatPoints()`(`@/i18n/format`)로 이미 천단위 서식이 적용된 문자열이
+    // 그대로 치환된다(`sponsor.common.pointsFormat`과 동일 관례).
+    pointsFormat: "{amount} pt",
+    // {start}/{end}는 Contract.startSeason/endSeason(숫자)이 그대로 치환된다.
+    contractSeasonFormat: "계약 {start}~{end}시즌",
+    // {count}는 잔여 시즌 수(숫자)가 그대로 치환된다.
+    contractRemainingFormat: "(잔여 {count}시즌)",
+    wageLabel: "시즌 급여",
+    contractEmpty: "계약 정보 없음",
+  },
+  career: {
+    // 50일차(Task 018 2/2) — E9 커리어 이력. `[트로피]` 탭은 `TrophyCase`(013B 기존
+    // 산출물)를 그대로 쓰고, `[이적]` 탭만 화면 로컬 신규(`TransferHistoryList`).
+    sectionTitle: "커리어 이력",
+    tabTrophy: "트로피",
+    tabTransfer: "이적",
+    transferEmpty: "이적 이력 없음",
+    // TransferType(TRANSFER/FREE/TRADE/RELEASE) 표시명은 enums.ts에 카탈로그가 없어
+    // (`competitionType`과 동일 사유, 이슈 후보) 화면 로컬로 임시 채운다. 최상위
+    // `player.transferType.*`/`player.competitionType.*`(아래)를 대신 참조한다.
+    loanKindLabel: "임대",
+  },
+  // 50일차 — TransferType(E-13)·CompetitionType(E-20) 표시명 카탈로그. `enums.ts`
+  // (3팀 소유)에 두 카탈로그가 없어(카탈로그 목록에 없음), `enums.trophyType`이 32일차
+  // 신설 전까지 그랬던 것과 동일하게(I-166 선례) `player` 네임스페이스 로컬로 임시
+  // 채운다(`t(locale, "player.competitionType.LEAGUE")` 형태로 경유 — `enums.trophyType`과
+  // 동일한 3단 경로 규약). 로컬인 이유는 소비처가 이 화면 하나뿐이기 때문이다(I-249와
+  // 동일 판단) — 두 번째 소비 화면이 생기면 `enums.ts` 승격을 이슈로 등재해야 한다(보고 참조).
+  competitionType: {
+    LEAGUE: "리그",
+    PLAYOFF: "플레이오프",
+    CUP: "컵",
+    TIEBREAK: "타이브레이크",
+  },
+  transferType: {
+    TRANSFER: "이적",
+    FREE: "자유이적",
+    TRADE: "트레이드",
+    RELEASE: "방출",
   },
 };
 
