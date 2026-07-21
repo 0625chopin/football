@@ -447,6 +447,9 @@
 - **수락 기준**: 등록 컴포넌트 4상태 커버율 100%. 이후 모든 신규 컴포넌트는 `/sample` 등록 + ko/en 확인이 완료 조건에 포함된다.
 - **테스트**: Playwright MCP — `/sample` 진입 후 4상태·로케일 토글 조작, 콘솔 에러 0건, 스크린샷 확보.
 
+- **36일차(4팀) — 로케일 전환 컨트롤 완료.** `LocaleCompareToggle.tsx`(신규) + `sample/page.tsx` 본문을 `renderShowcaseBody(locale)`로 감싸 라우트 이동 없이 ko/en을 즉시 비교한다. **팀장 Playwright 실측으로 수락 기준("즉시 전환") 충족 확인** — URL 불변 · 문서/RSC 요청 0건 · 본문 전환 · 중복 `id` 없음 · 전환 후 `#domain` 앵커 정상.
+  - 설계 기각 근거 2건: ⓐ 헤더 `LocaleSwitcher` 재사용은 **라우트 이동**이라 서버 재실행 + RSC 왕복이 생겨 "즉시"가 아니다 ⓑ CSS `hidden`으로 두 트리를 동시 마운트하면 `ShowcaseSection`의 고정 `id`가 중복돼 **앵커가 숨겨진 사본을 가리킬 수 있다** → 조건부 마운트 채택
+
 ### Task 015: 홈/라이브 센터와 전역 레이아웃을 완성한다
 
 - **담당**: 5팀 화면·배팅UX팀 / 리뷰: 4팀 UI기반·i18n팀
@@ -464,6 +467,11 @@
   - [ ] 모바일 세로 우선 레이아웃, LCP ≤ 2.5s / CLS ≤ 0.1 목표
 - **수락 기준**: 접속 3초 내 진행 중 경기와 스코어 파악 가능(PS-1 성공 신호). 320px에서 가로 스크롤 0.
 - **테스트**: Playwright MCP — 폴링 네트워크 요청 관찰, 탭 비활성 시 중단 확인, 6개 뷰포트 × 2로케일 스냅샷.
+
+- **36일차(5팀) — 폴링 훅 적용 + I-182 동시 해소.** `src/app/api/live/matches/route.ts`(신규 Route Handler) 신설, `LiveMatchGrid`의 fetcher가 클라에서 `bootstrapApp()`→`getDataSource()`를 직접 부르던 것을 `fetch()` 경유로 교체했다(35일차 소유 경로 개정이 못박은 "폴링 fetcher는 Route Handler 경유" 규약 준수).
+  - **팀장 실측**: `/api/live/matches` 200 / 클라 번들에서 `bootstrap.ts`·`factory.ts`·`data/mock`·`data/supabase` **전부 0건**(모듈 등록 문자열 기준 — raw grep은 JSDoc 산문 때문에 오탐이 난다) / 탭 활성 40초 1건 · **탭 비활성 40초 0건**으로 수락 기준 충족.
+  - **⚠️ 실운영 주기는 아직 5초가 아니다** — `UI_PARAM` 미적재라 `polling.ts` 안전망 30초로 동작한다. 6팀이 3팀 시드(031a)를 적재해야 정상값이 걸린다.
+  - 1팀 응답 타입 계약 미확정이라 `src/app/api/live/matches/types.ts`에 `LiveMatchesApiResponse`를 **임시 정의**(파일 헤더에 교체 대상 명시). 새 도메인 타입 없이 `@/types`·`DataSource.ts`만 재사용.
 
 ### Task 016: 리그 순위표와 일정/결과 화면을 완성한다
 
@@ -659,7 +667,7 @@
   - [~] 후처리 7종을 단일 트랜잭션으로 — 스코어 확정 / 순위 갱신 / 스탯 누적 / 컨디션·피로 / 부상 판정 / 카드·정지 / 정산 트리거 *(33일차 골격 완료 — `sim/postmatch/pipeline.ts`의 `POST_MATCH_STAGE_ORDER`가 순서 단일 소스, `executedStages` 런타임 트레이스로 순서 증명. **4종 실배선**(스코어 확정·스탯 누적·카드 정지·정산 트리거) / **3종 `implemented:false` 계약뿐**(순위 갱신·컨디션 피로·부상 판정 — 하위 모듈 부재, 실산식 착수 일차 미배정). 실패 시 throw 전파로 원자성 확보)*
   - [x] 실패 시 전체 롤백 + 최대 3회 재시도 + 알림, 재실행 멱등(중복 누적 0) *(34일차 — `runPostMatchPipelineWithRetry()` 기본 3회·첫 성공 즉시 반환, 전부 실패 시 throw 없이 `ok:false` + 알림 페이로드(발송은 오케스트레이션 계층). **실패 분기가 `PostMatchPipelineResult`의 어떤 필드도 담지 않는 유니온 타입**이라 "전체 롤백"이 구조적으로 강제된다. 멱등: `computePostMatchIdempotencyKey()` + 파이프라인 무상태성(매 호출 새 `Map`)으로 스탯 이중 누적 0. **단 이 키는 `fixtureId` 단독이라 Tier B 재시뮬레이션 구분자가 아니다 — I-171**)*
   - [x] 7단계 타이브레이커 — 승점 → 골득실 → 다득점 → 승자승 미니리그 → 다승 → 페어플레이 → 시드 추첨 *(35일차 — `sim/standing/tiebreak.ts` `resolveStandings()`, 재귀 그룹 분해로 각 단계는 직전까지 완전 동률인 그룹에서만 실행하고 갈리는 즉시 `tiebreakApplied`에 단계 번호 기록. 시드 추첨은 `rng/derive.ts`에 `LAYER_TAG.STANDING` 신설 + `deriveStandingDrawSeed()`, `nextIntBelow` 기반 Fisher–Yates. `MATCH_POINTS`는 파라미터 주입(I-83 패턴). **19개 테스트가 7단계를 각각 단독 결정 케이스로 덮음** — 3팀 이상 동률 미니리그 재계산·동률 그룹 밖 경기 필터링·**PRNG `state` 이어받기를 독립 재구현 Fisher–Yates와 대조**(5팀 이상으로 뽑아 우연 일치 배제) 포함. `precision.ts` 미경유는 적용 대상 아님 — 확률 임계 비교가 아니라 정수 인덱스 뽑기)*
-  - [ ] 승강 경계 동률 시 `competition_type = TIEBREAK` Fixture 자동 생성
+  - [x] 승강 경계 동률 시 `competition_type = TIEBREAK` Fixture 자동 생성 *(36일차 — `src/lib/sim/standing/playoff-tiebreak.ts` `detectBoundaryTiebreaks()`, 테스트 9건. 경계 순위값은 리터럴화하지 않고 호출자가 `StandingBoundary[]`로 주입(NFR-CFG-001), 브랜드 ID는 발급하지 않고 `TiebreakFixtureDraft` 초안만 반환(`berger.ts`의 `BergerFixture`와 동일 패턴). **3팀 이상 동시 경계 동률의 다자 대진 규칙은 요구사항 미기재라 명시적 오류 처리 → I-189**)*
   - [ ] 사전 집계 `standing` 테이블 갱신(라운드별 스냅샷), 경기 평점 산출(FR-ST-003)
   - [ ] 선수·팀 지표 풀세트 집계 및 이벤트 로그 기반 재계산 함수 (FR-ST-005)
 - **수락 기준**: 순위표 조회가 실시간 계산 없이 p95 ≤ 120ms 경로로 동작. 7단계 각각이 단독으로 순위를 가르는 시나리오 통과.
@@ -765,6 +773,11 @@
   - [ ] **밸런싱 튜닝 루프** — 20시즌 장기 시뮬 → 밸런스 리포트 생성 → 상수 조정 → 재검증 (I-05 해소)
 - **수락 기준**: 공통코드 커버리지 ≥ 90%(KPI-10). `src/lib/sim/`에 대상 상수 숫자 리터럴 잔존 0건. KPI-8 밸런스 4지표 밴드 충족.
 - **테스트**: Vitest — 공통코드 주입 시 시뮬 결과 변화, 폴백 경고, 발효 정책 3종.
+
+- **36일차(3팀) — 031a 공통코드 시드 초안 완료.** `supabase/seed/common-code.sql`(신규 594행, **DB 미적용** — 적재는 6팀 소관). **38그룹 메타 전량** + 값이 있는 33그룹 **155건**(`world_id NULL` 전역 기본값). 35일차 로그에 폴백 경고가 찍히던 7그룹(`SQUAD_PARAM`·`SPONSOR_PARAM`·`LEAGUE_TEAM_COUNT`·`ROUND_INTERVAL_MIN`·`PROMOTION_RELEGATION_SLOTS`·`MATCH_POINTS`·`UI_PARAM`) 전량 포함(팀장 실측 확인).
+  - **`UI_PARAM`만 `fallback.ts`와 의도적으로 다르다**(5000/3000 vs 30000/15000). `fallback.ts` 스스로 30000/15000을 "장애 시 비용 안전망 전용값"이라 밝히고 **"정상값은 6팀이 031a를 적재한 뒤 전역 기본값 소스가 공급한다"**고 명시하므로 05문서 원문값이 맞다. `ODDS_PARAM`은 안전망이 아니라 확정 개선값(I-08/I-167)이라 `fallback.ts` 값 그대로 재사용.
+  - **⚠️ 값 없는 4그룹(`WEATHER_EFFECT`·`RATING_WEIGHT`·`OVR_WEIGHT`·`MANAGER_MATCHUP`)은 억측 없이 그룹 메타만 등록했다 → I-187.** `fallback.ts`가 이 넷을 "실제 구조는 36일차(031a) 소관"이라 미뤄 뒀는데 오늘 스코프(05문서 5.12.1)에 값이 없어 이월 사슬이 갈 곳 없이 끝났다. **2팀 37일차 "경기 평점 산출(FR-ST-003)"이 `RATING_WEIGHT`를 소비하므로 착수 전 판정 필요.**
+  - 잠정값 2건(`INJURY_PARAM.BASE_TICK_PROB`·`RETIREMENT_PARAM.BASE_PROB`)과 `PLAYOFF_PRIZE` 조합 누락 → **I-190**(031b). 표 문구 "36개 그룹" vs `catalog.ts` 38종 불일치 → **I-191**.
 
 ### Task 032: Supabase 스키마 마이그레이션과 인덱스를 적용한다
 

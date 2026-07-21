@@ -1,13 +1,12 @@
 "use client";
 
-import { bootstrapApp } from "@/lib/data/bootstrap";
-import { getDataSource } from "@/lib/data/factory";
 import { usePollingList } from "@/lib/data/polling";
 import { isError, isLoading, isSuccess } from "@/lib/data/result";
 import { MatchCard, computeElapsedMinutes } from "@/components/composite/MatchCard";
 import type { MatchCardData } from "@/components/composite/MatchCard";
 import type { SupportedLocale } from "@/i18n/locales";
-import type { Fixture, FixtureStatus, LeagueId, TeamId } from "@/types";
+import type { FixtureStatus, LeagueId, TeamId } from "@/types";
+import type { LiveMatchesApiResponse } from "@/app/api/live/matches/types";
 
 /**
  * 홈 A2 라이브 그리드 — Task 015(35일차, 5팀) I-169 해소 후속.
@@ -29,6 +28,13 @@ import type { Fixture, FixtureStatus, LeagueId, TeamId } from "@/types";
  * 별도로 쓰지 않는 이유다. 두 경로 모두 "킥오프 이후 배속 전이가 없었다"는 동일한 근사
  * 전제(I-174 미해소 구간, `DataSource.ts` `WorldClockContext` 주석 참조) 위에 있어 오늘은
  * 결과가 같다 — 굳이 맵을 왕복시키지 않고 이미 있는 어댑터를 그대로 재사용했다.
+ *
+ * ## 36일차 — I-182 해소: 폴링 fetcher가 이제 Route Handler를 경유한다
+ * `fetchLiveMatchCards`는 더 이상 `bootstrapApp()`/`getDataSource()`를 클라이언트에서
+ * 직접 호출하지 않는다 — `DataSource` 조회는 `src/app/api/live/matches/route.ts`(같은 5팀
+ * 소유)로 옮겼고, 이 파일은 그 응답을 `fetch()`로 받아 `MatchCardData`로 가공만 한다(팀·
+ * 리그 이름 매핑, `computeElapsedMinutes` 적용). 응답 타입(`LiveMatchesApiResponse`)은 1팀
+ * 정식 계약이 나오기 전까지 임시다 — `src/app/api/live/matches/types.ts` 파일 헤더 참조.
  *
  * ## 초기 데이터 — 로딩 스켈레톤으로 되돌아가지 않는다
  * `usePollingList`는 마운트 시 항상 `LOADING`에서 시작한다(`polling.ts` 설계, 이 파일
@@ -99,25 +105,26 @@ export function LiveMatchGrid({
   );
 }
 
-function hasLeagueId(fixture: Fixture): fixture is Fixture & { leagueId: LeagueId } {
-  return fixture.leagueId !== null;
-}
-
+/**
+ * I-182 해소(36일차) — `DataSource`를 직접 호출하지 않고 Route Handler(`src/app/api/live/
+ * matches/route.ts`)를 `fetch()`한다. `cache: "no-store"`는 이 호출이 5초 주기 폴링의
+ * "지금"을 조회하는 것이라 브라우저/Next 어느 계층에서도 캐시되면 안 되기 때문이다(라우트
+ * 핸들러 쪽의 `dynamic = "force-dynamic"`과 이중으로 방어).
+ */
 async function fetchLiveMatchCards(
   teamNameById: Readonly<Record<TeamId, string>>,
   leagueNameById: Readonly<Record<LeagueId, string>>,
 ): Promise<readonly MatchCardData[]> {
-  // 클라이언트 번들은 서버 렌더 시점의 `bootstrapApp()` 등록을 공유하지 않는다(별도 모듈
-  // 그래프) — 여기서 다시 호출해도 프라미스 캐시(`bootstrap.ts`)라 비용이 크지 않다.
-  await bootstrapApp();
-  const dataSource = getDataSource();
+  const response = await fetch("/api/live/matches", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(
+      `[src/app/[lang]/LiveMatchGrid.tsx] /api/live/matches 응답 실패 (status=${response.status})`,
+    );
+  }
 
-  const fixtures = await dataSource.getLiveFixtures();
-  const leagueFixtures = fixtures.filter(hasLeagueId);
-  const fixtureIds = leagueFixtures.map((fixture) => fixture.id);
-  const { now, clock } = await dataSource.getMatchClockContext(fixtureIds);
+  const { fixtures, matchClock } = (await response.json()) as LiveMatchesApiResponse;
 
-  return leagueFixtures.map((fixture) => {
+  return fixtures.map((fixture) => {
     const status: FixtureStatus = fixture.status;
     return {
       id: fixture.id,
@@ -128,7 +135,10 @@ async function fetchLiveMatchCards(
       awayScore: fixture.awayScore,
       status,
       kickoffAt: fixture.kickoffAt,
-      elapsedMinutes: status === "LIVE" ? computeElapsedMinutes(fixture.kickoffAt, clock, now) : null,
+      elapsedMinutes:
+        status === "LIVE"
+          ? computeElapsedMinutes(fixture.kickoffAt, matchClock.clock, matchClock.now)
+          : null,
     } satisfies MatchCardData;
   });
 }

@@ -333,3 +333,44 @@ export function resolveStandings(input: ResolveStandingsInput): Standing[] {
     tiebreakApplied: entry.tiebreakApplied,
   }));
 }
+
+/**
+ * 6단계(페어플레이)까지만 적용해 그룹을 나눈다 — **7단계(시드 추첨) 직전 상태**.
+ *
+ * Task 026(36일차) — `playoff-tiebreak.ts`가 "승격 경계(3위/4위) 또는 강등 경계(N−2위/N−3위)
+ * 에서 6단계까지 동률이면 중립지 단판 플레이오프로 결정한다"(FR-LG-005 예외)는 분기를
+ * 판단하려면, 시드 추첨(7단계)이 그 동률을 지워버리기 *전에* "6단계까지도 갈리지 않은
+ * 팀 묶음이 정확히 어느 순위 구간을 차지하는지" 알아야 한다. 이 파일 헤더의 "승격/강등
+ * 경계 플레이오프 예외는 범위 밖" 절이 이미 이 분기 판단을 호출자 몫으로 남겨 뒀다 — 이
+ * 함수가 그 호출자(같은 `standing/` 소유 경로의 `playoff-tiebreak.ts`)에게 필요한 최소
+ * 인터페이스다. `resolveStandings()` 자체는 건드리지 않는다(정상 7단계 흐름은 그대로 유지).
+ *
+ * 반환 배열의 각 부분배열은 이미 순위 구간 순서대로다: 길이 1이면 6단계 이내에서 갈린
+ * 팀, 길이 2 이상이면 6단계까지 전부 동률인 팀들(정상 흐름이면 다음이 7단계 시드 추첨).
+ * 7단계 자체(`resolveSeedDrawStage`)는 호출하지 않으므로 `seasonSeed`/`round`가 필요 없다.
+ */
+export function groupStandingsBeforeSeedDraw(
+  teams: readonly StandingBasis[],
+  ctx: {
+    readonly headToHeadFixtures: readonly HeadToHeadFixtureInput[];
+    readonly matchPoints?: TiebreakMatchPoints;
+  },
+): StandingBasis[][] {
+  if (teams.length === 0) return [];
+  assertConsistentScope(teams);
+
+  const matchPoints = ctx.matchPoints ?? MATCH_POINTS_DEFAULT;
+  // 7단계(인덱스 6)는 절대 호출하지 않으므로 seasonSeed/round는 쓰이지 않는다 — 아래
+  // `LAST_STAGE_BEFORE_SEED_DRAW` 가드가 이를 보장한다.
+  const resolveCtx: ResolveContext = { headToHeadFixtures: ctx.headToHeadFixtures, matchPoints, seasonSeed: 0, round: 0 };
+  const LAST_STAGE_BEFORE_SEED_DRAW = STAGE_COUNT - 1; // 6 — 이 인덱스(시드 추첨)는 실행하지 않는다
+
+  function splitRecursive(group: readonly StandingBasis[], stageIndex: number): StandingBasis[][] {
+    if (group.length <= 1) return [group as StandingBasis[]];
+    if (stageIndex >= LAST_STAGE_BEFORE_SEED_DRAW) return [group as StandingBasis[]];
+    const subgroups = STAGE_RESOLVERS[stageIndex](group, resolveCtx);
+    return subgroups.flatMap((sub) => splitRecursive(sub, stageIndex + 1));
+  }
+
+  return splitRecursive(teams, 0);
+}

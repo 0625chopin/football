@@ -42,4 +42,8 @@ export const sample: SampleMessages = {
     tablet: "Tablet",
     desktop: "Desktop",
   },
+  locale: {
+    toggleLabel: "Switch locale preview",
+    hint: "The header locale switcher navigates to a new page — this toggle compares instantly, without leaving the page.",
+  },
 };

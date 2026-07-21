@@ -46,6 +46,10 @@ export const sample = {
     tablet: "태블릿",
     desktop: "데스크톱",
   },
+  locale: {
+    toggleLabel: "로케일 미리보기 전환",
+    hint: "헤더의 로케일 스위처는 페이지를 이동합니다 — 이 전환은 페이지 이동 없이 즉시 비교합니다.",
+  },
 };
 
 export type SampleMessages = typeof sample;

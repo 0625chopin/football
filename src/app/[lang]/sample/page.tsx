@@ -27,6 +27,7 @@ import { OddsButton } from "@/components/state/OddsButton";
 import { PhaseIndicator } from "@/components/state/PhaseIndicator";
 import { SkeletonBlock } from "@/components/state/SkeletonBlock";
 
+import { LocaleCompareToggle } from "./LocaleCompareToggle";
 import { StateToggleSlot } from "./StateToggleSlot";
 import { ViewportFrame } from "./ViewportFrame";
 
@@ -48,8 +49,13 @@ import type {
  * 35일차 추가분: domain 8종·composite 8종(MatchCard 신규 등록 포함, 총 22종)에
  * `StateToggleSlot`으로 4상태(loading/empty/error/ready) 토글을 붙이고, 전체 섹션을
  * `ViewportFrame`으로 감싸 모바일/태블릿/데스크톱 뷰포트 프리뷰를 지원한다(state 6종은
- * I-168에 따라 4상태 대상이 아니라 토글 없이 정적 표시 유지). 로케일 토글·ErrorBoundary·
- * 커버리지 카운터·어댑터 토글은 이후 회차로 이월한다.
+ * I-168에 따라 4상태 대상이 아니라 토글 없이 정적 표시 유지). ErrorBoundary·커버리지
+ * 카운터·어댑터 토글은 이후 회차로 이월한다.
+ *
+ * 36일차 추가분: **로케일 전환 컨트롤**(D-18, 수락 기준 "즉시 전환") — 이미 조회해 둔 데이터로
+ * 쇼케이스 본문을 ko/en 두 번 렌더(`renderShowcaseBody`)하고, `LocaleCompareToggle`(신설,
+ * 클라이언트)이 라우트 이동 없이 둘 중 하나만 조건부 마운트해 전환한다. 설계 근거와 헤더
+ * `LocaleSwitcher`와의 차이는 그 파일 헤더 주석 참조.
  *
  * `MatchCard`(5팀 Task 015, 34일차 구현 완료)를 composite 섹션에 8번째로 등록한다.
  * 차트/어드민 카테고리는 전용 컴포넌트가 아직 없어 섹션 골격만 두고 "미구현"으로 표기한다
@@ -378,240 +384,254 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
   /* ── state 6종(4상태 규약 비대상) ──────────────────────────────────── */
   const phaseIndicatorRound = { current: 10, total: 20 };
 
+  /**
+   * 쇼케이스 본문 하나를 특정 로케일로 렌더한다. `Page` 안에서 이미 조회한 데이터(위 전체)를
+   * 클로저로 그대로 참조하고 — 데이터 자체는 로케일에 무관하다(D-17, 선수·팀 이름은 번역
+   * 대상이 아니다) — 문자열만 `bodyLocale`로 조회한다. `LocaleCompareToggle`이 이 함수를
+   * "ko"/"en" 두 번 호출해 결과를 `ko`/`en` prop으로 받는다(파일 헤더 주석 참조).
+   */
+  function renderShowcaseBody(bodyLocale: SupportedLocale) {
+    return (
+      <div className="space-y-10">
+        <header className="space-y-2">
+          <h1 className="text-2xl font-bold">{t(bodyLocale, "sample.meta.title")}</h1>
+          <p className="text-sm text-muted-foreground">{t(bodyLocale, "sample.meta.description")}</p>
+        </header>
+
+        <ViewportFrame locale={bodyLocale}>
+          <nav
+            aria-label={t(bodyLocale, "sample.meta.title")}
+            className="sticky top-0 z-10 -mx-6 flex flex-wrap gap-2 border-b border-border bg-background/95 px-6 py-3 backdrop-blur"
+          >
+            {CATEGORIES.map((category) => (
+              <a
+                key={category.id}
+                href={`#${category.id}`}
+                className={cn(
+                  "rounded-full border border-border px-3 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                {t(bodyLocale, category.navKey)}
+              </a>
+            ))}
+          </nav>
+
+          <ShowcaseSection
+            id="domain"
+            title={t(bodyLocale, "sample.section.domainTitle")}
+            description={t(bodyLocale, "sample.section.domainDescription")}
+            count={8}
+          >
+            <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
+              <ComponentSlot name="AbilityRadar">
+                <StateToggleSlot
+                  name="AbilityRadar"
+                  componentKey="AbilityRadar"
+                  locale={bodyLocale}
+                  readyData={abilityRadarData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="ConditionGauge">
+                <StateToggleSlot
+                  name="ConditionGauge"
+                  componentKey="ConditionGauge"
+                  locale={bodyLocale}
+                  readyData={conditionGaugeData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="FitnessBar">
+                <StateToggleSlot
+                  name="FitnessBar"
+                  componentKey="FitnessBar"
+                  locale={bodyLocale}
+                  readyData={fitnessBarData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="FormStrip">
+                <StateToggleSlot
+                  name="FormStrip"
+                  componentKey="FormStrip"
+                  locale={bodyLocale}
+                  readyData={formStripData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="PlayerAvatar">
+                <StateToggleSlot
+                  name="PlayerAvatar"
+                  componentKey="PlayerAvatar"
+                  locale={bodyLocale}
+                  readyData={playerAvatarData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="PositionMap">
+                <StateToggleSlot
+                  name="PositionMap"
+                  componentKey="PositionMap"
+                  locale={bodyLocale}
+                  readyData={positionMapData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="StatBar">
+                <StateToggleSlot
+                  name="StatBar"
+                  componentKey="StatBar"
+                  locale={bodyLocale}
+                  readyData={statBarData}
+                  extraProps={{ label: t(bodyLocale, "stat.leaderboard.title") }}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="TeamBadge">
+                <StateToggleSlot
+                  name="TeamBadge"
+                  componentKey="TeamBadge"
+                  locale={bodyLocale}
+                  readyData={teamBadgeData}
+                />
+              </ComponentSlot>
+            </div>
+          </ShowcaseSection>
+
+          <Separator />
+
+          <ShowcaseSection
+            id="composite"
+            title={t(bodyLocale, "sample.section.compositeTitle")}
+            description={t(bodyLocale, "sample.section.compositeDescription")}
+            count={8}
+          >
+            <div className="grid gap-4 @sm:grid-cols-2">
+              <ComponentSlot name="BracketTree">
+                <StateToggleSlot
+                  name="BracketTree"
+                  componentKey="BracketTree"
+                  locale={bodyLocale}
+                  readyData={bracketTreeReadyData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="EventTimelineItem">
+                <StateToggleSlot
+                  name="EventTimelineItem"
+                  componentKey="EventTimelineItem"
+                  locale={bodyLocale}
+                  readyData={eventTimelineData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="GrowthChart">
+                <StateToggleSlot
+                  name="GrowthChart"
+                  componentKey="GrowthChart"
+                  locale={bodyLocale}
+                  readyData={growthChartReadyData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="InjuryTimeline">
+                <StateToggleSlot
+                  name="InjuryTimeline"
+                  componentKey="InjuryTimeline"
+                  locale={bodyLocale}
+                  readyData={injuryTimelineData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="MatchCard">
+                <StateToggleSlot
+                  name="MatchCard"
+                  componentKey="MatchCard"
+                  locale={bodyLocale}
+                  readyData={matchCardData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="NewsItem">
+                <StateToggleSlot
+                  name="NewsItem"
+                  componentKey="NewsItem"
+                  locale={bodyLocale}
+                  readyData={newsItemData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="PitchLineup">
+                <StateToggleSlot
+                  name="PitchLineup"
+                  componentKey="PitchLineup"
+                  locale={bodyLocale}
+                  readyData={pitchLineupReadyData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="TrophyCase">
+                <StateToggleSlot
+                  name="TrophyCase"
+                  componentKey="TrophyCase"
+                  locale={bodyLocale}
+                  readyData={trophyCaseData}
+                />
+              </ComponentSlot>
+            </div>
+          </ShowcaseSection>
+
+          <Separator />
+
+          <ShowcaseSection
+            id="state"
+            title={t(bodyLocale, "sample.section.stateTitle")}
+            description={t(bodyLocale, "sample.section.stateDescription")}
+            count={6}
+          >
+            <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
+              <ComponentSlot name="CountdownTimer">
+                <CountdownTimer locale={bodyLocale} targetAt="2026-09-04T21:00:00.000Z" isPaused={false} />
+              </ComponentSlot>
+              <ComponentSlot name="EmptyState">
+                <EmptyState locale={bodyLocale} titleKey="player.empty.message" />
+              </ComponentSlot>
+              <ComponentSlot name="ErrorState">
+                <ErrorState locale={bodyLocale} />
+              </ComponentSlot>
+              <ComponentSlot name="OddsButton">
+                <OddsButton
+                  locale={bodyLocale}
+                  selection={{ label: "홈 승" }}
+                  odds={{ decimalOdds: 1.85 }}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="PhaseIndicator">
+                {season ? (
+                  <PhaseIndicator locale={bodyLocale} season={season} round={phaseIndicatorRound} />
+                ) : (
+                  <SkeletonBlock rows={1} />
+                )}
+              </ComponentSlot>
+              <ComponentSlot name="SkeletonBlock">
+                <SkeletonBlock rows={3} />
+              </ComponentSlot>
+            </div>
+          </ShowcaseSection>
+
+          <Separator />
+
+          <ShowcaseSection
+            id="chart"
+            title={t(bodyLocale, "sample.section.chartTitle")}
+            description={t(bodyLocale, "sample.section.chartDescription")}
+          >
+            <NotImplementedPanel label={t(bodyLocale, "sample.status.notImplemented")} />
+          </ShowcaseSection>
+
+          <Separator />
+
+          <ShowcaseSection
+            id="admin"
+            title={t(bodyLocale, "sample.section.adminTitle")}
+            description={t(bodyLocale, "sample.section.adminDescription")}
+          >
+            <NotImplementedPanel label={t(bodyLocale, "sample.status.notImplemented")} />
+          </ShowcaseSection>
+        </ViewportFrame>
+      </div>
+    );
+  }
+
   return (
-    <main className="mx-auto max-w-6xl space-y-10 px-6 py-10">
-      <header className="space-y-2">
-        <h1 className="text-2xl font-bold">{t(locale, "sample.meta.title")}</h1>
-        <p className="text-sm text-muted-foreground">{t(locale, "sample.meta.description")}</p>
-      </header>
-
-      <ViewportFrame locale={locale}>
-        <nav
-          aria-label={t(locale, "sample.meta.title")}
-          className="sticky top-0 z-10 -mx-6 flex flex-wrap gap-2 border-b border-border bg-background/95 px-6 py-3 backdrop-blur"
-        >
-          {CATEGORIES.map((category) => (
-            <a
-              key={category.id}
-              href={`#${category.id}`}
-              className={cn(
-                "rounded-full border border-border px-3 py-1 text-sm text-foreground/80 transition-colors hover:bg-accent hover:text-accent-foreground",
-              )}
-            >
-              {t(locale, category.navKey)}
-            </a>
-          ))}
-        </nav>
-
-        <ShowcaseSection
-          id="domain"
-          title={t(locale, "sample.section.domainTitle")}
-          description={t(locale, "sample.section.domainDescription")}
-          count={8}
-        >
-          <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
-            <ComponentSlot name="AbilityRadar">
-              <StateToggleSlot
-                name="AbilityRadar"
-                componentKey="AbilityRadar"
-                locale={locale}
-                readyData={abilityRadarData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="ConditionGauge">
-              <StateToggleSlot
-                name="ConditionGauge"
-                componentKey="ConditionGauge"
-                locale={locale}
-                readyData={conditionGaugeData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="FitnessBar">
-              <StateToggleSlot
-                name="FitnessBar"
-                componentKey="FitnessBar"
-                locale={locale}
-                readyData={fitnessBarData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="FormStrip">
-              <StateToggleSlot
-                name="FormStrip"
-                componentKey="FormStrip"
-                locale={locale}
-                readyData={formStripData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="PlayerAvatar">
-              <StateToggleSlot
-                name="PlayerAvatar"
-                componentKey="PlayerAvatar"
-                locale={locale}
-                readyData={playerAvatarData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="PositionMap">
-              <StateToggleSlot
-                name="PositionMap"
-                componentKey="PositionMap"
-                locale={locale}
-                readyData={positionMapData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="StatBar">
-              <StateToggleSlot
-                name="StatBar"
-                componentKey="StatBar"
-                locale={locale}
-                readyData={statBarData}
-                extraProps={{ label: t(locale, "stat.leaderboard.title") }}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="TeamBadge">
-              <StateToggleSlot
-                name="TeamBadge"
-                componentKey="TeamBadge"
-                locale={locale}
-                readyData={teamBadgeData}
-              />
-            </ComponentSlot>
-          </div>
-        </ShowcaseSection>
-
-        <Separator />
-
-        <ShowcaseSection
-          id="composite"
-          title={t(locale, "sample.section.compositeTitle")}
-          description={t(locale, "sample.section.compositeDescription")}
-          count={8}
-        >
-          <div className="grid gap-4 @sm:grid-cols-2">
-            <ComponentSlot name="BracketTree">
-              <StateToggleSlot
-                name="BracketTree"
-                componentKey="BracketTree"
-                locale={locale}
-                readyData={bracketTreeReadyData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="EventTimelineItem">
-              <StateToggleSlot
-                name="EventTimelineItem"
-                componentKey="EventTimelineItem"
-                locale={locale}
-                readyData={eventTimelineData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="GrowthChart">
-              <StateToggleSlot
-                name="GrowthChart"
-                componentKey="GrowthChart"
-                locale={locale}
-                readyData={growthChartReadyData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="InjuryTimeline">
-              <StateToggleSlot
-                name="InjuryTimeline"
-                componentKey="InjuryTimeline"
-                locale={locale}
-                readyData={injuryTimelineData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="MatchCard">
-              <StateToggleSlot
-                name="MatchCard"
-                componentKey="MatchCard"
-                locale={locale}
-                readyData={matchCardData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="NewsItem">
-              <StateToggleSlot
-                name="NewsItem"
-                componentKey="NewsItem"
-                locale={locale}
-                readyData={newsItemData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="PitchLineup">
-              <StateToggleSlot
-                name="PitchLineup"
-                componentKey="PitchLineup"
-                locale={locale}
-                readyData={pitchLineupReadyData}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="TrophyCase">
-              <StateToggleSlot
-                name="TrophyCase"
-                componentKey="TrophyCase"
-                locale={locale}
-                readyData={trophyCaseData}
-              />
-            </ComponentSlot>
-          </div>
-        </ShowcaseSection>
-
-        <Separator />
-
-        <ShowcaseSection
-          id="state"
-          title={t(locale, "sample.section.stateTitle")}
-          description={t(locale, "sample.section.stateDescription")}
-          count={6}
-        >
-          <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
-            <ComponentSlot name="CountdownTimer">
-              <CountdownTimer locale={locale} targetAt="2026-09-04T21:00:00.000Z" isPaused={false} />
-            </ComponentSlot>
-            <ComponentSlot name="EmptyState">
-              <EmptyState locale={locale} titleKey="player.empty.message" />
-            </ComponentSlot>
-            <ComponentSlot name="ErrorState">
-              <ErrorState locale={locale} />
-            </ComponentSlot>
-            <ComponentSlot name="OddsButton">
-              <OddsButton
-                locale={locale}
-                selection={{ label: "홈 승" }}
-                odds={{ decimalOdds: 1.85 }}
-              />
-            </ComponentSlot>
-            <ComponentSlot name="PhaseIndicator">
-              {season ? (
-                <PhaseIndicator locale={locale} season={season} round={phaseIndicatorRound} />
-              ) : (
-                <SkeletonBlock rows={1} />
-              )}
-            </ComponentSlot>
-            <ComponentSlot name="SkeletonBlock">
-              <SkeletonBlock rows={3} />
-            </ComponentSlot>
-          </div>
-        </ShowcaseSection>
-
-        <Separator />
-
-        <ShowcaseSection
-          id="chart"
-          title={t(locale, "sample.section.chartTitle")}
-          description={t(locale, "sample.section.chartDescription")}
-        >
-          <NotImplementedPanel label={t(locale, "sample.status.notImplemented")} />
-        </ShowcaseSection>
-
-        <Separator />
-
-        <ShowcaseSection
-          id="admin"
-          title={t(locale, "sample.section.adminTitle")}
-          description={t(locale, "sample.section.adminDescription")}
-        >
-          <NotImplementedPanel label={t(locale, "sample.status.notImplemented")} />
-        </ShowcaseSection>
-      </ViewportFrame>
+    <main className="mx-auto max-w-6xl px-6 py-10">
+      <LocaleCompareToggle locale={locale} ko={renderShowcaseBody("ko")} en={renderShowcaseBody("en")} />
     </main>
   );
 }
