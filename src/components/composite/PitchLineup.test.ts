@@ -4,7 +4,9 @@ import type { PlayerId, Position } from "@/types"
 import {
   PITCH_FORMATION_CODES,
   resolvePitchSlots,
+  orderStartersByFormation,
   type PitchLineupPlayer,
+  type PitchLineupStarter,
 } from "./PitchLineup"
 
 // Task 013B(29일차, 5팀) — `@testing-library/react` + jsdom 미설치(vitest.config.ts
@@ -84,5 +86,70 @@ describe("PitchLineup / resolvePitchSlots", () => {
         expect(validPositions).toContain(slot.position)
       }
     }
+  })
+})
+
+// Task 017(45일차, 5팀) — `MatchLineup`(포지션은 있지만 좌우 순서가 없다)을 피치 슬롯
+// 순서로 정렬하는 `orderStartersByFormation` 검증.
+
+function makeStarter(index: number, positionSlot: Position): PitchLineupStarter {
+  return {
+    player: { playerId: `player-${index}` as PlayerId, name: `Player ${index}` },
+    positionSlot,
+  }
+}
+
+describe("PitchLineup / orderStartersByFormation", () => {
+  it("4-4-2 — 뒤섞인 순서로 넣어도 슬롯 순서(GK→수비→미드필더→공격)로 정렬한다", () => {
+    const starters = [
+      makeStarter(0, "ST"),
+      makeStarter(1, "GK"),
+      makeStarter(2, "RB"),
+      makeStarter(3, "CB"),
+      makeStarter(4, "CM"),
+      makeStarter(5, "LW"),
+      makeStarter(6, "CB"),
+      makeStarter(7, "RW"),
+      makeStarter(8, "LB"),
+      makeStarter(9, "CM"),
+      makeStarter(10, "ST"),
+    ]
+
+    const ordered = orderStartersByFormation("4-4-2", starters)
+
+    expect(ordered).not.toBeNull()
+    expect(ordered!.map((p) => p.playerId)).toEqual([
+      "player-1", // GK
+      "player-8", // LB
+      "player-3", // CB (첫 번째 등장)
+      "player-6", // CB (두 번째 등장)
+      "player-2", // RB
+      "player-5", // LW
+      "player-4", // CM (첫 번째 등장)
+      "player-9", // CM (두 번째 등장)
+      "player-7", // RW
+      "player-0", // ST (첫 번째 등장)
+      "player-10", // ST (두 번째 등장)
+    ])
+  })
+
+  it("같은 포지션 슬롯이 여럿이면 starters 배열의 등장 순서대로 소비한다", () => {
+    const starters = [makeStarter(0, "CB"), makeStarter(1, "CB"), makeStarter(2, "GK")]
+
+    const ordered = orderStartersByFormation("3-5-2", starters)
+
+    expect(ordered!.slice(0, 3).map((p) => p.playerId)).toEqual(["player-2", "player-0", "player-1"])
+  })
+
+  it("매칭되는 선수가 없는 슬롯은 건너뛰고 나머지만 반환한다", () => {
+    const starters = [makeStarter(0, "GK")]
+
+    const ordered = orderStartersByFormation("4-3-3", starters)
+
+    expect(ordered).toEqual([{ playerId: "player-0", name: "Player 0" }])
+  })
+
+  it("7종 밖의 미확정 포메이션 문자열은 null을 반환한다(방어 상태)", () => {
+    expect(orderStartersByFormation("2-3-5", [])).toBeNull()
   })
 })

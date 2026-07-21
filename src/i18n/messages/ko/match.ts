@@ -39,6 +39,11 @@ import type { MatchEventType } from "@/types";
 // PSO 표기(`score.psoFormat`)는 R-13 ① 형식("정규+연장 스코어 (승부차기 홈-원정)")을 그대로
 // 옮겼다. `timeline.futureBoundary`도 함께 추가 — D3 R-11 경계 표시(와이어프레임 04번 §3-1).
 //
+// 45일차(Task 017, 5팀): `lineup`에 평점 테이블 키(`ratingCaption`~`motmLabel`) 추가, `stat`
+// (`match.stat.*`, D5 팀 스탯 비교바) 그룹 신설. 와이어프레임 04번 §8 각주 "D4 선수 평점
+// 테이블은 StatBar 조합으로 구성하며 신규 컴포넌트를 만들지 않는다"에 따라 이 두 영역은
+// 전용 composite 없이 `matches/[matchId]/page.tsx`가 `StatBar`/`Table`을 직접 조합한다.
+//
 // 44일차(Task 017, 5팀): `event` 그룹 추가 — 이벤트 23종 중계 문구 템플릿(와이어프레임
 // 04번 §4 D3 지정 프리픽스 `match.event.*`, "실제 중계 문구는 44일차에 작성한다" 각주 이행).
 // `enums.matchEvent.*`(4팀 소유)는 뱃지에 쓰이는 단어 하나짜리 라벨("골")이고, 이 그룹은
@@ -59,6 +64,7 @@ export const match = {
   detail: {
     title: "경기 상세",
     timelineTitle: "타임라인",
+    lineupTitle: "라인업",
   },
   live: {
     label: "라이브",
@@ -93,6 +99,13 @@ export const match = {
     unsupportedFormation: "지원하지 않는 포메이션입니다.",
     captainLabel: "주장",
     captainAbbr: "(C)",
+    ratingSectionTitle: "선수별 평점",
+    ratingCaption: "{home} vs {away} 선수별 평점",
+    ratingEmpty: "표시할 선수 평점이 없습니다.",
+    playerColumn: "선수",
+    teamColumn: "팀",
+    ratingColumn: "평점",
+    motmLabel: "MOTM",
   },
   bracket: {
     empty: "표시할 대진표가 없습니다.",
@@ -102,6 +115,20 @@ export const match = {
   playoffs: {
     // {league}는 League.name 그대로 치환된다(고유명사, 번역 대상 아님, D-17).
     title: "{league} 플레이오프",
+  },
+  // 45일차(Task 020, 4팀): `cup`(`/[lang]/cup`) 그룹 추가. 컵은 3개 리그 통합 단일
+  // 대회라 `playoffs`처럼 `{league}` 보간이 없다. 티어 라벨 자체는 `league.header.tierLabel`/
+  // `teamCountFormat`을 재사용하고(재선언 금지) 여기는 컵 화면 전용 문구만 담는다.
+  cup: {
+    title: "컵대회",
+    summaryFormat: "{teams}팀 · {rounds}라운드 · {matches}경기",
+    byeSectionTitle: "1라운드 부전승",
+    byeBadgeLabel: "부전승",
+    giantKillingSectionTitle: "자이언트킬링 하이라이트",
+    giantKillingBadgeLabel: "자이언트킬링",
+    giantKillingEmpty: "아직 자이언트킬링 사례가 없습니다.",
+    // 승부차기 골은 득점 합산 대상이 아니라(D-19) 승자/패자 스코어는 정규+연장 스코어만 쓴다.
+    matchupFormat: "{winner} {winnerScore}-{loserScore} {loser}",
   },
   card: {
     gridTitle: "실시간 경기",
@@ -133,6 +160,21 @@ export const match = {
       extraTime: "연장전",
       penaltyShootout: "승부차기",
     },
+  },
+  stat: {
+    // D5 팀 스탯 비교바(와이어프레임 04번 §4). xG는 요구사항 근거가 확정돼 있어 제외하지
+    // 않는다(03-functional-requirements.md:990/1027/1059, 04번 §4 "xG는 D5에서 제외하지
+    // 않는다" 각주).
+    sectionTitle: "팀 스탯 비교",
+    empty: "표시할 팀 스탯이 없습니다.",
+    possession: "점유율",
+    shots: "슈팅",
+    shotsOnTarget: "유효 슈팅",
+    corners: "코너킥",
+    fouls: "파울",
+    yellowCards: "옐로카드",
+    redCards: "레드카드",
+    xg: "xG",
   },
   event: {
     KICKOFF: "킥오프!",

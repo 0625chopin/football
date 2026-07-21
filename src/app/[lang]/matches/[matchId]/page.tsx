@@ -2,7 +2,9 @@ import { notFound } from "next/navigation";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
+import type { MatchTeamStatComparison } from "@/lib/data/DataSource";
 import { t } from "@/i18n/t";
+import type { TranslationKey } from "@/i18n/keys";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import { MatchScoreboard } from "@/components/composite/MatchScoreboard";
 import type { MatchScoreboardData } from "@/components/composite/MatchScoreboard";
@@ -13,18 +15,43 @@ import {
 } from "@/components/composite/match-scoreboard";
 import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
 import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
-import type { Fixture, FixtureId, MatchEvent, PlayerId, Team, TeamId } from "@/types";
+import { PitchLineup, orderStartersByFormation } from "@/components/composite/PitchLineup";
+import type { PitchLineupData, PitchLineupStarter } from "@/components/composite/PitchLineup";
+import { StatBar } from "@/components/domain/StatBar";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type {
+  Fixture,
+  FixtureId,
+  MatchEvent,
+  MatchLineup,
+  PlayerId,
+  PlayerMatchStat,
+  Team,
+  TeamId,
+} from "@/types";
 
 /**
  * `/[lang]/matches/[matchId]` 경기 상세 — Task 017(43일차 첫날, 5팀), 와이어프레임
  * `docs/wireframe/04-경기상세라이브중계.md` D1(스코어보드)·D3(이벤트 타임라인) 구현.
- * D2(탭)·D4(라인업)·D5(팀 스탯)·D6(경기 정보)·D7(배당 패널)은 43~48일차 잔여 구간에서
- * 이어진다(오늘 스코프 밖).
+ * 45일차: D4(라인업 피치 뷰 + 선수별 평점 테이블)·D5(팀 스탯 비교바) 추가. D2(탭)·D6(경기
+ * 정보)·D7(배당 패널)은 여전히 스코프 밖 — 지금은 D4·D5도 D3 아래 순서대로 쌓아 보여주고,
+ * 탭(D2) 배선은 D6·D7이 합류하는 시점에 함께 한다.
  *
  * ## R-11(미래 정보 노출 금지) — 이 페이지는 별도 컷오프 로직을 두지 않는다
  * `dataSource.getMatchEvents()`가 이미 "경과분 이후 이벤트는 절대 포함하지 않는다"는
  * 계약(`DataSource.ts` JSDoc)을 서버에서 강제하므로, 이 페이지는 받은 배열을 그대로
- * 접어(fold)·표시만 한다 — 클라이언트 시계로 다시 거르지 않는다(S-2와 동일 원칙).
+ * 접어(fold)·표시만 한다 — 클라이언트 시계로 다시 거르지 않는다(S-2와 동일 원칙). D4의
+ * 선수 평점·D5의 팀 스탯도 동일 계약(`getMatchPlayerRatings`/`getMatchTeamStats` JSDoc,
+ * S-1~S-4)을 서버가 강제하므로 여기서도 재필터링하지 않는다.
  *
  * ## 스코어·경과분·페이즈는 전부 파생값 — `Fixture.homeScore`를 직접 쓰지 않는다
  * 와이어프레임 E-1 "스코어 스냅샷은 이벤트에 저장되지 않는다"에 따라 `foldMatchScore`
@@ -37,11 +64,25 @@ import type { Fixture, FixtureId, MatchEvent, PlayerId, Team, TeamId } from "@/t
  * 분에 여러 골이 나도 시간 근접 추정을 하지 않는다 — 추정은 틀릴 수 있지만 연결 참조는
  * 틀릴 수 없다. 병합된 `ASSIST`는 독립 행으로 다시 그리지 않는다.
  *
+ * ## D4 — 선발 11명은 `orderStartersByFormation`으로 피치 슬롯 순서에 맞춘다
+ * `MatchLineup`은 포지션(`positionSlot`)만 있고 좌우 순서가 없어, `PitchLineup`이 기대하는
+ * "슬롯 순서와 인덱스로 짝짓는" `players` 배열과 그대로 맞지 않는다 —
+ * `orderStartersByFormation`(`./PitchLineup.tsx`, 45일차)이 그 변환을 담당한다. 팀당
+ * 선발이 없으면(교체 이력·벤치 7명은 이번 스코프 밖) 빈 배열로 `empty` 상태를 그대로
+ * 내려보낸다.
+ *
+ * ## D4/D5 — 신규 composite 없이 `StatBar`/`Table` 조합(와이어프레임 04번 §8 각주)
+ * "D4 선수 평점 테이블은 `StatBar` 조합으로 구성하며 신규 컴포넌트를 만들지 않는다"는
+ * 각주를 D5 팀 스탯 비교바에도 동일 적용했다 — 두 섹션 모두 이 파일이 직접 조합한다.
+ * D5는 홈 쪽 막대를 `[&_[data-slot=progress]]:scale-x-[-1]`로만 좌우 반전해(라벨 텍스트는
+ * 별도 형제 요소라 영향 없음) 두 팀 막대가 가운데서 마주보는 대칭 비교바를 만든다.
+ *
  * ## 이름 해석 — `DataSource` 배치 조회만 경유(R-10)
- * 팀명은 `getTeamsByIds`(2건, 홈/원정), 선수명은 이벤트에 등장하는 `primaryPlayerId`/
- * `secondaryPlayerId`(ASSIST 병합분 포함)를 중복 제거해 `getPlayerProfile`로 병렬 조회한다.
- * 선수 배치 조회 메서드가 `DataSource`에 아직 없어(`getTeamsByIds`와 달리) 단건 호출을
- * 이벤트당이 아니라 **고유 선수 ID당** 한 번만 하도록 미리 중복 제거한다.
+ * 팀명은 `getTeamsByIds`(2건, 홈/원정), 선수명은 이벤트의 `primaryPlayerId`/
+ * `secondaryPlayerId`(ASSIST 병합분 포함) + 라인업/평점의 `playerId`를 전부 합쳐 중복
+ * 제거한 뒤 `getPlayerProfile`로 병렬 조회한다. 선수 배치 조회 메서드가 `DataSource`에
+ * 아직 없어(`getTeamsByIds`와 달리) 단건 호출을 **고유 선수 ID당** 한 번만 하도록 미리
+ * 중복 제거한다.
  */
 export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">) {
   const { lang, matchId } = await props.params;
@@ -55,10 +96,13 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
     notFound();
   }
 
-  const [events, teams, league] = await Promise.all([
+  const [events, teams, league, lineups, ratings, teamStats] = await Promise.all([
     dataSource.getMatchEvents(fixture.id),
     dataSource.getTeamsByIds([fixture.homeTeamId, fixture.awayTeamId]),
     fixture.leagueId ? dataSource.getLeague(fixture.leagueId) : Promise.resolve(null),
+    dataSource.getMatchLineups(fixture.id),
+    dataSource.getMatchPlayerRatings(fixture.id),
+    dataSource.getMatchTeamStats(fixture.id),
   ]);
 
   const homeTeam = teams.find((team) => team.id === fixture.homeTeamId) ?? null;
@@ -66,11 +110,11 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
   const teamNameById = new Map<TeamId, string>(teams.map((team) => [team.id, team.name]));
 
   const playerIds = Array.from(
-    new Set(
-      events
-        .flatMap((event) => [event.primaryPlayerId, event.secondaryPlayerId])
-        .filter((id): id is PlayerId => id !== null),
-    ),
+    new Set([
+      ...events.flatMap((event) => [event.primaryPlayerId, event.secondaryPlayerId]).filter((id): id is PlayerId => id !== null),
+      ...lineups.map((lineup) => lineup.playerId),
+      ...ratings.map((rating) => rating.playerId),
+    ]),
   );
   const playerProfiles = await Promise.all(playerIds.map((id) => dataSource.getPlayerProfile(id)));
   const playerNameById = new Map<PlayerId, string>();
@@ -82,6 +126,10 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
 
   const scoreboardData = buildScoreboardData(fixture, events, homeTeam, awayTeam, league?.name ?? null);
   const timelineRows = buildTimelineRows(events, teamNameById, playerNameById);
+  const homePitchData = buildTeamPitchData(fixture.homeTeamId, homeTeam?.name ?? null, lineups, playerNameById);
+  const awayPitchData = buildTeamPitchData(fixture.awayTeamId, awayTeam?.name ?? null, lineups, playerNameById);
+  const ratingRows = buildRatingRows(ratings, playerNameById, teamNameById);
+  const teamStatRows = buildTeamStatRows(fixture.homeTeamId, fixture.awayTeamId, teamStats);
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
@@ -113,6 +161,104 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
             <span aria-hidden>⏳</span>
             {t(locale, "match.timeline.futureBoundary", { minute: scoreboardData.minute })}
           </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="eyebrow text-muted-foreground">{t(locale, "match.detail.lineupTitle")}</h2>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <PitchLineup
+            locale={locale}
+            state={homePitchData ? { status: "ready", data: homePitchData } : { status: "empty" }}
+          />
+          <PitchLineup
+            locale={locale}
+            state={awayPitchData ? { status: "ready", data: awayPitchData } : { status: "empty" }}
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <h3 className="eyebrow text-muted-foreground">{t(locale, "match.lineup.ratingSectionTitle")}</h3>
+          {ratingRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(locale, "match.lineup.ratingEmpty")}</p>
+          ) : (
+            <Table>
+              <TableCaption className="sr-only">
+                {t(locale, "match.lineup.ratingCaption", {
+                  home: homeTeam?.name ?? fixture.homeTeamId,
+                  away: awayTeam?.name ?? fixture.awayTeamId,
+                })}
+              </TableCaption>
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">{t(locale, "match.lineup.playerColumn")}</TableHead>
+                  <TableHead scope="col">{t(locale, "match.lineup.teamColumn")}</TableHead>
+                  <TableHead scope="col" className="min-w-[10ch]">
+                    {t(locale, "match.lineup.ratingColumn")}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ratingRows.map((row) => (
+                  <TableRow key={row.stat.playerId}>
+                    {/* 팀명 셀만 `scope="row"` — `TableCell`(td)은 scope 속성을 지원하지
+                        않는 시맨틱이라 여기만 raw `<th>`로 직접 마크업한다(StandingsTable과
+                        동일 패턴, 와이어프레임 04번 §7 NFR-A11Y-005). */}
+                    <th scope="row" className="p-2 text-left align-middle font-normal whitespace-nowrap">
+                      <span className="inline-flex items-center gap-1.5">
+                        {row.playerName}
+                        {row.stat.isMotm ? (
+                          <Badge variant="secondary">{t(locale, "match.lineup.motmLabel")}</Badge>
+                        ) : null}
+                      </span>
+                    </th>
+                    <TableCell>{row.teamName}</TableCell>
+                    <TableCell>
+                      <StatBar
+                        locale={locale}
+                        label={t(locale, "match.lineup.ratingColumn")}
+                        state={{ status: "ready", data: { value: row.stat.matchRating, max: 10 } }}
+                        className="w-32"
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="eyebrow text-muted-foreground">{t(locale, "match.stat.sectionTitle")}</h2>
+        {teamStatRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t(locale, "match.stat.empty")}</p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {teamStatRows.map((row) => (
+              <div
+                key={row.field}
+                className="grid grid-cols-1 gap-1 md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-3"
+              >
+                <div className="[&_[data-slot=progress]]:scale-x-[-1]">
+                  <StatBar
+                    locale={locale}
+                    label={homeTeam?.name ?? fixture.homeTeamId}
+                    state={{ status: "ready", data: { value: row.homeValue, max: row.total } }}
+                  />
+                </div>
+                <span className="eyebrow text-center text-muted-foreground">
+                  {t(locale, TEAM_STAT_LABEL_KEYS[row.field])}
+                </span>
+                <StatBar
+                  locale={locale}
+                  label={awayTeam?.name ?? fixture.awayTeamId}
+                  state={{ status: "ready", data: { value: row.awayValue, max: row.total } }}
+                />
+              </div>
+            ))}
+          </div>
         )}
       </section>
     </div>
@@ -198,4 +344,116 @@ function buildTimelineRows(
         secondaryPlayerName: secondaryPlayerId ? playerNameById.get(secondaryPlayerId) ?? null : null,
       };
     });
+}
+
+/**
+ * D4 — 팀별 선발 11명을 `PitchLineup`이 기대하는 `PitchLineupData`로 변환한다.
+ * `MatchLineup.positionSlot`을 `orderStartersByFormation`(`./PitchLineup.tsx`)으로 피치
+ * 슬롯 순서에 맞춘다. 선발이 없으면(벤치 7명·교체 이력은 이번 스코프 밖) `null`을 반환해
+ * 호출부가 `empty` 상태로 내려보내게 한다.
+ */
+function buildTeamPitchData(
+  teamId: TeamId,
+  teamName: string | null,
+  lineups: readonly MatchLineup[],
+  playerNameById: ReadonlyMap<PlayerId, string>,
+): PitchLineupData | null {
+  const starters = lineups.filter((lineup) => lineup.teamId === teamId && lineup.isStarter);
+  if (starters.length === 0) {
+    return null;
+  }
+
+  const starterInputs: PitchLineupStarter[] = starters.map((lineup) => ({
+    player: {
+      playerId: lineup.playerId,
+      name: playerNameById.get(lineup.playerId) ?? lineup.playerId,
+    },
+    positionSlot: lineup.positionSlot,
+  }));
+
+  const ordered = orderStartersByFormation(starters[0].formation, starterInputs);
+
+  return {
+    formation: starters[0].formation,
+    teamName,
+    players: ordered ?? starterInputs.map((starter) => starter.player),
+  };
+}
+
+interface RatingRow {
+  readonly stat: PlayerMatchStat;
+  readonly playerName: string;
+  readonly teamName: string;
+}
+
+/** D4 평점 테이블 행 — 평점 내림차순(높은 평점이 위)으로 정렬한다. */
+function buildRatingRows(
+  ratings: readonly PlayerMatchStat[],
+  playerNameById: ReadonlyMap<PlayerId, string>,
+  teamNameById: ReadonlyMap<TeamId, string>,
+): readonly RatingRow[] {
+  return [...ratings]
+    .sort((a, b) => b.matchRating - a.matchRating)
+    .map((stat) => ({
+      stat,
+      playerName: playerNameById.get(stat.playerId) ?? stat.playerId,
+      teamName: teamNameById.get(stat.teamId) ?? stat.teamId,
+    }));
+}
+
+const TEAM_STAT_FIELDS = [
+  "possessionAvg",
+  "shots",
+  "shotsOnTarget",
+  "corners",
+  "fouls",
+  "yellowCards",
+  "redCards",
+  "xg",
+] as const;
+
+type TeamStatField = (typeof TEAM_STAT_FIELDS)[number];
+
+/** D5 스탯 라벨 번역키 — `match.stat.*`(와이어프레임 04번 §4 지정 프리픽스). */
+const TEAM_STAT_LABEL_KEYS: Record<TeamStatField, TranslationKey> = {
+  possessionAvg: "match.stat.possession",
+  shots: "match.stat.shots",
+  shotsOnTarget: "match.stat.shotsOnTarget",
+  corners: "match.stat.corners",
+  fouls: "match.stat.fouls",
+  yellowCards: "match.stat.yellowCards",
+  redCards: "match.stat.redCards",
+  xg: "match.stat.xg",
+};
+
+interface TeamStatRow {
+  readonly field: TeamStatField;
+  readonly homeValue: number;
+  readonly awayValue: number;
+  /** 두 값의 합 — 대칭 비교바의 공통 `max`(둘 다 0이면 0, `StatBar`가 0으로 처리한다). */
+  readonly total: number;
+}
+
+/**
+ * D5 팀 스탯 비교바 행. 홈/원정 두 건이 모두 있어야만 비교가 성립하므로, 어느 한쪽이라도
+ * 없으면(Mock 미구현 — `MockDataSource.getMatchTeamStats`가 항상 빈 배열) 빈 배열을
+ * 반환해 empty 상태로 내려보낸다.
+ */
+function buildTeamStatRows(
+  homeTeamId: TeamId,
+  awayTeamId: TeamId,
+  teamStats: readonly MatchTeamStatComparison[],
+): readonly TeamStatRow[] {
+  const homeStat = teamStats.find((stat) => stat.teamId === homeTeamId);
+  const awayStat = teamStats.find((stat) => stat.teamId === awayTeamId);
+  if (!homeStat || !awayStat) {
+    return [];
+  }
+
+  return TEAM_STAT_FIELDS.map((field) => ({
+    field,
+    homeValue: homeStat[field],
+    awayValue: awayStat[field],
+    total: homeStat[field] + awayStat[field],
+  }));
 }

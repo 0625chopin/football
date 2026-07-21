@@ -169,6 +169,36 @@ export function resolvePitchSlots(data: PitchLineupData): readonly PitchLineupSl
   }))
 }
 
+export interface PitchLineupStarter {
+  readonly player: PitchLineupPlayer
+  readonly positionSlot: Position
+}
+
+/**
+ * Task 017(45일차, 5팀) — 실 라인업(`MatchLineup`, 포지션은 있지만 좌우 순서가 없다)을
+ * `FORMATION_LAYOUTS[formation]`의 슬롯 순서로 정렬한다. 같은 포지션 슬롯이 여럿이면
+ * (예: 4-4-2의 CB 2명) `starters` 배열에서 먼저 등장하는 선수를 순서대로 소비한다 —
+ * 실제 좌/우 배치 정보가 도메인 타입에 없어(이 파일 상단 주석 참조) 이 이상은 복원하지
+ * 않는다. 매칭되는 선수가 없는 슬롯은 건너뛴다(방어적, `resolvePitchSlots`가 뒤이어
+ * 남은 인덱스를 `null`로 채운다).
+ */
+export function orderStartersByFormation(
+  formation: Formation,
+  starters: readonly PitchLineupStarter[],
+): readonly PitchLineupPlayer[] | null {
+  if (!isPitchFormationCode(formation)) return null
+
+  const remaining = [...starters]
+  const ordered: PitchLineupPlayer[] = []
+  for (const slot of FORMATION_LAYOUTS[formation]) {
+    const index = remaining.findIndex((starter) => starter.positionSlot === slot.position)
+    if (index === -1) continue
+    ordered.push(remaining[index].player)
+    remaining.splice(index, 1)
+  }
+  return ordered
+}
+
 export interface PitchLineupProps {
   locale: SupportedLocale
   state: CompositeViewState<PitchLineupData>

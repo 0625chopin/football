@@ -7,6 +7,7 @@ export const match: MatchMessages = {
   detail: {
     title: "Match detail",
     timelineTitle: "Timeline",
+    lineupTitle: "Lineup",
   },
   live: {
     label: "Live",
@@ -38,6 +39,13 @@ export const match: MatchMessages = {
     unsupportedFormation: "Unsupported formation.",
     captainLabel: "Captain",
     captainAbbr: "(C)",
+    ratingSectionTitle: "Player Ratings",
+    ratingCaption: "{home} vs {away} player ratings",
+    ratingEmpty: "No player ratings to display.",
+    playerColumn: "Player",
+    teamColumn: "Team",
+    ratingColumn: "Rating",
+    motmLabel: "MOTM",
   },
   bracket: {
     empty: "No bracket to display.",
@@ -46,6 +54,16 @@ export const match: MatchMessages = {
   },
   playoffs: {
     title: "{league} Playoffs",
+  },
+  cup: {
+    title: "Cup",
+    summaryFormat: "{teams} teams · {rounds} rounds · {matches} matches",
+    byeSectionTitle: "Round 1 Byes",
+    byeBadgeLabel: "Bye",
+    giantKillingSectionTitle: "Giant-Killing Highlights",
+    giantKillingBadgeLabel: "Giant Killing",
+    giantKillingEmpty: "No giant-killing results yet.",
+    matchupFormat: "{winner} {winnerScore}-{loserScore} {loser}",
   },
   card: {
     gridTitle: "Live Matches",
@@ -76,6 +94,18 @@ export const match: MatchMessages = {
       extraTime: "Extra time",
       penaltyShootout: "Penalty shootout",
     },
+  },
+  stat: {
+    sectionTitle: "Team Stat Comparison",
+    empty: "No team stats to display.",
+    possession: "Possession",
+    shots: "Shots",
+    shotsOnTarget: "Shots on target",
+    corners: "Corners",
+    fouls: "Fouls",
+    yellowCards: "Yellow cards",
+    redCards: "Red cards",
+    xg: "xG",
   },
   event: {
     KICKOFF: "Kickoff!",
