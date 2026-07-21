@@ -36,6 +36,28 @@
  * 남긴다. `CUP_PARAM`은 표에 구체값(`BYE_COUNT`=4, `INSERT_ROUNDS`=[6,12,18,24,32,40])이
  * 있으므로 그대로 채웠다.
  *
+ * **37일차 추가 — `RATING_WEIGHT` 채움(I-187 팀장 판정 ⓐ안, 2026-09-09)**: 위 "4개 그룹"
+ * 중 `RATING_WEIGHT`는 2팀 37일차 FR-ST-003(경기 평점 산출) 작업이 막혀 있어 팀장이 3팀
+ * 선(先) 정의를 판정했다. 05문서 5.12.1절에는 구조 설명만 있었지만,
+ * `docs/require/03-functional-requirements.md` FR-ST-003 절 원문에 구체 가중치(골 +1.0,
+ * 도움 +0.7, 키패스 +0.1, 실책-실점 −1.0, 경고 −0.3, 퇴장 −1.0 등)가 명시돼 있어 "억측 금지"
+ * 대상이 아니다. 나머지
+ * `OVR_WEIGHT`·`MANAGER_MATCHUP`·`WEATHER_EFFECT` 3개 그룹은 규모가 커 별도 산정
+ * 대상으로 그대로 빈 객체 `{}`로 존치한다(팀장 확정).
+ *
+ * **37일차 2차 판정 — 키 공간을 `MatchEventType`에서 `keyof PlayerStatCoreValues`로 교체**:
+ * 최초 반영은 이벤트 타입(`MatchEventType`, 23종)을 키로 썼으나, 2팀 소비 측
+ * `src/lib/sim/standing/rating.ts`(`RatingWeightConstants`)가 `PlayerStatCoreValues`
+ * 필드명(`goals`/`assists`/`keyPasses` 등)을 키로 쓰고 `{ base, min, max, field, gk }`
+ * 형태를 기대한다는 게 접점 통합 테스트(`rating.test.ts`)로 드러나 팀장이 재판정했다.
+ * 근거: ① FR-ST-003 예시 6개 중 "키패스"·"실책-실점" 2개가 `MatchEventType`으로 표현
+ * 불가(이산 이벤트 자체가 없음) — 요구사항을 완전히 표현 못 하는 키 공간은 채택 불가.
+ * ② 평점은 스탯 폴드(`PlayerMatchStatTierAFold`)에서 계산되므로 스탯 키가 엔진이 실제로
+ * 가진 데이터와 직접 대응한다. ③ 05문서 646행 "이벤트별 가중치 객체"는 동기화하지 않는
+ * 초안이라 충돌 시 TS(`PlayerStatCoreValues`)가 옳다(9일차 I-58). 값 자체(문서/보간 근거)는
+ * 그대로 유지하고 키만 대응되는 스탯 필드로 이관했다 — 이관 내역은
+ * `RATING_WEIGHT_FIELD`/`RATING_WEIGHT_GK` 선언부 참조.
+ *
  * **14일차 추가 — `NATIONALITY_WEIGHT`(37번째 그룹, I-88 사용자 결정)**: 05문서 표 밖의
  * 신규 그룹이라 "표의 코드 예시"가 아예 없다. 같은 억측 금지 원칙을 적용해 빈 객체 `{}`로
  * 둔다(`WEATHER_EFFECT`류와 동일 취급) — 근거는 `catalog.ts`의 "37번째 그룹 추가" 절 참조.
@@ -54,11 +76,14 @@
  * 책임 — 이 파일 밖에서 결정).
  *
  * ## import 규약
- * 도메인 타입은 이 파일에서 직접 필요하지 않다(그룹 코드·소스 계약은 같은 소유 디렉터리의
- * `./catalog`, `./loader`에서 가져온다). `src/lib/sim/**`, `src/types/**`는 이 작업에서
- * 수정하지 않는다.
+ * 그룹 코드·소스 계약은 같은 소유 디렉터리의 `./catalog`, `./loader`에서 가져온다.
+ * **37일차 추가**: `RATING_WEIGHT` 채움에 `PlayerStatCoreValues`(`@/types` 배럴, 체크리스트
+ * C-5·C-6)가 필요해졌다 — `RatingWeightTable`의 키를 이 인터페이스의 필드명으로 한정하는
+ * 타입 전용(`import type`) 참조일 뿐, 값을 만들지는 않는다. `src/lib/sim/**`(2팀
+ * `rating.ts` 포함)는 이 작업에서 읽기만 하고 수정하지 않는다.
  */
 
+import type { PlayerStatCoreValues } from '@/types';
 import { COMMON_CODE_GROUP_CATALOG, type CommonCodeGroupCode } from './catalog';
 import type { ConstantGroupValues, ConstantSource } from './loader';
 import { setFallbackSource } from './loader';
@@ -76,6 +101,57 @@ function warnFallbackUsed(group: CommonCodeGroupCode): void {
 }
 
 /**
+ * `RATING_WEIGHT` 필드플레이어/GK 가중치 테이블 — 2팀 `src/lib/sim/standing/rating.ts`의
+ * `RatingWeightTable`(읽기 전용 참조, 그 파일은 수정하지 않음)과 동일한 키 공간
+ * (`keyof PlayerStatCoreValues`)·구조(`Partial`, 56필드 전량 강제 안 함)를 그대로 따른다.
+ */
+type RatingWeightTable = Readonly<Partial<Record<keyof PlayerStatCoreValues, number>>>;
+
+/**
+ * 필드플레이어 스탯별 평점 가중치(FR-ST-003, I-187 팀장 2차 판정 — `MatchEventType`에서
+ * `keyof PlayerStatCoreValues`로 키 공간 교체, 37일차). 값별 근거는 각 줄 주석에
+ * "문서"(FR-ST-003 원문 명시값) / "보간"(원문 미명시, 명시값을 기준점 삼아 일관된 규칙으로
+ * 산정한 잠정값 — 031b 밸런싱 튜닝 교체 대상)으로 구분 표기했다. FR-ST-003 명시 6개
+ * (`goals`/`assists`/`keyPasses`/`errorsLeadingToGoal`/`yellowCards`/`redCards`)는 원문
+ * 값을 그대로 쓴다 — `keyPasses`/`errorsLeadingToGoal`은 오늘 기준 Tier B(대응 이벤트
+ * 없음, `stats.ts`)라 `computeMatchRating`의 폴드 순회에서 아직 곱해지지 않지만, 값은
+ * 문서적 근거 보존 차원에서 그대로 둔다(rating.ts `RATING_WEIGHT_DEFAULT`와 동일 패턴).
+ *
+ * `Partial`이라 대응 스탯이 없거나 다른 필드에 이미 반영되는 이벤트(과거 `MatchEventType`
+ * 기준표의 `SHOT_BLOCKED`·`CORNER`·`KICKOFF`·`SHOT_ON`/`SHOT_OFF`·`INJURY`·`SUBSTITUTION`·
+ * `HALF_TIME`/`FULL_TIME`/`EXTRA_TIME_START`·`PENALTY_SHOOTOUT` 등)는 억지로 매핑하지
+ * 않고 뺐다 — 대응하는 Tier A 스탯 자체가 없거나(행정 마커류) 다른 필드로 이미 흡수되는
+ * 경우(`PENALTY_SCORED`→`goals`, 위 주석 참조)다. `SECOND_YELLOW`는 예외적으로
+ * `secondYellows`로 매핑했다(아래 개별 주석 — yellowCards 폴드분과 별개로 증분만 추가).
+ */
+const RATING_WEIGHT_FIELD = {
+  goals: 1.0, // 문서 명시값("골 +1.0") — PENALTY_SCORED도 I-43에 따라 goals에 폴드되므로 별도 penaltiesScored 가중은 두지 않는다(이중 반영 방지)
+  assists: 0.7, // 문서 명시값("도움 +0.7")
+  keyPasses: 0.1, // 문서 명시값("키패스 +0.1") — Tier B, 오늘은 미작동(위 JSDoc 참조)
+  errorsLeadingToGoal: -1.0, // 문서 명시값("실책-실점 −1.0") — Tier B, 오늘은 미작동
+  yellowCards: -0.3, // 문서 명시값("경고 −0.3")
+  redCards: -1.0, // 문서 명시값("퇴장 −1.0")
+  ownGoals: -1.0, // 보간 — 자책골은 Tier A로 실제 계산되는 가장 명확한 개인 실책(errorsLeadingToGoal은 Tier B라 오늘은 이 값만 실동작)
+  secondYellows: -0.7, // 보간 — yellowCards가 SECOND_YELLOW도 폴드한다는 가정(stats.ts 가정 2, 미확정)을 전제로, 이미 반영된 -0.3에 증분만 더해 총손실을 redCards(-1.0)와 맞춘다
+  foulsCommitted: -0.05, // 보간 — 경미한 파울
+  foulsDrawn: 0.2, // 보간 — 파울/PK를 얻어낸 공격 기여(PENALTY_AWARDED도 foulsDrawn에 폴드, stats.ts I-60)
+  offsides: -0.03, // 보간 — 공격 기회 무산, 경미한 손실
+} satisfies RatingWeightTable;
+
+/**
+ * GK 스탯별 평점 가중치(FR-ST-003 "GK는 별도 가중치표를 사용한다", 37일차). 필드플레이어
+ * 테이블을 기준선으로 스프레드하고 GK 포지션 특성상 값이 달라지는 항목만 덮어썼다 — 나머지
+ * (카드·경고 등)는 필드플레이어와 동일하게 취급한다(보간).
+ */
+const RATING_WEIGHT_GK = {
+  ...RATING_WEIGHT_FIELD,
+  ownGoals: -1.2, // 보간 — 최종 방어선 책임 가중, FIELD(-1.0)보다 소폭 엄격
+  foulsCommitted: -0.3, // 보간 — GK 파울은 박스 안일 가능성이 높아(PK 허용) FIELD(-0.05)보다 훨씬 엄격
+  saves: 0.25, // 보간 — GK 핵심 기여(문서가 "별도 가중치표"를 요구한 핵심 사유), Tier A라 오늘 실제로 반영됨
+  penaltiesSaved: 1.0, // 보간 — PK 선방은 실점을 막는 결정적 기여, goals와 대칭적 크기로 설정(GK만 보유하는 필드)
+} satisfies RatingWeightTable;
+
+/**
  * 38개 그룹 전량의 하드코딩 안전 기본값. `Record<CommonCodeGroupCode, ...>` 타입 자체가
  * "38개 그룹 키 전량이 존재해야 한다"를 컴파일타임에 강제하므로(누락 시 `tsc` 오류),
  * catalog.ts의 `_assertCatalogSize` 관례처럼 별도 런타임 assert는 불필요하다. 값 출처와
@@ -86,6 +162,14 @@ function warnFallbackUsed(group: CommonCodeGroupCode): void {
  * (`COMMON_CODE_GROUP_BY_CODE` 관련 주석) 조건부 타입이 유니온에 분배되며 그룹별 스칼라
  * 타입이 뭉개진다. 아래는 `{ [G in CommonCodeGroupCode]: ConstantGroupValues<G> }` 매핑
  * 타입으로 그룹마다 독립적으로 좁혀지도록 했다.
+ *
+ * **37일차 `RATING_WEIGHT` 저장 형태 — `FIELD`/`GK`/`SCALE` 3코드**: `base`/`min`/`max`를
+ * 최상위 스칼라 number로 두면(`{ base: 6.0, ... }`) `ConstantGroupValues<'RATING_WEIGHT'>`
+ * (코드→object 맵 강제, 이 그룹 `valueType`도 `JSON`)를 못 만족해 `tsc`가 막는다(3팀이
+ * `TS2322`로 재현·보고, 2팀 `rating.ts` 헤더 "저장 형태가 flat이 아닌 이유" 참조 — 팀장
+ * 판정으로 `base`/`min`/`max` 3개를 `SCALE`이라는 코드 하나의 object로 묶었다). 그래서
+ * 이 그룹도 다른 JSON형 그룹과 동일하게 `ConstantGroupValues<G>`를 그대로 만족한다 —
+ * 별도 타입 예외·캐스팅이 필요 없다.
  */
 export const SAFE_DEFAULT_VALUES: Readonly<{
   [G in CommonCodeGroupCode]: ConstantGroupValues<G>;
@@ -232,9 +316,17 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
     MULTI_RETURN_MAX: 1000000,
     LEGS_MAX: 10,
   },
-  // 05문서 표에 "필드플레이어·GK 이벤트별 가중치 객체"라고만 서술되고 구체 숫자가 없다 —
-  // 억측 금지, 빈 구조로 둔다. 실제 구조는 36일차(031a) 소관.
-  RATING_WEIGHT: {},
+  // 37일차 I-187 팀장 판정으로 채움 — 05문서에는 구체 숫자가 없었지만 FR-ST-003 원문에
+  // 명시값이 있어 억측 금지 대상이 아니다. SCALE.base/min/max는 FR-ST-003 원문 클램프
+  // 그대로(기본 6.0, [1.0, 10.0]) — 2팀 rating.ts에만 하드코딩돼 있던 것을 공통코드로
+  // 끌어올려 어드민이 튜닝할 수 있게 한다. FIELD/GK/SCALE 3코드로 나눈 이유는 위
+  // SAFE_DEFAULT_VALUES JSDoc "RATING_WEIGHT 저장 형태" 절 참조. 값 근거는
+  // RATING_WEIGHT_FIELD/GK 선언부 참조.
+  RATING_WEIGHT: {
+    FIELD: RATING_WEIGHT_FIELD,
+    GK: RATING_WEIGHT_GK,
+    SCALE: { base: 6.0, min: 1.0, max: 10.0 },
+  },
   // 05문서 표에 "11군 각 34속성 가중치 객체"라고만 서술되고 구체 숫자가 없다 — 억측 금지,
   // 빈 구조로 둔다. 실제 구조는 36일차(031a) 소관.
   OVR_WEIGHT: {},

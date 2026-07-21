@@ -103,4 +103,47 @@ describe('installHardcodedFallback', () => {
       LEADERBOARD_MIN_APPEARANCE_PCT: 30,
     });
   });
+
+  it('RATING_WEIGHT는 { FIELD, GK, SCALE } 3코드이고 FR-ST-003 명시 6개 스탯 키가 FIELD/GK 모두에 있다(I-187, 37일차)', () => {
+    // 2팀 rating.ts의 RatingWeightConstants/RatingWeightTable과 동일한 키 공간
+    // (keyof PlayerStatCoreValues)을 쓴다는 접점 계약 — 이 파일은 상대경로 import
+    // 관례상 `@/types`를 참조하지 않으므로 FR-ST-003 원문 명시 6개 필드명을 하드코딩한다.
+    // 최상위가 FIELD/GK/SCALE 3코드인 이유는 fallback.ts의 SAFE_DEFAULT_VALUES JSDoc
+    // "RATING_WEIGHT 저장 형태" 절 참조(코드→object 맵만 허용되는 공통코드 모델 제약).
+    const FR_ST_003_EXPLICIT_STAT_KEYS = [
+      'goals', // "골 +1.0"
+      'assists', // "도움 +0.7"
+      'keyPasses', // "키패스 +0.1"
+      'errorsLeadingToGoal', // "실책-실점 −1.0"
+      'yellowCards', // "경고 −0.3"
+      'redCards', // "퇴장 −1.0"
+    ] as const;
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    installHardcodedFallback();
+
+    const ratingWeight = loadConstants('RATING_WEIGHT') as unknown as {
+      FIELD: Record<string, number>;
+      GK: Record<string, number>;
+      SCALE: { base: number; min: number; max: number };
+    };
+
+    // FR-ST-003 "기본 6.0에서 시작해 ... [1.0, 10.0]으로 클램프한다"
+    expect(ratingWeight.SCALE.base).toBe(6.0);
+    expect(ratingWeight.SCALE.min).toBe(1.0);
+    expect(ratingWeight.SCALE.max).toBe(10.0);
+
+    for (const table of [ratingWeight.FIELD, ratingWeight.GK]) {
+      for (const key of FR_ST_003_EXPLICIT_STAT_KEYS) {
+        expect(table).toHaveProperty(key);
+        expect(typeof table[key]).toBe('number');
+      }
+    }
+    expect(ratingWeight.FIELD.goals).toBe(1.0);
+    expect(ratingWeight.FIELD.assists).toBe(0.7);
+    expect(ratingWeight.FIELD.keyPasses).toBe(0.1);
+    expect(ratingWeight.FIELD.errorsLeadingToGoal).toBe(-1.0);
+    expect(ratingWeight.FIELD.yellowCards).toBe(-0.3);
+    expect(ratingWeight.FIELD.redCards).toBe(-1.0);
+  });
 });

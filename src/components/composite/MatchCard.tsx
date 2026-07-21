@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
 import { formatKickoff } from "@/i18n/format"
@@ -18,6 +19,13 @@ import type { CompositeViewState } from "./types"
 // LIVE 배지·경과분 조건부 렌더", `docs/dailyWorkLog/29Day.md`·`30Day.md`)를 그대로 반영한다.
 // 오늘(Task 015 첫날)은 `card`(그리드)만 실사용하고, `row`는 이후 일정/결과 목록 재사용을
 // 위해 인터페이스만 미리 갖춰 둔다 — 나중에 다시 만들지 않기 위함이다.
+//
+// 37일차(Task 015, 5팀) — 4상태 완성(와이어프레임 01번 §5): 로딩 스켈레톤을 실제 카드
+// 행 구조(헤더·팀 2행·푸터)와 맞춰 CLS를 줄였고, Empty에 `emptyNextKickoffAt`(A2가 넘기는
+// "다음 킥오프" 시각, DC-07 로케일 변환은 이 컴포넌트가 `formatKickoff`로 한다)를, Error에
+// `onRetry`를 추가했다. 둘 다 `CompositeViewState`(composite 8종 공유 계약, `./types`)의
+// `empty`/`error` 변형에 필드를 얹지 않고 이 컴포넌트만의 곁가지 prop으로 뒀다 — 공유
+// 타입에 필드를 추가하면 나머지 7종 composite 컴포넌트에도 영향이 번지기 때문이다.
 //
 // **경과분은 이 컴포넌트가 계산하지 않는다.** H-24 계약(2팀 `src/lib/sim/schedule/
 // worldclock.ts`, 30일차 인계 — `docs/handoff/H-24-worldclock-realtime-contract.md`)상
@@ -69,6 +77,14 @@ export interface MatchCardProps {
    * `currentColor` 파생 값만 쓴다(부모가 `text-board-foreground`를 준다).
    */
   surface?: "card" | "board"
+  /**
+   * `state.status === "empty"`일 때만 쓰인다. 진행 중 경기가 0건일 때 "다음 킥오프" 시각을
+   * 함께 보여주기 위함(A2 그리드 전용, 위 파일 헤더 "37일차" 절 참조). 없으면 기존처럼
+   * 한 줄(`match.card.empty`)만 보여준다.
+   */
+  emptyNextKickoffAt?: Timestamp | null
+  /** `state.status === "error"`일 때만 쓰인다. 넘기지 않으면 재시도 버튼을 렌더하지 않는다. */
+  onRetry?: () => void
   className?: string
 }
 
@@ -90,6 +106,8 @@ export function MatchCard({
   state,
   density = "card",
   surface = "card",
+  emptyNextKickoffAt,
+  onRetry,
   className,
 }: MatchCardProps) {
   const containerClassName = cn(
@@ -99,41 +117,106 @@ export function MatchCard({
   const mutedClassName = MUTED_CLASS_NAME[surface]
 
   if (state.status === "loading") {
+    // board 표면은 `bg-muted`(페이지 토큰)가 다크 표면 위에서 거의 안 보이므로
+    // `currentColor` 파생 톤(`--board-muted`)으로 덮어쓴다(SURFACE_CLASS_NAME과 동일 원칙).
+    const skeletonToneClassName = surface === "board" ? "bg-board-muted/15" : undefined
+
+    if (density === "row") {
+      return (
+        <div
+          data-slot="match-card"
+          data-status="loading"
+          data-density="row"
+          data-surface={surface}
+          aria-hidden="true"
+          className={cn(containerClassName, className)}
+        >
+          <Skeleton className={cn("h-3 w-16", skeletonToneClassName)} />
+          <Skeleton className={cn("h-4 flex-1", skeletonToneClassName)} />
+          <Skeleton className={cn("h-4 w-10", skeletonToneClassName)} />
+        </div>
+      )
+    }
+
+    // 실제 준비(ready) 카드와 같은 3블록(헤더 / 팀 2행 / 푸터)·같은 간격을 써서 CLS를
+    // 낮춘다(와이어프레임 01번 §5 "카드 실제 높이와 동일 높이 고정") — 아래 준비 상태
+    // JSX와 나란히 두고 비교하면 구조가 그대로 대응된다.
     return (
       <div
         data-slot="match-card"
         data-status="loading"
-        data-density={density}
+        data-density="card"
+        data-surface={surface}
+        aria-hidden="true"
         className={cn(containerClassName, className)}
       >
-        <Skeleton className="h-4 w-16" />
-        <Skeleton className="h-5 w-full" />
-        <Skeleton className="h-4 w-24" />
+        <div className="flex items-center justify-between gap-2">
+          <Skeleton className={cn("h-3 w-16", skeletonToneClassName)} />
+          <Skeleton className={cn("h-3 w-10", skeletonToneClassName)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-baseline gap-3">
+            <Skeleton className={cn("h-4 flex-1", skeletonToneClassName)} />
+            <Skeleton className={cn("h-6 w-7", skeletonToneClassName)} />
+          </div>
+          <div className="flex items-baseline gap-3">
+            <Skeleton className={cn("h-4 flex-1", skeletonToneClassName)} />
+            <Skeleton className={cn("h-6 w-7", skeletonToneClassName)} />
+          </div>
+        </div>
+        <div className="flex items-center gap-2 border-t pt-2.5">
+          <Skeleton className={cn("h-3 w-14", skeletonToneClassName)} />
+        </div>
       </div>
     )
   }
 
   if (state.status === "empty") {
     return (
-      <p
+      <div
         data-slot="match-card"
         data-status="empty"
-        className={cn("p-4 text-sm text-muted-foreground", className)}
+        className={cn("flex flex-col items-center gap-1 p-4 text-center text-sm", mutedClassName, className)}
       >
-        {t(locale, "match.card.empty")}
-      </p>
+        <p className="font-medium">{t(locale, "match.card.empty")}</p>
+        {emptyNextKickoffAt && (
+          <p>
+            {t(locale, "match.card.emptyNextKickoff", {
+              time: formatKickoff(emptyNextKickoffAt, locale, "time"),
+            })}
+          </p>
+        )}
+      </div>
     )
   }
 
   if (state.status === "error") {
     return (
-      <p
+      <div
+        role="alert"
         data-slot="match-card"
         data-status="error"
-        className={cn("p-4 text-sm text-destructive", className)}
+        className={cn("flex flex-col items-center gap-3 p-4 text-center text-sm", className)}
       >
-        {state.message ?? t(locale, "match.card.error")}
-      </p>
+        <p className="font-medium text-destructive">{state.message ?? t(locale, "match.card.error")}</p>
+        {onRetry && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onRetry}
+            // board 표면은 outline 버튼 기본값(`border-border bg-background`, 페이지 토큰)이
+            // 다크 표면과 대비가 반대라 `currentColor` 파생 톤으로 덮어쓴다(twMerge가 같은
+            // 유틸리티 그룹을 뒤 클래스로 교체 — SURFACE_CLASS_NAME과 동일 원칙).
+            className={cn(
+              surface === "board" &&
+                "border-board-line bg-transparent text-board-foreground hover:bg-white/10",
+            )}
+          >
+            {t(locale, "error.generic.retryLabel")}
+          </Button>
+        )}
+      </div>
     )
   }
 

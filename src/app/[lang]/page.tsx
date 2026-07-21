@@ -171,6 +171,7 @@ export default async function Page(props: PageProps<"/[lang]">) {
             initialCards={cards}
             teamNameById={teamNameRecord}
             leagueNameById={leagueNameRecord}
+            nextKickoffAt={nextKickoff?.kickoffAt ?? null}
             surface="board"
           />
         </div>

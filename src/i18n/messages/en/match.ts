@@ -45,8 +45,9 @@ export const match: MatchMessages = {
   },
   card: {
     gridTitle: "Live Matches",
-    empty: "No matches to display.",
-    error: "Failed to load match info.",
+    empty: "No matches in progress",
+    emptyNextKickoff: "Next kickoff {time}",
+    error: "Unable to load live data",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
   },

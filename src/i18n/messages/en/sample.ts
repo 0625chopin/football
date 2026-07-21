@@ -46,4 +46,12 @@ export const sample: SampleMessages = {
     toggleLabel: "Switch locale preview",
     hint: "The header locale switcher navigates to a new page — this toggle compares instantly, without leaving the page.",
   },
+  dataSource: {
+    toggleLabel: "Switch data adapter",
+    hint: "Swapping the data source only requires the environment flag — component code stays untouched (UC-602).",
+    optionMock: "Mock",
+    optionSupabase: "Supabase",
+    switching: "Switching…",
+    revertedToMock: "The switch failed, so it was reverted to the previous adapter.",
+  },
 };

@@ -22,16 +22,18 @@ import type {
 
 import { CountdownTimer } from "@/components/state/CountdownTimer";
 import { EmptyState } from "@/components/state/EmptyState";
+import { ErrorBoundary } from "@/components/state/ErrorBoundary";
 import { ErrorState } from "@/components/state/ErrorState";
 import { OddsButton } from "@/components/state/OddsButton";
 import { PhaseIndicator } from "@/components/state/PhaseIndicator";
 import { SkeletonBlock } from "@/components/state/SkeletonBlock";
 
+import { DataSourceToggle } from "./DataSourceToggle";
 import { LocaleCompareToggle } from "./LocaleCompareToggle";
 import { StateToggleSlot } from "./StateToggleSlot";
 import { ViewportFrame } from "./ViewportFrame";
 
-import { getDataSource } from "@/lib/data/factory";
+import { getDataSource, getDataSourceKind } from "@/lib/data/factory";
 import type {
   AwardId,
   Fixture,
@@ -56,6 +58,14 @@ import type {
  * 쇼케이스 본문을 ko/en 두 번 렌더(`renderShowcaseBody`)하고, `LocaleCompareToggle`(신설,
  * 클라이언트)이 라우트 이동 없이 둘 중 하나만 조건부 마운트해 전환한다. 설계 근거와 헤더
  * `LocaleSwitcher`와의 차이는 그 파일 헤더 주석 참조.
+ *
+ * 37일차 추가분: **컴포넌트별 `ErrorBoundary` 격리** — `ComponentSlot`(22개 사용처 전량)이
+ * 각자의 `children`을 `@/components/state/ErrorBoundary`(Next.js 16.2 `unstable_catchError`
+ * 기반, 신설)로 감싼다. 하나가 렌더 중 던져도 그 슬롯 카드 안에서만 대체 UI로 멈추고
+ * 나머지 21종은 정상 렌더된다. **어댑터 토글(Mock↔Supabase, UC-602)** — `DataSourceToggle`
+ * (신설, 클라이언트)이 `data-source-actions.ts`의 서버 액션을 통해 `NEXT_PUBLIC_DATA_SOURCE`를
+ * 런타임에 바꾸고 `factory.ts`의 `resetDataSourceCache()`로 캐시를 비운 뒤 이 라우트를
+ * 재검증한다 — 설계 근거·안전장치(전환 실패 시 자동 복귀)는 그 파일 헤더 주석 참조.
  *
  * `MatchCard`(5팀 Task 015, 34일차 구현 완료)를 composite 섹션에 8번째로 등록한다.
  * 차트/어드민 카테고리는 전용 컴포넌트가 아직 없어 섹션 골격만 두고 "미구현"으로 표기한다
@@ -84,13 +94,27 @@ const CATEGORIES: readonly CategoryDef[] = [
   { id: "admin", navKey: "sample.nav.admin" },
 ];
 
-function ComponentSlot({ name, children }: { readonly name: string; readonly children: ReactNode }) {
+function ComponentSlot({
+  name,
+  locale,
+  children,
+}: {
+  readonly name: string;
+  readonly locale: SupportedLocale;
+  readonly children: ReactNode;
+}) {
   return (
     <Card size="sm" className="gap-3">
       <CardHeader>
         <CardTitle className="font-mono text-xs text-muted-foreground">{name}</CardTitle>
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent>
+        {/* 37일차 — 컴포넌트 하나가 렌더 중 던져도 이 슬롯 안에서만 격리한다(파일 헤더 참조 및
+            src/components/state/ErrorBoundary.tsx 헤더 주석). */}
+        <ErrorBoundary locale={locale} name={name}>
+          {children}
+        </ErrorBoundary>
+      </CardContent>
     </Card>
   );
 }
@@ -139,6 +163,10 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
   const locale: SupportedLocale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
 
   /* ── Mock 데이터 조립 (프로덕션 규약대로 `getDataSource()` 어댑터 경유) ─── */
+  const currentDataSourceKind = getDataSourceKind();
+  // 37일차 팀장 지적 — `DataSourceToggle`은 프로덕션 빌드에서 렌더하지 않는다(보조 장치일
+  // 뿐, 실제 방어선은 `data-source-actions.ts`의 서버 측 조기 반환이다. 그 파일 헤더 참조).
+  const showDataSourceToggle = process.env.NODE_ENV === "development";
   const dataSource = getDataSource();
 
   const leagues = await dataSource.getLeagues();
@@ -423,7 +451,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             count={8}
           >
             <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
-              <ComponentSlot name="AbilityRadar">
+              <ComponentSlot name="AbilityRadar" locale={bodyLocale}>
                 <StateToggleSlot
                   name="AbilityRadar"
                   componentKey="AbilityRadar"
@@ -431,7 +459,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={abilityRadarData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="ConditionGauge">
+              <ComponentSlot name="ConditionGauge" locale={bodyLocale}>
                 <StateToggleSlot
                   name="ConditionGauge"
                   componentKey="ConditionGauge"
@@ -439,7 +467,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={conditionGaugeData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="FitnessBar">
+              <ComponentSlot name="FitnessBar" locale={bodyLocale}>
                 <StateToggleSlot
                   name="FitnessBar"
                   componentKey="FitnessBar"
@@ -447,7 +475,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={fitnessBarData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="FormStrip">
+              <ComponentSlot name="FormStrip" locale={bodyLocale}>
                 <StateToggleSlot
                   name="FormStrip"
                   componentKey="FormStrip"
@@ -455,7 +483,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={formStripData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="PlayerAvatar">
+              <ComponentSlot name="PlayerAvatar" locale={bodyLocale}>
                 <StateToggleSlot
                   name="PlayerAvatar"
                   componentKey="PlayerAvatar"
@@ -463,7 +491,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={playerAvatarData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="PositionMap">
+              <ComponentSlot name="PositionMap" locale={bodyLocale}>
                 <StateToggleSlot
                   name="PositionMap"
                   componentKey="PositionMap"
@@ -471,7 +499,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={positionMapData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="StatBar">
+              <ComponentSlot name="StatBar" locale={bodyLocale}>
                 <StateToggleSlot
                   name="StatBar"
                   componentKey="StatBar"
@@ -480,7 +508,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   extraProps={{ label: t(bodyLocale, "stat.leaderboard.title") }}
                 />
               </ComponentSlot>
-              <ComponentSlot name="TeamBadge">
+              <ComponentSlot name="TeamBadge" locale={bodyLocale}>
                 <StateToggleSlot
                   name="TeamBadge"
                   componentKey="TeamBadge"
@@ -500,7 +528,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             count={8}
           >
             <div className="grid gap-4 @sm:grid-cols-2">
-              <ComponentSlot name="BracketTree">
+              <ComponentSlot name="BracketTree" locale={bodyLocale}>
                 <StateToggleSlot
                   name="BracketTree"
                   componentKey="BracketTree"
@@ -508,7 +536,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={bracketTreeReadyData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="EventTimelineItem">
+              <ComponentSlot name="EventTimelineItem" locale={bodyLocale}>
                 <StateToggleSlot
                   name="EventTimelineItem"
                   componentKey="EventTimelineItem"
@@ -516,7 +544,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={eventTimelineData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="GrowthChart">
+              <ComponentSlot name="GrowthChart" locale={bodyLocale}>
                 <StateToggleSlot
                   name="GrowthChart"
                   componentKey="GrowthChart"
@@ -524,7 +552,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={growthChartReadyData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="InjuryTimeline">
+              <ComponentSlot name="InjuryTimeline" locale={bodyLocale}>
                 <StateToggleSlot
                   name="InjuryTimeline"
                   componentKey="InjuryTimeline"
@@ -532,7 +560,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={injuryTimelineData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="MatchCard">
+              <ComponentSlot name="MatchCard" locale={bodyLocale}>
                 <StateToggleSlot
                   name="MatchCard"
                   componentKey="MatchCard"
@@ -540,7 +568,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={matchCardData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="NewsItem">
+              <ComponentSlot name="NewsItem" locale={bodyLocale}>
                 <StateToggleSlot
                   name="NewsItem"
                   componentKey="NewsItem"
@@ -548,7 +576,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={newsItemData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="PitchLineup">
+              <ComponentSlot name="PitchLineup" locale={bodyLocale}>
                 <StateToggleSlot
                   name="PitchLineup"
                   componentKey="PitchLineup"
@@ -556,7 +584,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={pitchLineupReadyData}
                 />
               </ComponentSlot>
-              <ComponentSlot name="TrophyCase">
+              <ComponentSlot name="TrophyCase" locale={bodyLocale}>
                 <StateToggleSlot
                   name="TrophyCase"
                   componentKey="TrophyCase"
@@ -576,30 +604,30 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             count={6}
           >
             <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
-              <ComponentSlot name="CountdownTimer">
+              <ComponentSlot name="CountdownTimer" locale={bodyLocale}>
                 <CountdownTimer locale={bodyLocale} targetAt="2026-09-04T21:00:00.000Z" isPaused={false} />
               </ComponentSlot>
-              <ComponentSlot name="EmptyState">
+              <ComponentSlot name="EmptyState" locale={bodyLocale}>
                 <EmptyState locale={bodyLocale} titleKey="player.empty.message" />
               </ComponentSlot>
-              <ComponentSlot name="ErrorState">
+              <ComponentSlot name="ErrorState" locale={bodyLocale}>
                 <ErrorState locale={bodyLocale} />
               </ComponentSlot>
-              <ComponentSlot name="OddsButton">
+              <ComponentSlot name="OddsButton" locale={bodyLocale}>
                 <OddsButton
                   locale={bodyLocale}
                   selection={{ label: "홈 승" }}
                   odds={{ decimalOdds: 1.85 }}
                 />
               </ComponentSlot>
-              <ComponentSlot name="PhaseIndicator">
+              <ComponentSlot name="PhaseIndicator" locale={bodyLocale}>
                 {season ? (
                   <PhaseIndicator locale={bodyLocale} season={season} round={phaseIndicatorRound} />
                 ) : (
                   <SkeletonBlock rows={1} />
                 )}
               </ComponentSlot>
-              <ComponentSlot name="SkeletonBlock">
+              <ComponentSlot name="SkeletonBlock" locale={bodyLocale}>
                 <SkeletonBlock rows={3} />
               </ComponentSlot>
             </div>
@@ -631,6 +659,11 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
+      {showDataSourceToggle && (
+        <div className="mb-4">
+          <DataSourceToggle locale={locale} initialKind={currentDataSourceKind} />
+        </div>
+      )}
       <LocaleCompareToggle locale={locale} ko={renderShowcaseBody("ko")} en={renderShowcaseBody("en")} />
     </main>
   );

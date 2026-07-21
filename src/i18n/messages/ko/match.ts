@@ -21,6 +21,10 @@
 // I-154 판정 대기 중이라 임의로 만들지 않음, 28일차 판단과 동일 근거).
 //
 // 35일차(Task 015, 5팀, I-169 해소 후속): `upcoming`(A3 "다음 킥오프 목록") 그룹 추가.
+//
+// 37일차(Task 015, 5팀): `card.emptyNextKickoff` 추가 — A2 Empty 상태 "다음 킥오프 HH:MM"
+// 행(와이어프레임 01번 §5). 재시도 버튼 라벨은 새 키를 만들지 않고 `error.generic.retryLabel`
+// (4팀 `error.ts`)을 재사용한다 — 문구가 "다시 시도"로 동일해 중복 선언할 이유가 없다.
 export const match = {
   list: {
     title: "경기 목록",
@@ -67,8 +71,9 @@ export const match = {
   },
   card: {
     gridTitle: "실시간 경기",
-    empty: "표시할 경기가 없습니다.",
-    error: "경기 정보를 불러오지 못했습니다.",
+    empty: "현재 진행 중인 경기가 없습니다",
+    emptyNextKickoff: "다음 킥오프 {time}",
+    error: "라이브 데이터를 불러오지 못했습니다",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
   },

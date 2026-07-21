@@ -50,6 +50,14 @@ export const sample = {
     toggleLabel: "로케일 미리보기 전환",
     hint: "헤더의 로케일 스위처는 페이지를 이동합니다 — 이 전환은 페이지 이동 없이 즉시 비교합니다.",
   },
+  dataSource: {
+    toggleLabel: "데이터 어댑터 전환",
+    hint: "환경변수 플래그만 바꿔 데이터 소스를 교체합니다 — 컴포넌트 코드는 그대로입니다(UC-602).",
+    optionMock: "Mock",
+    optionSupabase: "Supabase",
+    switching: "전환 중…",
+    revertedToMock: "전환에 실패해 이전 어댑터로 되돌렸습니다.",
+  },
 };
 
 export type SampleMessages = typeof sample;
