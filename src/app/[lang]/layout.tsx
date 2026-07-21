@@ -348,7 +348,9 @@ const NAV_GROUPS: {
   {
     sectionKey: "common.nav.sectionCompetition",
     items: [
-      { labelKey: "common.nav.leagues", path: "leagues", pending: true },
+      // 44일차(I-223) — `leagues/page.tsx` 신설로 인덱스가 생겨 `pending`을 뗐다.
+      // 나머지 4종(matches·playoffs·teams·players)은 여전히 인덱스가 없어 그대로 둔다.
+      { labelKey: "common.nav.leagues", path: "leagues" },
       { labelKey: "common.nav.matches", path: "matches", pending: true },
       { labelKey: "common.nav.playoffs", path: "playoffs", pending: true },
       { labelKey: "common.nav.cup", path: "cup" },

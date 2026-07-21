@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   COMPOSITE_COMPONENT_NAMES,
   COMPOSITE_STATIC_COMPONENT_NAMES,
-  DOMAIN_COMPONENT_NAMES,
   STATE_UTILITY_COMPONENT_NAMES,
   computeComponentCoverage,
 } from "./component-registry";

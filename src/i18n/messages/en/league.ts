@@ -3,6 +3,11 @@ import type { LeagueMessages } from "../ko/league";
 export const league: LeagueMessages = {
   list: {
     title: "Leagues",
+    description:
+      "Compare the size and promotion structure of all three leagues, and jump to each league's standings or schedule.",
+    slotsLabel: "Promotion & relegation",
+    emptyTitle: "No leagues",
+    emptyDescription: "The world has not been generated yet.",
   },
   detail: {
     title: "League info",

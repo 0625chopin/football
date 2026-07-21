@@ -17,6 +17,13 @@
 export const league = {
   list: {
     title: "리그 목록",
+    // 44일차(I-223, 5팀) — `/[lang]/leagues` 인덱스 화면. `title`은 16일차 골격에 있던
+    // 미사용 키를 그대로 살려 썼다. 슬롯 요약 라벨은 `zone.*`(순위표 존 범례)을, 팀 수
+    // 표기는 `header.teamCountFormat`을 재사용한다 — 같은 개념에 키를 새로 만들지 않는다.
+    description: "3개 리그의 규모와 승강 구조를 비교하고, 각 리그의 순위표·일정으로 이동합니다.",
+    slotsLabel: "승강 구조",
+    emptyTitle: "리그가 없습니다",
+    emptyDescription: "월드가 아직 생성되지 않았습니다.",
   },
   detail: {
     title: "리그 정보",
