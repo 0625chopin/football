@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import { t } from "@/i18n/t";
@@ -47,6 +49,14 @@ const METRIC_OPTIONS: readonly {
   { value: "saves", labelKey: "stat.metrics.saves" },
 ];
 const DEFAULT_METRIC: PlayerStatRankingMetric = "goals";
+
+/** 선수명 → 선수 상세(`/[lang]/players/[playerId]`) 인라인 링크 스타일. 이 화면에는 행 전체를
+ * 덮는 링크(일정/결과 표의 stretched link)를 쓸 수 없다 — 한 행에 선수·팀·리그 세 개의 서로
+ * 다른 대상이 있어 행 단위 링크는 어디로 가는지 모호해진다. 그래서 이름 텍스트만 링크로 만든다.
+ * `getPlayerProfile`이 `null`을 준(=존재하지 않는) 선수는 링크로 감싸지 않는다 — 눌러 봐야
+ * 상세 페이지가 `notFound()`로 떨어지므로 죽은 링크를 노출하지 않는다. */
+const PLAYER_LINK_CLASS =
+  "rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 function resolveMetric(raw: string | undefined): PlayerStatRankingMetric {
   const found = METRIC_OPTIONS.find((option) => option.value === raw);
@@ -227,7 +237,18 @@ export default async function Page(props: PageProps<"/[lang]/stats">) {
                 {ranking.map((row, index) => (
                   <TableRow key={`${row.playerId}-${row.seasonId}-${row.competitionType}`}>
                     <TableCell numeric>{index + 1}</TableCell>
-                    <TableCell>{playerNameById.get(row.playerId) ?? row.playerId}</TableCell>
+                    <TableCell>
+                      {playerNameById.has(row.playerId) ? (
+                        <Link
+                          href={`/${locale}/players/${row.playerId}`}
+                          className={PLAYER_LINK_CLASS}
+                        >
+                          {playerNameById.get(row.playerId)}
+                        </Link>
+                      ) : (
+                        row.playerId
+                      )}
+                    </TableCell>
                     <TableCell>{teamNameById.get(row.teamId) ?? row.teamId}</TableCell>
                     <TableCell>{leagueNameById.get(row.leagueId) ?? row.leagueId}</TableCell>
                     <TableCell numeric>{String(row[metric])}</TableCell>

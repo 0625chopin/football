@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import Link from "next/link";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
@@ -64,6 +66,14 @@ const POSITION_SORT_ORDER: Readonly<Record<Position, number>> = {
   ST: 9,
   SS: 10,
 };
+
+/** 선수명 → 선수 상세(`/[lang]/players/[playerId]`) 인라인 링크 스타일 — `stats` 페이지와
+ * 같은 관용구를 쓴다(한 행에 선수·팀·리그 등 대상이 섞여 있어 행 전체 링크는 쓸 수 없다).
+ * `getPlayerProfile`이 `null`을 준 선수는 링크로 감싸지 않는다 — 상세가 `notFound()`로
+ * 떨어지는 죽은 링크이기 때문이다. 팀·감독 주체는 목록/상세 진입점이 정리되기 전까지
+ * 텍스트 그대로 둔다(감독은 애초에 이름 해석 자체가 불가 — 헤더 주석 참조). */
+const PLAYER_LINK_CLASS =
+  "rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none";
 
 const RANKING_GROUPS: readonly {
   readonly subjectType: MultiAwardRankingEntry["subjectType"];
@@ -198,17 +208,27 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
   );
   const teamNameById = new Map(teams.map((team) => [team.id, team.name]));
 
-  function resolveAwardSubjectName(award: Award): string {
-    if (award.playerId) return playerById.get(award.playerId)?.name ?? award.playerId;
+  function renderPlayerName(playerId: PlayerId): ReactNode {
+    const profile = playerById.get(playerId);
+    if (!profile) return playerId;
+    return (
+      <Link href={`/${locale}/players/${playerId}`} className={PLAYER_LINK_CLASS}>
+        {profile.name}
+      </Link>
+    );
+  }
+
+  function renderAwardSubject(award: Award): ReactNode {
+    if (award.playerId) return renderPlayerName(award.playerId);
     if (award.teamId) return teamNameById.get(award.teamId) ?? award.teamId;
     if (award.managerId) return t(locale, "awards.subject.unresolvedManager");
     return "—";
   }
 
-  function resolveRankingSubjectName(entry: MultiAwardRankingEntry): string {
+  function renderRankingSubject(entry: MultiAwardRankingEntry): ReactNode {
     switch (entry.subjectType) {
       case "PLAYER":
-        return playerById.get(entry.subjectId as PlayerId)?.name ?? entry.subjectId;
+        return renderPlayerName(entry.subjectId as PlayerId);
       case "TEAM":
         return teamNameById.get(entry.subjectId as TeamId) ?? entry.subjectId;
       case "MANAGER":
@@ -298,7 +318,7 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
                         {t(locale, `enums.awardType.${award.type}` as TranslationKey)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{resolveAwardSubjectName(award)}</TableCell>
+                    <TableCell>{renderAwardSubject(award)}</TableCell>
                     <TableCell>
                       {award.leagueId ? (leagueNameById.get(award.leagueId) ?? award.leagueId) : "—"}
                     </TableCell>
@@ -382,7 +402,7 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
                       {entries.map((entry, index) => (
                         <TableRow key={`${entry.subjectType}-${entry.subjectId}`}>
                           <TableCell numeric>{index + 1}</TableCell>
-                          <TableCell>{resolveRankingSubjectName(entry)}</TableCell>
+                          <TableCell>{renderRankingSubject(entry)}</TableCell>
                           <TableCell numeric>
                             {t(locale, "awards.ranking.countFormat", { count: entry.totalAwards })}
                           </TableCell>

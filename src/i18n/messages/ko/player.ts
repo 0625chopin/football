@@ -18,6 +18,19 @@
 export const player = {
   list: {
     title: "선수 목록",
+    // 50일차(I-223, 사용자 지시) — `/[lang]/players` 인덱스 화면. 44일차 `leagues/page.tsx`가
+    // 세운 선례를 따라 `title`은 16일차 골격의 미사용 키를 그대로 살려 썼다. 나이 값 표기는
+    // `profile.ageFormat`, 포지션 라벨은 `enums.position.*`를 재사용한다 — 같은 개념에 키를
+    // 새로 만들지 않는다.
+    description: "리그와 구단을 골라 소속 선수를 찾고, 이름을 눌러 선수 상세로 이동합니다.",
+    leagueLabel: "리그",
+    teamLabel: "구단",
+    apply: "적용",
+    caption: "선택한 구단의 소속 선수 명단",
+    nameHeader: "선수",
+    positionHeader: "포지션",
+    ageHeader: "나이",
+    emptyTeams: "표시할 구단이 없습니다.",
   },
   detail: {
     title: "선수 프로필",

@@ -3,6 +3,15 @@ import type { PlayerMessages } from "../ko/player";
 export const player: PlayerMessages = {
   list: {
     title: "Players",
+    description: "Pick a league and a club to browse its squad, then open a player's profile.",
+    leagueLabel: "League",
+    teamLabel: "Club",
+    apply: "Apply",
+    caption: "Squad list for the selected club",
+    nameHeader: "Player",
+    positionHeader: "Position",
+    ageHeader: "Age",
+    emptyTeams: "No clubs to show.",
   },
   detail: {
     title: "Player profile",
