@@ -7,6 +7,10 @@ import type { TranslationKey } from "@/i18n/keys";
 import type { SupportedLocale } from "@/i18n/locales";
 import { cn } from "@/lib/utils";
 
+// 44일차(I-222) — 4상태 대상 키의 단일 소스는 `'use client'`가 없는 `./component-registry`다.
+// 타입 import라 RSC 경계와 무관하다(타입은 컴파일 시점에 소거된다).
+import type { ComponentKey } from "./component-registry";
+
 import { AbilityRadar } from "@/components/domain/AbilityRadar";
 import { ConditionGauge } from "@/components/domain/ConditionGauge";
 import { FitnessBar } from "@/components/domain/FitnessBar";
@@ -41,27 +45,11 @@ import { TrophyCase } from "@/components/composite/TrophyCase";
  * 컴포넌트 종류에 관계없이 같은 `state` 값을 그대로 전달할 수 있다.
  */
 
-export type ComponentKey =
-  | "AbilityRadar"
-  | "ConditionGauge"
-  | "FitnessBar"
-  | "FormStrip"
-  | "PlayerAvatar"
-  | "PositionMap"
-  | "StatBar"
-  | "TeamBadge"
-  | "BracketTree"
-  | "EventTimelineItem"
-  | "GrowthChart"
-  | "InjuryTimeline"
-  | "MatchCard"
-  | "MatchScoreboard"
-  | "NewsItem"
-  | "PitchLineup"
-  | "StandingsTable"
-  | "TrophyCase";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 16종이 서로 다른 데이터 모양을 가진 동적 디스패치 레지스트리(쇼케이스 전용 리프 파일).
+// 44일차(I-222) — `ComponentKey`가 `component-registry.ts`의 이름 배열에서 파생되므로, 이
+// `Record`는 **누락·잉여 키를 컴파일 시점에 잡는 exhaustive 검사**로 동작한다. 38일차처럼
+// 키 목록을 이 파일에서 따로 export해 서버가 읽게 하면 안 된다 — RSC 경계에서 빈 값으로
+// 평가돼 커버리지 배지가 조용히 틀린다(그 파일 헤더 참조).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 18종이 서로 다른 데이터 모양을 가진 동적 디스패치 레지스트리(쇼케이스 전용 리프 파일).
 const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   AbilityRadar,
   ConditionGauge,
@@ -83,11 +71,6 @@ const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   TrophyCase,
 };
 
-// Task 014(38일차) — 커버리지 체크리스트가 "4상태 구현 수"를 세는 근거로 이 배열을 그대로
-// 가져다 쓴다(`component-registry.ts`). 위 `COMPONENT_REGISTRY`가 실제 렌더 디스패치에
-// 쓰이는 유일한 레지스트리이므로, 여기서 키 목록을 파생하면 카운터가 별도로 손 유지하는
-// 목록과 어긋날 일이 없다(하드코딩 숫자 대신 실제 레지스트리를 세는 방식, I-168 참고).
-export const FOUR_STATE_COMPONENT_KEYS = Object.keys(COMPONENT_REGISTRY) as ComponentKey[];
 
 const TOGGLE_STATUSES = ["loading", "empty", "error", "ready"] as const;
 type ToggleStatus = (typeof TOGGLE_STATUSES)[number];

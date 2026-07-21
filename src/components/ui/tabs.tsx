@@ -1,10 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
+import { type VariantProps } from "class-variance-authority"
 import { Tabs as TabsPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
+// I-222(44일차) — cva 정의는 'use client'가 없는 형제 모듈에 둔다(그 파일 헤더 참조).
+import { tabsListVariants } from "./tabs-variants"
 
 function Tabs({
   className,
@@ -23,21 +25,6 @@ function Tabs({
     />
   )
 }
-
-const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
-  {
-    variants: {
-      variant: {
-        default: "bg-muted",
-        line: "gap-1 bg-transparent",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
 
 function TabsList({
   className,
@@ -87,4 +74,7 @@ function TabsContent({
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }
+// `tabsListVariants`는 여기서 re-export하지 않는다 — 이 파일은 'use client'라
+// re-export해도 다시 client reference가 되어 분리한 의미가 사라진다(I-222).
+// 소비처는 `@/components/ui/tabs-variants`에서 직접 가져올 것.
+export { Tabs, TabsList, TabsTrigger, TabsContent }

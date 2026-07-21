@@ -81,6 +81,14 @@ export interface LiveMatchGridProps {
    * (loading/empty/error) 렌더에도 동일하게 넘겨 표면이 상태마다 바뀌지 않게 한다.
    */
   readonly surface?: "card" | "board";
+  /**
+   * 44일차(I-222) — **서버가 해석한 폴링 주기(ms)**. 이 컴포넌트는 클라이언트이고,
+   * `loadConstants`의 값 소스는 브라우저 런타임에 영원히 비어 있어(`bootstrapApp()`이
+   * 서버에서만 실행됨) 훅이 스스로 조회하면 안전망 값 30초로 고정된다. 그래서 서버
+   * 컴포넌트(`./page.tsx`)가 `resolvePollIntervalMs("default")` 결과를 내려준다 —
+   * 상세는 `@/lib/data/polling`의 `PollingOptions.intervalMs` JSDoc 참조.
+   */
+  readonly pollIntervalMs?: number;
 }
 
 export function LiveMatchGrid(props: LiveMatchGridProps) {
@@ -104,11 +112,12 @@ function LiveMatchGridBody({
   nextKickoffAt,
   className,
   surface = "card",
+  pollIntervalMs,
   onRetry,
 }: LiveMatchGridProps & { readonly onRetry: () => void }) {
   const result = usePollingList<MatchCardData>(
     () => fetchLiveMatchCards(teamNameById, leagueNameById),
-    { mode: "default" },
+    { mode: "default", intervalMs: pollIntervalMs },
   );
 
   if (isLoading(result) && initialCards === undefined) {

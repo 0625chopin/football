@@ -30,6 +30,15 @@
  * 한다(아래 import 참조). `'use client'`는 Next.js 공식 문서(`use-client.md`)가 명시한
  * 대로 이 파일의 **진짜 첫 줄**(모든 주석·import보다 앞)에 둔다.
  *
+ * **44일차(I-222) — 같은 이유로 `resolvePollIntervalMs`/`PollMode`도 떼어냈다.** 44일차에
+ * "서버가 주기를 해석해 props로 내려준다"로 설계를 바꾸면서 서버 컴포넌트(`[lang]/page.tsx`)가
+ * 이 파일에서 `resolvePollIntervalMs`를 import했더니, 위와 정확히 같은 client reference 치환
+ * 때문에 홈이 *"Attempted to call resolvePollIntervalMs() from the server"*로 에러 바운더리에
+ * 떨어졌다(실측). 그 함수는 `'use client'`가 없는 `./poll-interval`로 옮겼고 이 파일은 그것을
+ * **재사용만** 한다 — 아래 "44일차 정정" 절 참조. `'use client'` 파일에 순수 유틸을 두면 서버가
+ * 못 쓴다는 이 함정은 이제 이 파일에서 두 번 재발했다. **새 export를 추가하기 전에 "서버도
+ * 부를 수 있어야 하는가"를 먼저 따지고, 그렇다면 별도 모듈에 두세요.**
+ *
  * ## I-61 — `Result<T>` 적용 위치 (팀장 확정, `docs/ISSUES.md` 참조)
  * `DataSource.ts`는 오늘도 수정하지 않는다 — 모든 메서드가 여전히 평범한 `Promise<T>`
  * (단일 엔티티: `T | null`, 컬렉션: `readonly T[]`)를 반환한다(3팀 Task 007 반환 타입에
@@ -86,6 +95,25 @@
  * 하드코딩 폴백보다 우선하므로(해석 우선순위, `loader.ts`), 그 시점부터는 아래
  * `DEFAULT_POLL_INTERVAL_MS`/`DEFAULT_POLL_LIVE_MS`가 아니라 정상값이 쓰인다.
  *
+ * ### ⚠️ 44일차 정정 — 클라이언트에서는 `loadConstants`가 **항상** 실패한다 (I-222)
+ * 위 문단이 전제한 "전역 기본값 소스가 정상값을 공급한다"는 **서버 런타임에서만** 성립한다.
+ * `loader.ts`의 `globalDefaultSource`/`fallbackSource`는 모듈 스코프 싱글턴이고, 그 둘을
+ * 채우는 `bootstrapApp()`(`installHardcodedFallback()` + `setGlobalDefaultSource()`)은
+ * 서버 컴포넌트에서만 `await`된다 — **브라우저 번들의 `loader.ts`는 별도 인스턴스라 두 소스가
+ * 영원히 `null`**이다. 그래서 `usePolling*`이 브라우저에서 `resolvePollIntervalMs`를 부르면
+ * 100% `ConstantSourceUnavailableError`로 떨어져 안전망 값(30초/15초)만 쓰이고, 공통코드
+ * 경유(R-8) 설계가 클라이언트에서 사실상 죽는다(홈 라이브 그리드에서 실제로 발생 — 매 마운트
+ * WARN + 주기 30초 고정).
+ *
+ * **해소 방식**: 서버 컴포넌트가 `resolvePollIntervalMs(mode)`를 호출해(이 시점은
+ * `bootstrapApp()` 이후라 정상값이 나온다) 그 ms를 props로 내려주고, 화면이
+ * `PollingOptions.intervalMs`에 넣는다. 클라이언트는 조회를 아예 시도하지 않는다. 설정 소유를
+ * 서버에 두는 이 방향은 I-182 해소(폴링 fetcher의 Route Handler 경유)와 동일한 원칙이다.
+ * **클라이언트에서 `installHardcodedFallback()`을 부르는 대안은 택하지 않았다** — 예외와 WARN은
+ * 사라지지만 얻는 값이 안전망(30초/15초)이라 정상값은 여전히 도달 불가라 근본 해결이 아니다.
+ * `intervalMs`를 생략했을 때의 `resolvePollIntervalMs` 폴백 경로는 그대로 남겨 둔다(서버에서
+ * 값을 못 내려주는 화면도 무정지로 동작해야 하므로 — AS-13).
+ *
  * ## 탭 비활성 시 중단 (`docs/wireframe/00-공통규약.md` R-8, "훅 계약의 책임으로 확정")
  * `usePolling`/`usePollingList`는 `document.visibilitychange`를 구독해 탭이 숨겨지면
  * 타이머를 멈추고, 다시 보이면 즉시 1회 재조회 후 타이머를 재개한다. 화면(4·5팀)은 이
@@ -108,62 +136,25 @@
  * ## import 규약
  * `@/types` 도메인 타입을 import하지 않는다(이 파일은 범용 유틸이라 `result.ts`와 동일한
  * 원칙). `Result<T>` 타입은 같은 디렉터리의 `./result`에서, 변환 헬퍼는 `./fetch-result`
- * 에서, 공통코드 로더는 3팀 소유 `@/lib/config/loader`에서 **읽기 전용으로 소비**한다
- * (그 파일들을 수정하지 않는다).
+ * 에서, 폴링 주기 해석은 `./poll-interval`에서 각각 재사용한다. 공통코드 로더
+ * (`@/lib/config/loader`, 3팀 소유)를 이 파일이 **직접** import하지 않는 것이 44일차 분리의
+ * 핵심이다 — 그 조회는 전부 `./poll-interval`을 경유한다.
  */
 
 import { useEffect, useRef, useState } from 'react';
 
-import { loadConstants } from '@/lib/config/loader';
-
 import { fetchListResult, fetchResult } from './fetch-result';
+import { resolvePollIntervalMs, type PollMode } from './poll-interval';
 import { loadingResult, type Result } from './result';
 
-/* ────────────────────────────────────────────────────────────────────────
- * 폴링 주기 — 공통코드 우선, 실패 시 안전 기본값 폴백
- * ──────────────────────────────────────────────────────────────────────── */
-
-/** 기본 폴링(일정·순위표 등) 또는 라이브 경기 상세 폴링 중 어느 주기를 쓸지 선택한다. */
-export type PollMode = 'default' | 'live';
-
 /**
- * `loadConstants('UI_PARAM')`이 값을 못 줄 때만 쓰는 **최후 안전망 — 정상 운영값이 아니다**
- * (사용자 판정, 11일차, `docs/ISSUES.md` I-77). ROADMAP.md Task 004 원문의 "기본 5초 /
- * 라이브 3초"는 6팀이 `common_code` 실데이터를 적재한 뒤 공통코드 경유로 공급되는 정상값이고,
- * 이 두 상수는 그 조회 자체가 실패했을 때(장애 상황)만 쓰인다. 장애 시에도 정상값(5초/3초)
- * 그대로 폴백하면 동시 접속자 수에 비례해 비용이 급증하는 폴링 요청이 장애 상황에서 오히려
- * 최대치로 쏟아지는 역전 구조가 된다(`docs/business/03-budget-plan.md` §2.5 케이스 A 기준
- * 월 5초=$133.7 vs 30초=$1.6) — 그래서 안전망만 30초/15초로 낮췄다. `@/lib/config/fallback`의
- * `SAFE_DEFAULT_VALUES.UI_PARAM`(3팀 11일차)과 동일한 수치로 맞췄다(파일 헤더 "폴링 주기 값"
- * 절 참조).
+ * 44일차 이전 이 파일이 소유하던 타입 — 이제 `./poll-interval`이 단일 소스다. 타입은
+ * 컴파일 시점에 소거돼 client reference 치환 대상이 아니므로 재노출해도 안전하다(기존
+ * `import type { PollMode } from '@/lib/data/polling'`을 깨지 않기 위한 호환 re-export).
+ * **값** `resolvePollIntervalMs`는 여기서 re-export하지 않는다 — 그러면 `'use client'`
+ * 경계에 다시 걸려 서버에서 호출할 수 없게 되어 분리한 의미가 사라진다.
  */
-const DEFAULT_POLL_INTERVAL_MS = 30000;
-const DEFAULT_POLL_LIVE_MS = 15000;
-
-/**
- * `mode`에 해당하는 폴링 주기(ms)를 공통코드에서 조회한다. `UI_PARAM` 그룹 코드 이름은
- * 3팀이 확정한 `POLL_INTERVAL_MS`/`POLL_LIVE_MS`를 쓴다(파일 헤더 "폴링 주기 값" 절
- * 참조). 소스 미등록·값 누락 등 어떤 이유로든 조회에 실패하면 예외를 흡수하고
- * `DEFAULT_POLL_INTERVAL_MS`/`DEFAULT_POLL_LIVE_MS`(비용 안전망 전용값, 정상값 아님 —
- * 위 상수 JSDoc 참조)로 폴백한다(AS-13/NFR-CFG-005 무정지 원칙).
- */
-export function resolvePollIntervalMs(mode: PollMode): number {
-  const key = mode === 'live' ? 'POLL_LIVE_MS' : 'POLL_INTERVAL_MS';
-  const fallback = mode === 'live' ? DEFAULT_POLL_LIVE_MS : DEFAULT_POLL_INTERVAL_MS;
-
-  try {
-    const value = loadConstants('UI_PARAM')[key];
-    return typeof value === 'number' && Number.isFinite(value) && value > 0
-      ? value
-      : fallback;
-  } catch (cause) {
-    console.warn(
-      `[src/lib/data/polling.ts] UI_PARAM 공통코드 조회 실패 — 안전 기본값(${fallback}ms, mode="${mode}")으로 폴백합니다.`,
-      cause,
-    );
-    return fallback;
-  }
-}
+export type { PollMode };
 
 /* ────────────────────────────────────────────────────────────────────────
  * 클라이언트 폴링 훅 — 화면은 이 훅을 소비만 한다(setInterval 자체 구현 금지)
@@ -174,6 +165,22 @@ export interface PollingOptions {
   readonly mode: PollMode;
   /** `false`면 폴링을 시작하지 않는다(예: 경기가 아직 시작 전). 기본값 `true`. */
   readonly enabled?: boolean;
+  /**
+   * **서버(RSC)에서 해석한 주기(ms)를 직접 주입한다 — 클라이언트 화면은 이 값을 넘기는 것을
+   * 기본으로 한다**(44일차, I-222). 생략하면 훅이 브라우저에서 `resolvePollIntervalMs(mode)`를
+   * 부르는데, `loadConstants`의 값 소스(`loader.ts`)는 **모듈 스코프 싱글턴이라 서버/브라우저가
+   * 각자 별도 인스턴스를 갖고**, `installHardcodedFallback()`/`setGlobalDefaultSource()`의
+   * 호출처인 `bootstrapApp()`은 서버 컴포넌트에서만 `await`된다. 즉 **브라우저 런타임에는 두
+   * 소스가 영원히 비어 있어** 조회가 100% 실패하고 안전망 값(30000/15000ms)만 쓰이게 된다 —
+   * 공통코드 경유(`docs/wireframe/00-공통규약.md` R-8)로 정상값(5초/3초)을 공급하려던 설계가
+   * 클라이언트에서 도달 불가능해진다.
+   *
+   * 서버 컴포넌트는 `bootstrapApp()` 이후이므로 `resolvePollIntervalMs(mode)`가 전역 기본값
+   * 소스(DB)의 정상값을 정확히 돌려준다. 그 값을 props로 내려 이 옵션에 넣으면 클라이언트는
+   * 조회를 아예 시도하지 않는다(설정 소유는 서버, 클라이언트는 소비만 — I-182 해소 때 정한
+   * 방향과 동일). 유한한 양수가 아니면 무시하고 조회 경로로 되돌아간다.
+   */
+  readonly intervalMs?: number;
 }
 
 /**
@@ -201,7 +208,13 @@ function usePollingState<R>(poll: () => Promise<R>, options: PollingOptions, ini
     }
 
     let alive = true;
-    const intervalMs = resolvePollIntervalMs(options.mode);
+    // 서버가 해석해 내려준 값을 최우선으로 쓴다(위 `PollingOptions.intervalMs` JSDoc — 이 훅은
+    // 브라우저에서만 실행되므로 `loadConstants` 경로는 소스가 비어 있어 안전망 값밖에 못 준다).
+    const injected = options.intervalMs;
+    const intervalMs =
+      typeof injected === 'number' && Number.isFinite(injected) && injected > 0
+        ? injected
+        : resolvePollIntervalMs(options.mode);
     let timerId: ReturnType<typeof setInterval> | undefined;
 
     function stopTimer(): void {
@@ -245,7 +258,7 @@ function usePollingState<R>(poll: () => Promise<R>, options: PollingOptions, ini
       stopTimer();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [enabled, options.mode]);
+  }, [enabled, options.mode, options.intervalMs]);
 
   return state;
 }

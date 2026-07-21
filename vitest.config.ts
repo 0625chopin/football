@@ -12,7 +12,11 @@ export default defineConfig({
     // 테스트(badge.render.test.tsx)가 .tsx 확장자를 쓰므로 include에 tsx를 추가한다.
     // environment는 전역으로 바꾸지 않는다(파일별 `@vitest-environment` 매직 코멘트로
     // jsdom을 필요한 파일에만 적용 — 다른 팀 테스트의 기본 environment에 영향 없음).
-    include: ['**/*.{test,spec}.{ts,tsx}'],
+    // I-222(44일차) — `mjs`를 추가한다. `eslint-rules/**`의 커스텀 ESLint 룰은 flat config가
+    // 로드해야 해서 `.mjs`로 작성되며, 그 룰의 회귀 테스트도 같은 확장자다. 룰 자체가
+    // "세 번 재발한 함정을 기계적으로 막는" 장치라 룰이 조용히 무력화되면 원상 복귀하므로,
+    // 게이트가 반드시 그 테스트를 실행해야 한다.
+    include: ['**/*.{test,spec}.{ts,tsx,mjs}'],
     // 15일차(Task 008) — 3단 머지 게이트(scripts/gate.sh)의 test 단계가 스코프를 좁혀
     // 실행될 때(예: 특정 디렉터리만 변경된 PR) 매치되는 테스트가 0건이어도 게이트가
     // "No test files found"로 실패하지 않도록 한다. coverage 임계(위 thresholds)는
@@ -50,22 +54,24 @@ export default defineConfig({
         'src/lib/naming/**/*.ts',
         'src/lib/mock/**/*.ts',
       ],
-      // polling.ts만 예외: React 훅(useEffect/useRef/useState)을 직접 쓰는 유일한 data 파일이라
-      // 제대로 검증하려면 @testing-library/react + jsdom 환경이 필요한데 아직 미설치다(ⓑ UI
-      // 테스트 전략 결정 — 4팀 UI기반팀 착수(23일차)에 맞춰 해당 의존성을 추가할 때 함께
-      // 이 예외를 제거하고 테스트를 작성한다, 이슈 후보로 별도 보고). 그 전까지 이 파일만
-      // 커버리지 분모에서 제외해 게이트가 이 파일 때문에 항상 실패하는 것을 막는다.
+      // polling.ts 예외는 **44일차에 해제됐다**(I-222). 15일차 당시 제외 사유는 "React 훅을
+      // 직접 쓰는 유일한 data 파일이라 검증에 @testing-library/react + jsdom이 필요한데
+      // 미설치"였고, 재포함 조건으로 "그 의존성을 추가할 때 함께 예외를 제거하고 테스트를
+      // 작성한다"를 명시해 뒀다. 의존성은 35일차(I-151)에 들어왔으나 예외는 남아 있었고,
+      // 그 사이 `polling.ts`가 무테스트로 방치된 결과 I-222(클라이언트에서 `loadConstants`가
+      // 100% 실패해 폴링 주기가 안전망 값으로 고정)이 44일차까지 발견되지 않았다.
+      // 44일차에 `src/lib/data/polling.test.ts`(jsdom, 10건)를 작성해 조건을 충족했다 —
+      // 실측 lines 100% / branches 92.3%로 perFile 임계를 상회한다.
       // database.types.ts: MCP `generate_typescript_types`가 Supabase 스키마에서 그대로 뽑아내는
       // **생성 파일**이다 — type/interface 선언뿐이라 실행 가능한 statement가 없고(순수 타입이라
       // DataSource.ts와 같은 이유로 원래 분모 기여가 0이어야 하지만, 파일 규모가 커 v8 provider가
       // "커버되지 않은 파일"로 집계해 lines 0%로 잡힌다), 애초에 테스트 대상이 될 수 없다.
       // 19일차 팀장 `npm run gate` 마감 검증에서 ERROR로 검출(16~18일차 3개 일차간 게이트가
       // 마감 검증 경로에 연결되지 않아 미검출 — docs/ISSUES.md 신규 항목 참조).
-      // 아래 polling.ts와 달리 이 제외는 **재포함 조건이 없는 영구 제외**다 — polling.ts는
-      // 의존성 설치·테스트 작성이라는 미래 조건이 채워지면 제외를 해제할 대상이지만,
-      // database.types.ts는 생성물 자체의 성격상 재포함할 시나리오가 없다(재생성해도 여전히
-      // 순수 타입 선언 파일).
-      exclude: ['src/lib/data/polling.ts', 'src/lib/data/database.types.ts'],
+      // polling.ts와 달리 이 제외는 **재포함 조건이 없는 영구 제외**다 — polling.ts는 조건이
+      // 채워져 44일차에 해제됐지만, database.types.ts는 생성물 자체의 성격상 재포함할
+      // 시나리오가 없다(재생성해도 여전히 순수 타입 선언 파일).
+      exclude: ['src/lib/data/database.types.ts'],
       // perFile(I-94, 15일차 재판단): 14일차엔 match/events.ts(0%)·match/stats.ts(branch 66.66%)가
       // 파일 단위로 70%를 밑돌아 aggregate만 채택했었다. 2팀 15일차 산출물(스냅샷 파이프라인 테스트)
       // 반영 후 재측정한 결과 events.ts 100%, stats.ts branch 75.75%로 두 파일 모두 임계를 상회해

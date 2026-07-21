@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
+import { resolvePollIntervalMs } from "@/lib/data/poll-interval";
 import { computeElapsedMinutes } from "@/components/composite/MatchCard";
 import type { MatchCardData } from "@/components/composite/MatchCard";
 import { LiveMatchGrid } from "./LiveMatchGrid";
@@ -131,6 +132,14 @@ export default async function Page(props: PageProps<"/[lang]">) {
   const teamNameRecord: Record<TeamId, string> = Object.fromEntries(teamNameById);
   const leagueNameRecord: Record<LeagueId, string> = Object.fromEntries(leagueNameById);
 
+  // 44일차(I-222) — 폴링 주기는 **여기(서버)에서** 해석해 내려준다. 위 `bootstrapApp()`이
+  // 이미 끝났으므로 이 호출은 공통코드 정상값을 돌려주지만, 같은 호출을 클라이언트에서 하면
+  // `loader.ts`의 값 소스가 브라우저 인스턴스에선 비어 있어 안전망 값(30초)으로 고정된다
+  // (`@/lib/data/polling`의 `PollingOptions.intervalMs` JSDoc 참조).
+  // import 경로 주의 — `@/lib/data/polling`이 아니라 `@/lib/data/poll-interval`이다. 전자는
+  // `'use client'` 파일이라 그 export를 서버에서 호출하면 client reference 오류가 난다.
+  const pollIntervalMs = resolvePollIntervalMs("default");
+
   return (
     <div className="flex flex-col">
       {/* ── A1+A2 라이브 보드 ─────────────────────────────────────────────────
@@ -173,6 +182,7 @@ export default async function Page(props: PageProps<"/[lang]">) {
             leagueNameById={leagueNameRecord}
             nextKickoffAt={nextKickoff?.kickoffAt ?? null}
             surface="board"
+            pollIntervalMs={pollIntervalMs}
           />
         </div>
       </section>

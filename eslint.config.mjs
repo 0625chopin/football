@@ -2,9 +2,30 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+import { localRscPlugin } from "./eslint-rules/client-module-exports.mjs";
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // I-222(44일차): `'use client'` 파일은 컴포넌트·훅·타입만 export한다. RSC 번들러가 그런
+    // 파일의 **모든 export**를 client reference로 치환하므로, 순수 유틸·상수를 거기 두면
+    // 서버 컴포넌트가 가져갔을 때 호출 시 런타임 오류가 나거나 **값이 조용히 비어서 평가**된다.
+    // 이 저장소에서 11일차(I-74 `fetchResult`)·38일차(`/sample` 배지 0/16 오표시)·44일차
+    // (I-222 `resolvePollIntervalMs`) 세 번 재발했고, 세 번 다 "고치고 주석 남기기"로 끝나
+    // 다음 사람이 다시 밟았다 — 그래서 주석이 아니라 린트로 고정한다. 룰 본문과 전체 근거는
+    // `eslint-rules/client-module-exports.mjs` 파일 헤더가 단일 소스다.
+    //
+    // 테스트 파일도 범위에 넣는다 — vitest는 Node 환경이라 RSC 경계가 없어 client 모듈의
+    // 아무 값이나 import할 수 있고(38일차 `component-registry.test.ts`가 실제로 그렇게 썼다),
+    // 그래서 테스트만 통과하는 채로 프로덕션에서 깨지는 조합이 성립한다. 즉 테스트는 이
+    // 함정의 안전지대가 아니라 **사각지대**다.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    plugins: { "local-rsc": localRscPlugin },
+    rules: {
+      "local-rsc/client-module-exports": "error",
+    },
+  },
   // Task 010(19일차, H-06 인계): eslint-config-next/typescript의 @typescript-eslint/no-unused-vars
   // 기본값은 argsIgnorePattern이 없어, 인터페이스 계약상 어쩔 수 없이 받지만 쓰지 않는 매개변수를
   // `_` 접두사로 표시하는 이 저장소의 기존 관례(예: src/lib/data/mock/MockDataSource.ts)를
