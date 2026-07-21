@@ -30,6 +30,12 @@
 // `density="row"`(와이어프레임 03번 C2-r)가 LIVE 외 3개 상태에도 아이콘+라벨 배지를 내도록
 // 확장하면서 필요해졌다(기존엔 LIVE만 배지가 있었다, NFR-A11Y-002). 구조는 4팀 소유지만
 // 콘텐츠 확장은 이 파일 헤더 1행이 이미 5팀 몫으로 열어 뒀다.
+//
+// 43일차(Task 017, 5팀): `score`(`MatchScoreboard`, D1) 그룹 추가 — 경기 상세 스코어보드.
+// 상태 라벨(예정/종료/연기)은 새 키를 만들지 않고 기존 `card.scheduledLabel` 등을 재사용한다
+// (문구가 동일해 중복 선언할 이유가 없음, 37일차 `emptyNextKickoff` 판단과 동일 원칙).
+// PSO 표기(`score.psoFormat`)는 R-13 ① 형식("정규+연장 스코어 (승부차기 홈-원정)")을 그대로
+// 옮겼다. `timeline.futureBoundary`도 함께 추가 — D3 R-11 경계 표시(와이어프레임 04번 §3-1).
 export const match = {
   list: {
     title: "경기 목록",
@@ -53,6 +59,9 @@ export const match = {
     error: "이벤트를 불러오지 못했습니다.",
     minuteFormat: "{minute}'",
     addedTimeFormat: "{minute}+{added}'",
+    // 43일차(Task 017, 5팀) — D3 R-11 경계 표시. "결과를 미리 알 수 있으면 이 화면은
+    // 실패"(와이어프레임 04번 §2)라, 노출 중단 지점을 침묵 대신 명문으로 알린다.
+    futureBoundary: "경기 진행 중 — {minute}분 이후 미공개",
   },
   news: {
     loading: "뉴스를 불러오는 중…",
@@ -89,6 +98,21 @@ export const match = {
     sectionTitle: "다음 킥오프",
     empty: "예정된 경기가 없습니다.",
     matchupFormat: "{home} vs {away}",
+  },
+  score: {
+    loading: "스코어보드를 불러오는 중…",
+    error: "경기 정보를 불러오지 못했습니다.",
+    neutralVenueLabel: "중립지",
+    notNeutralVenueLabel: "중립지 아님",
+    // R-13 ① 형식 — 정규+연장 스코어와 승부차기를 합산하지 않고 분리 표기한다.
+    psoFormat: "{home} - {away} (승부차기 {pkHome}-{pkAway})",
+    phase: {
+      firstHalf: "전반",
+      halfTime: "하프타임",
+      secondHalf: "후반",
+      extraTime: "연장전",
+      penaltyShootout: "승부차기",
+    },
   },
 };
 

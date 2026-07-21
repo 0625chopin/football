@@ -41,6 +41,12 @@
  * `seeding.ts`가 소유하며, 이 파일은 그 타입을 재노출(`export type { CupSeedPools }`)
  * 할 뿐이다.
  *
+ * ## 홈 결정 — 43일차부터 `seeding.ts`의 `decideCupHomeAway()` 재사용
+ * "두 시드 중 더 큰 쪽이 홈" 규칙(아래 "홈 어드밴티지" 절)은 41일차엔 이 파일의 지역
+ * 함수 `homeAwayOf()`였으나, 43일차에 시딩(전역 시드 해석) 관심사로 분류해
+ * `seeding.ts`로 옮겼다(`crossPair()`와 같은 이유·같은 패턴). 이 파일은 이제
+ * `decideCupHomeAway()`를 그대로 호출할 뿐 재정의하지 않는다.
+ *
  * ## 2라운드 이후 "시드 기반 무작위" — `derive.ts`가 시드를 소유, 이 파일은 셔플만
  * FR-LG-015 원문 "2라운드 이후 시드 기반 무작위"를 각 라운드(32강~결승)마다 잔여 참가
  * 시드를 다시 뽑는 방식(실제 다수 컵대회의 라운드별 재추첨 관행)으로 해석한다 — 요구사항
@@ -75,6 +81,7 @@ import { deriveCupDrawSeed, hashKey, stateForSeed } from '../rng/derive';
 import { nextIntBelow } from '../rng/prng';
 import {
   assertCupSeedPools,
+  decideCupHomeAway,
   seedCupRound1,
   teamOfGlobalSeed,
   type CupSeedPools,
@@ -122,14 +129,6 @@ export interface CupAdvancement {
   readonly winnerSeed: number;
 }
 
-/** `[homeSeed, awaySeed]`를 "더 큰 시드가 홈"(파일 헤더 "전역 시드 번호" 절) 규칙으로 정렬한다. */
-function homeAwayOf(seedX: number, seedY: number): readonly [number, number] {
-  if (seedX === seedY) {
-    throw new RangeError(`homeAwayOf: 두 시드가 동일합니다(${seedX}) — 자기 자신과 대진할 수 없습니다.`);
-  }
-  return seedX > seedY ? [seedX, seedY] : [seedY, seedX];
-}
-
 function pairToDraft(
   seasonId: SeasonId,
   pools: CupSeedPools,
@@ -140,7 +139,7 @@ function pairToDraft(
   isNeutral: boolean,
   fnName: string,
 ): CupFixtureDraft {
-  const [homeSeed, awaySeed] = homeAwayOf(pair[0], pair[1]);
+  const [homeSeed, awaySeed] = decideCupHomeAway(pair[0], pair[1]);
   return {
     seasonId,
     competitionType: CUP,

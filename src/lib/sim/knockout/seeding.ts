@@ -43,6 +43,25 @@
  * (`seeding.test.ts`가 전자를, `cup.test.ts`가 후자를 이미 증명 — 42일차는 전자를
  * `cup.ts`에서 이 파일로 옮기고 나서 그 자리에서 다시 값으로 증명한다).
  *
+ * ## 홈 결정 규칙 — 42일차부터 이 파일로 이관(43일차)
+ * FR-LG-015 "홈 = 하위 티어, 동일 티어면 낮은 순위"는 전역 시드 번호매김 자체에 티어
+ * 서열이 인코딩돼 있어(리그1 시드 < 리그2 시드 < 리그3 시드, 파일 헤더 "전역 시드 번호"
+ * 절) "두 시드 중 더 큰 쪽이 홈" 한 줄로 통일된다. 이 규칙(`decideCupHomeAway()`)은
+ * 41일차에 `cup.ts`가 `homeAwayOf()`라는 이름의 지역 함수로 처음 구현했으나, 시딩
+ * 규칙(전역 시드 배정)과 같은 관심사(전역 시드 순서 해석)라 42일차 `crossPair()` 이관과
+ * 같은 이유로 오늘(43일차) 이 파일로 옮긴다 — `cup.ts`는 이제 이 함수를 그대로 재사용할
+ * 뿐 재정의하지 않는다(중복 구현 금지, 41일차 파일 헤더 원칙 계승).
+ *
+ * ## 결승(중립지) 홈 어드밴티지 미적용 — 이 파일이 보증하는 범위
+ * FR-LG-015 "결승은 중립지"이므로 결승 매치업은 `isNeutral: true`로 표시되고(`cup.ts`),
+ * 그 경우 홈 어드밴티지 계수는 항상 `NEUTRAL_HOME_ADVANTAGE_COEFFICIENT`(1.0)여야 한다
+ * (수락 기준 "결승에서 홈 계수 1.0"). **계수의 실제 공식(비중립 경기에서 어떤 값을
+ * 쓰는가)은 이 파일 소관이 아니다** — `ability/modifiers.ts`의 `homeModifier`가 여전히
+ * TODO 골격 단계(공식 미확정)이며, 그 공식이 채워지는 시점은 이 팀의 후속 일차다. 이
+ * 파일은 "중립지에서는 그 값이 무엇이든 1.0으로 강제된다"는 좁은 불변식만
+ * `assertNeutralHomeAdvantage()`로 값 증명한다 — 아직 공식이 없는 비중립 계수를
+ * 억측해 채우지 않는다("억측 금지" 원칙, `ability/README.md` 참조).
+ *
  * ## 실행 제약 (NFR-DT-001)
  * `Math.random()`/`Date.now()`/`react`/`@supabase/*` 사용·import 0건. 이 파일은 라운드 1
  * 시딩만 다루므로 난수를 쓰지 않는다(2라운드 이후 추첨은 `cup.ts`가 `rng/derive.ts`·
@@ -194,4 +213,39 @@ export function seedCupRound1(pools: CupSeedPools): CupRound1Seeding {
   }
 
   return { byeSeeds, pairs };
+}
+
+/**
+ * `[seedX, seedY]`를 "홈 = 하위 티어, 동일 티어면 낮은 순위"(FR-LG-015, 파일 헤더
+ * "홈 결정 규칙" 절) 규칙으로 정렬한다. 전역 시드는 티어·순위 오름차순으로 번호가
+ * 매겨져 있으므로(시드 1 = 리그1 1위 … 시드 60 = 리그3 꼴찌) "더 큰 시드가 홈" 한 줄로
+ * 그 규칙을 구현한다 — 리그 간 교차인지 리그 내부인지 분기할 필요가 없다. 41일차
+ * `cup.ts`의 `homeAwayOf()`를 그대로 이관한 함수다(중복 구현 금지).
+ */
+export function decideCupHomeAway(seedX: number, seedY: number): readonly [number, number] {
+  if (seedX === seedY) {
+    throw new RangeError(
+      `decideCupHomeAway: 두 시드가 동일합니다(${seedX}) — 자기 자신과 대진할 수 없습니다.`,
+    );
+  }
+  return seedX > seedY ? [seedX, seedY] : [seedY, seedX];
+}
+
+/** 중립지(결승) 경기의 홈 어드밴티지 계수 — FR-LG-015 "결승은 중립지"에서 항상 이 값. */
+export const NEUTRAL_HOME_ADVANTAGE_COEFFICIENT = 1.0;
+
+/**
+ * "중립지 경기의 홈 어드밴티지 계수는 항상 1.0"이라는 불변식을 값으로 검증한다
+ * (수락 기준 "결승에서 홈 계수 1.0"). `isNeutral`이 아닌 경기의 실제 계수 공식은 이
+ * 함수의 관심사가 아니다 — `coefficient` 인자를 그대로 두고 통과시킨다(파일 헤더
+ * "결승 홈 어드밴티지 미적용" 절, 공식 자체는 `ability/modifiers.ts`의 `homeModifier`
+ * 소관·TODO).
+ */
+export function assertNeutralHomeAdvantage(isNeutral: boolean, coefficient: number): void {
+  if (isNeutral && coefficient !== NEUTRAL_HOME_ADVANTAGE_COEFFICIENT) {
+    throw new RangeError(
+      `assertNeutralHomeAdvantage: 중립지 경기의 홈 어드밴티지 계수는 ` +
+        `${NEUTRAL_HOME_ADVANTAGE_COEFFICIENT}이어야 하는데 ${coefficient}입니다.`,
+    );
+  }
 }

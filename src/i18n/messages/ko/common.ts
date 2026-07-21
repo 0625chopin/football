@@ -74,6 +74,12 @@ export const common = {
     nextKickoffLabel: "다음 킥오프",
     paused: "일시정지 중",
   },
+  // Task 019(43일차) — `/stats`·`/transfers`·`/awards` 세 화면이 공유하는 "더 보기"
+  // 링크 규약(`LoadMoreLink`, `src/components/ui/LoadMoreLink.tsx` 헤더 주석 참조).
+  // 화면별 네임스페이스에 중복 선언하지 않고 공용 문구로 둔다.
+  pagination: {
+    loadMore: "더 보기",
+  },
 };
 
 export type CommonMessages = typeof common;

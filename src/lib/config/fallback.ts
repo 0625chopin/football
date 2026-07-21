@@ -386,7 +386,9 @@ export const SAFE_DEFAULT_VALUES: Readonly<{
   CRON_PARAM: {
     INTERVAL_MIN: 1,
     LOCK_TIMEOUT_MIN: 5,
-    CATCHUP_MAX_PER_RUN: 50,
+    // 43일차 I-09: Edge Function CPU 2초 한도 대응으로 DB 시드값이 50→30으로
+    // 낮아졌다 — 이 폴백도 함께 낮춰 갈라짐을 막는다(공통코드 미적재 시에만 쓰임).
+    CATCHUP_MAX_PER_RUN: 30,
     RETRY_MAX: 3,
     GAP_DETECT_MULTIPLIER: 3,
   },

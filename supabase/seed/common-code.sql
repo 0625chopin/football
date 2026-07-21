@@ -200,7 +200,8 @@ VALUES
    'JSON', 'NEXT_SEASON', ARRAY['FR-MT-009'], true, 30, now(), now()),
 
   ('CRON_PARAM', '크론 설정',
-   '크론 설정 — 코드 예시(기본값): INTERVAL_MIN=1, LOCK_TIMEOUT_MIN=5, CATCHUP_MAX_PER_RUN=50, RETRY_MAX=3, GAP_DETECT_MULTIPLIER=3',
+   -- 43일차 I-09 반영: CATCHUP_MAX_PER_RUN 50→30(Edge Function CPU 2초 한도 대응)
+   '크론 설정 — 코드 예시(기본값): INTERVAL_MIN=1, LOCK_TIMEOUT_MIN=5, CATCHUP_MAX_PER_RUN=30, RETRY_MAX=3, GAP_DETECT_MULTIPLIER=3',
    'INT', 'IMMEDIATE', ARRAY['FR-AD-017', 'FR-AD-018', 'FR-AD-019', 'FR-AD-020'], true, 31, now(), now()),
 
   ('SANCTION_PARAM', '리그3 리빌드 제재',
@@ -507,7 +508,7 @@ INSERT INTO common_code
 VALUES
   ('CRON_PARAM', 'INTERVAL_MIN', NULL, '1', 1, '1', '크론 실행 주기(분)', 1, true, NULL, now(), now()),
   ('CRON_PARAM', 'LOCK_TIMEOUT_MIN', NULL, '5', 5, '5', '크론 락 타임아웃(분)', 2, true, NULL, now(), now()),
-  ('CRON_PARAM', 'CATCHUP_MAX_PER_RUN', NULL, '50', 50, '50', '1회 실행당 최대 캐치업 처리 건수', 3, true, NULL, now(), now()),
+  ('CRON_PARAM', 'CATCHUP_MAX_PER_RUN', NULL, '30', 30, '30', '1회 실행당 최대 캐치업 처리 건수(43일차 I-09: 50→30)', 3, true, NULL, now(), now()),
   ('CRON_PARAM', 'RETRY_MAX', NULL, '3', 3, '3', '크론 실패 시 최대 재시도 횟수', 4, true, NULL, now(), now()),
   ('CRON_PARAM', 'GAP_DETECT_MULTIPLIER', NULL, '3', 3, '3', '간격 이상(gap) 감지 배수', 5, true, NULL, now(), now());
 

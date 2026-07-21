@@ -21,7 +21,7 @@ export const sample = {
     domainDescription: "선수·팀 등 단일 엔티티를 표현하는 컴포넌트 8종.",
     compositeTitle: "복합 컴포넌트",
     compositeDescription:
-      "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 9종(4상태, MatchCard·StandingsTable 포함) + 정적 표시 1종(ZoneLegend).",
+      "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 10종(4상태, MatchCard·MatchScoreboard·StandingsTable 포함) + 정적 표시 1종(ZoneLegend).",
     stateTitle: "상태·유틸 컴포넌트",
     stateDescription: "로딩/빈/에러 등 공용 상태와 유틸리티 컴포넌트 6종(4상태 규약 비대상).",
     chartTitle: "차트",
@@ -29,6 +29,14 @@ export const sample = {
       "차트 전용 카테고리는 아직 컴포넌트가 없습니다 — 복합 카테고리의 GrowthChart가 1차 차트 구현입니다(I-152).",
     adminTitle: "어드민",
     adminDescription: "운영 콘솔 전용 컴포넌트는 아직 없습니다.",
+    // Task 019(43일차) — `LoadMoreLink`(ui/)는 도메인/복합처럼 로딩·빈·에러 4상태 계약이
+    // 없는 순수 링크 컴포넌트라(ZoneLegend와 동일 판단, I-168) domain/composite
+    // 카운터·앵커 내비 대상이 아니다. 그래도 "만들었으면 등록" 원칙에 따라 별도 정적
+    // 블록으로 쇼케이스에 둔다.
+    paginationTitle: "더 보기 링크",
+    paginationDescription:
+      "/stats·/transfers·/awards 세 화면이 공유하는 페이지네이션 규약(limit 쿼리 증가) — 소진되면 아무것도 렌더하지 않습니다.",
+    paginationExhaustedNote: "소진 상태(오른쪽) — 렌더 없음",
   },
   status: {
     notImplemented: "미구현",

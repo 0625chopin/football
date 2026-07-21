@@ -21,6 +21,7 @@ import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
 import { GrowthChart } from "@/components/composite/GrowthChart";
 import { InjuryTimeline } from "@/components/composite/InjuryTimeline";
 import { MatchCard } from "@/components/composite/MatchCard";
+import { MatchScoreboard } from "@/components/composite/MatchScoreboard";
 import { NewsItem } from "@/components/composite/NewsItem";
 import { PitchLineup } from "@/components/composite/PitchLineup";
 import { StandingsTable } from "@/components/composite/StandingsTable";
@@ -54,6 +55,7 @@ export type ComponentKey =
   | "GrowthChart"
   | "InjuryTimeline"
   | "MatchCard"
+  | "MatchScoreboard"
   | "NewsItem"
   | "PitchLineup"
   | "StandingsTable"
@@ -74,6 +76,7 @@ const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   GrowthChart,
   InjuryTimeline,
   MatchCard,
+  MatchScoreboard,
   NewsItem,
   PitchLineup,
   StandingsTable,

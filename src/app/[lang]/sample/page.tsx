@@ -6,12 +6,19 @@ import type { TranslationKey } from "@/i18n/keys";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadMoreLink } from "@/components/ui/LoadMoreLink";
 import { Separator } from "@/components/ui/separator";
 
 import type { BracketParticipant, BracketTreeData } from "@/components/composite/BracketTree";
 import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
 import type { InjuryTimelineData } from "@/components/composite/InjuryTimeline";
 import type { MatchCardData } from "@/components/composite/MatchCard";
+import type { MatchScoreboardData } from "@/components/composite/MatchScoreboard";
+import {
+  compareEventChronologically,
+  deriveMatchPhase,
+  foldMatchScore,
+} from "@/components/composite/match-scoreboard";
 import type { NewsItemData } from "@/components/composite/NewsItem";
 import type { PitchLineupData } from "@/components/composite/PitchLineup";
 import type { StandingRowData, StandingsTableData } from "@/components/composite/StandingsTable";
@@ -433,6 +440,66 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
       }
     : null;
 
+  // MatchScoreboard(43일차, 5팀 Task 017 — /sample 등록은 4팀 인계분). 상태 다양성이
+  // 드러나도록 LIVE/FINISHED 두 슬롯을 둔다(팀장 지침).
+  //
+  // LIVE — 위에서 이미 조회한 실제 라이브 픽스처(`sampleFixture`/`matchEvents`)를 그대로
+  // 쓴다. 스코어는 컴포넌트 계약대로 `Fixture.homeScore`를 직접 넘기지 않고 `foldMatchScore`
+  // (이벤트 접기)로 산출한다(파일 헤더 E-1). `minute`/`addedTime`은 H-24 실시간 계산을
+  // 새로 구현하지 않는다(`MatchCard.computeElapsedMinutes` 헤더 주석과 동일 판단 — 쇼케이스는
+  // 정적 스냅샷으로 충분하다) — 대신 이미 받아 둔 이벤트 중 가장 나중 것의 (minute,
+  // addedTime)을 근사치로 보여준다.
+  const sortedMatchEvents = [...matchEvents].sort(compareEventChronologically);
+  const latestMatchEvent = sortedMatchEvents[sortedMatchEvents.length - 1] ?? null;
+
+  const matchScoreboardLiveData: MatchScoreboardData | null = sampleFixture
+    ? {
+        leagueName: primaryLeague?.name ?? null,
+        roundLabel: sampleFixture.roundLabel,
+        isNeutral: sampleFixture.isNeutral,
+        status: sampleFixture.status,
+        phase: deriveMatchPhase(sampleFixture.status, matchEvents),
+        kickoffAt: sampleFixture.kickoffAt,
+        minute: latestMatchEvent?.minute ?? null,
+        addedTime: latestMatchEvent?.addedTime ?? 0,
+        homeTeamName: teamById.get(sampleFixture.homeTeamId)?.name ?? sampleFixture.homeTeamId,
+        awayTeamName: teamById.get(sampleFixture.awayTeamId)?.name ?? sampleFixture.awayTeamId,
+        homeTeam: teamById.get(sampleFixture.homeTeamId),
+        awayTeam: teamById.get(sampleFixture.awayTeamId),
+        ...foldMatchScore(sampleFixture.homeTeamId, sampleFixture.awayTeamId, matchEvents),
+        pkHome: null,
+        pkAway: null,
+      }
+    : null;
+
+  // FINISHED — 실제 종료 픽스처를 이 화면이 따로 조회하지 않으므로(추가 조회 비용 없이
+  // 기존에 이미 받아 둔 리그 순위표 상위 두 팀으로 표시만 꾸민다), 스코어·라운드는 다른
+  // 종료 예시(`TrophyCase`의 `sample-award-1` 등)와 동일하게 화면 전용 표본값이다 — 실제
+  // 경기 결과가 아니다.
+  const finishedHomeStanding = standings[0] ?? null;
+  const finishedAwayStanding = standings[1] ?? null;
+  const matchScoreboardFinishedData: MatchScoreboardData | null =
+    finishedHomeStanding && finishedAwayStanding
+      ? {
+          leagueName: primaryLeague?.name ?? null,
+          roundLabel: "R1",
+          isNeutral: false,
+          status: "FINISHED",
+          phase: "FULL_TIME",
+          kickoffAt: sampleFixture?.kickoffAt ?? "1970-01-01T00:00:00.000Z",
+          minute: null,
+          addedTime: 0,
+          homeTeamName: teamById.get(finishedHomeStanding.teamId)?.name ?? finishedHomeStanding.teamId,
+          awayTeamName: teamById.get(finishedAwayStanding.teamId)?.name ?? finishedAwayStanding.teamId,
+          homeTeam: teamById.get(finishedHomeStanding.teamId),
+          awayTeam: teamById.get(finishedAwayStanding.teamId),
+          homeScore: 2,
+          awayScore: 1,
+          pkHome: null,
+          pkAway: null,
+        }
+      : null;
+
   // StandingsTable(39일차, 5팀 Task 016 — /sample 등록은 4팀 인계분) — 표 전체 24행은
   // 불필요해(팀장 인계 지침) 순위 상위 몇 행만 표본으로 쓴다. 존 판정(`resolveStandingZone`)
   // 은 5팀 소유 순수 함수를 그대로 재사용하고(로직 복제 금지), 팀 표시 정보는 위에서 이미
@@ -647,6 +714,22 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={matchCardData}
                 />
               </ComponentSlot>
+              <ComponentSlot name="MatchScoreboard (LIVE)" locale={bodyLocale}>
+                <StateToggleSlot
+                  name="MatchScoreboard (LIVE)"
+                  componentKey="MatchScoreboard"
+                  locale={bodyLocale}
+                  readyData={matchScoreboardLiveData}
+                />
+              </ComponentSlot>
+              <ComponentSlot name="MatchScoreboard (FINISHED)" locale={bodyLocale}>
+                <StateToggleSlot
+                  name="MatchScoreboard (FINISHED)"
+                  componentKey="MatchScoreboard"
+                  locale={bodyLocale}
+                  readyData={matchScoreboardFinishedData}
+                />
+              </ComponentSlot>
               <ComponentSlot name="NewsItem" locale={bodyLocale}>
                 <StateToggleSlot
                   name="NewsItem"
@@ -715,6 +798,28 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
               </ComponentSlot>
             </div>
           </ShowcaseSection>
+
+          {/* LoadMoreLink(ui/, 43일차) — ZoneLegend와 동일 판단(I-168): 4상태 계약이
+              없는 순수 표시 컴포넌트라 domain/composite 카운터·앵커 내비 대상이 아니다.
+              소진 상태(`href={null}`)는 아무것도 렌더하지 않는 게 계약이라, 그 사실을
+              캡션으로 문서화하고 두 번째 인스턴스는 실제로 아무 것도 그리지 않는다. */}
+          <div className="space-y-2">
+            <h3 className="eyebrow text-muted-foreground">
+              {t(bodyLocale, "sample.section.paginationTitle")}
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              {t(bodyLocale, "sample.section.paginationDescription")}
+            </p>
+            <ComponentSlot name="LoadMoreLink" locale={bodyLocale}>
+              <div className="flex flex-wrap items-center gap-3">
+                <LoadMoreLink locale={bodyLocale} href="?limit=40" />
+                <span className="text-xs text-muted-foreground">
+                  {t(bodyLocale, "sample.section.paginationExhaustedNote")}
+                </span>
+                <LoadMoreLink locale={bodyLocale} href={null} />
+              </div>
+            </ComponentSlot>
+          </div>
 
           <Separator />
 

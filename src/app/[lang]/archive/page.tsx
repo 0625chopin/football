@@ -62,6 +62,12 @@ const BEST_XI_AWARD_TYPES: readonly AwardType[] = ["TEAM_OF_SEASON", "WORLD_XI"]
  * `/awards`·`/stats`·`/transfers`와 동일 패턴(`?season=<seasonNumber>`). 완료 시즌
  * 목록만 후보로 삼는다(진행 중 시즌은 애초에 후보가 아니다 — 위 판단 참조).
  *
+ * ## "더 보기"(`LoadMoreLink`) 미적용 — 43일차 규약 통일 스코프 밖
+ * `/stats`·`/transfers`·`/awards`는 `RANK_LIMIT_DEFAULT`류 상수로 표를 인위적으로
+ * 자르지만, 이 화면의 순위표(리그당 팀 수 고정)·우승 표(리그 3개 고정)·수상 요약
+ * (`getAwards({ seasonId })`, 시즌 1건 범위라 자체가 이미 유계)은 어디에도 그런 임의
+ * 상한이 없다 — 늘릴 "더"가 없으므로 세 화면과 같은 `limit` 규약을 적용하지 않는다.
+ *
  * 참조: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md
  * (`searchParams`는 Promise — await 필요)
  */

@@ -14,12 +14,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/state/EmptyState";
+import { LoadMoreLink, buildLoadMoreHref, parseLoadMoreLimit } from "@/components/ui/LoadMoreLink";
 import type { PlayerStatRankingMetric } from "@/lib/data/DataSource";
 import type { LeagueId, PlayerId } from "@/types";
 
-/** 랭킹 표에 노출할 최대 행수 — 순위표는 상위권만 의미 있고, 전량 반환은 클라이언트
- * 재집계 금지 규약(R-10)과도 맞지 않는다. */
-const RANK_LIMIT = 20;
+/** 랭킹 표에 초기 노출할 행수 — 순위표는 상위권만 의미 있고, 전량 반환은 클라이언트
+ * 재집계 금지 규약(R-10)과도 맞지 않는다. "더 보기"(`LoadMoreLink`, 43일차)를 누르면
+ * `RANK_LIMIT_STEP`만큼 늘어난 `limit`으로 같은 조회를 다시 부른다 — `RANK_LIMIT_MAX`에서
+ * 멈춘다(전량 반환 금지 규약은 상한을 늘려도 여전히 유효해야 한다). */
+const RANK_LIMIT_DEFAULT = 20;
+const RANK_LIMIT_STEP = 20;
+const RANK_LIMIT_MAX = 100;
 
 /** 지표 드롭다운 — `PlayerStatCoreValues`(56필드) 중 화면에서 가장 흔히 찾는 12종만
  * 선별한다(수락 기준 "10종 이상"). 값(`value`)은 `getPlayerStatRanking`에 그대로 넘기고,
@@ -101,14 +106,19 @@ export default async function Page(props: PageProps<"/[lang]/stats">) {
     typeof searchParams.metric === "string" ? searchParams.metric : undefined,
   );
   const showAll = searchParams.all === "on" || searchParams.all === "1";
+  const limit = parseLoadMoreLimit(searchParams.limit, RANK_LIMIT_DEFAULT, RANK_LIMIT_MAX);
 
   const ranking = await dataSource.getPlayerStatRanking({
     leagueId,
     competitionType: "LEAGUE",
     metric,
     minAppearancePct: showAll ? 0 : undefined,
-    limit: RANK_LIMIT,
+    limit,
   });
+  const hasMore = ranking.length === limit && limit < RANK_LIMIT_MAX;
+  const loadMoreHref = hasMore
+    ? buildLoadMoreHref(searchParams, Math.min(limit + RANK_LIMIT_STEP, RANK_LIMIT_MAX))
+    : null;
 
   const uniquePlayerIds = Array.from(new Set(ranking.map((row) => row.playerId)));
   const uniqueTeamIds = Array.from(new Set(ranking.map((row) => row.teamId)));
@@ -227,6 +237,11 @@ export default async function Page(props: PageProps<"/[lang]/stats">) {
             </Table>
           )}
         </CardContent>
+        {loadMoreHref ? (
+          <CardContent className="flex justify-center pt-0">
+            <LoadMoreLink locale={locale} href={loadMoreHref} />
+          </CardContent>
+        ) : null}
       </Card>
     </div>
   );

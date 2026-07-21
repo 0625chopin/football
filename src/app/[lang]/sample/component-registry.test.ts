@@ -41,11 +41,11 @@ describe("component-registry", () => {
     const coverage = computeComponentCoverage();
 
     expect(coverage.domainCount).toBe(8);
-    expect(coverage.compositeCount).toBe(9);
+    expect(coverage.compositeCount).toBe(10);
     expect(coverage.stateUtilityCount).toBe(6);
     expect(coverage.compositeStaticCount).toBe(1);
-    expect(coverage.registeredCount).toBe(24);
-    expect(coverage.fourStateEligibleCount).toBe(17);
+    expect(coverage.registeredCount).toBe(25);
+    expect(coverage.fourStateEligibleCount).toBe(18);
     expect(coverage.fourStateImplementedCount).toBe(coverage.fourStateEligibleCount);
   });
 });

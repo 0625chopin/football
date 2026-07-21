@@ -13,8 +13,11 @@ import { describe, expect, it } from 'vitest';
 import type { TeamId } from '@/types';
 import {
   CUP_SEED_POOL_SIZE,
+  NEUTRAL_HOME_ADVANTAGE_COEFFICIENT,
   assertCupSeedPools,
+  assertNeutralHomeAdvantage,
   crossPair,
+  decideCupHomeAway,
   seedCupRound1,
   teamOfGlobalSeed,
   type CupSeedPools,
@@ -98,6 +101,36 @@ describe('crossPair — 재사용 가능한 순수 맞짝짓기', () => {
     const result = crossPair([], [1, 2]);
     expect(result.pairs).toEqual([]);
     expect(result.leftoverB).toEqual([1, 2]);
+  });
+});
+
+describe('decideCupHomeAway — 홈 = 하위 티어, 동일 티어면 낮은 순위', () => {
+  it('리그 간 교차 — 더 큰 시드(하위 티어)가 홈', () => {
+    expect(decideCupHomeAway(5, 45)).toEqual([45, 5]);
+    expect(decideCupHomeAway(45, 5)).toEqual([45, 5]);
+  });
+
+  it('동일 티어(리그2 내부) — 더 큰 시드(낮은 순위)가 홈', () => {
+    expect(decideCupHomeAway(29, 44)).toEqual([44, 29]);
+  });
+
+  it('자기 자신과의 대진은 오류', () => {
+    expect(() => decideCupHomeAway(7, 7)).toThrow(RangeError);
+  });
+});
+
+describe('assertNeutralHomeAdvantage — 결승(중립지)에서 홈 계수 1.0', () => {
+  it('중립지 + 계수 1.0은 통과', () => {
+    expect(() => assertNeutralHomeAdvantage(true, NEUTRAL_HOME_ADVANTAGE_COEFFICIENT)).not.toThrow();
+  });
+
+  it('중립지인데 계수가 1.0이 아니면 오류', () => {
+    expect(() => assertNeutralHomeAdvantage(true, 1.1)).toThrow(RangeError);
+  });
+
+  it('비중립 경기는 계수 값과 무관하게 통과(공식은 이 함수의 관심사가 아님)', () => {
+    expect(() => assertNeutralHomeAdvantage(false, 1.1)).not.toThrow();
+    expect(() => assertNeutralHomeAdvantage(false, NEUTRAL_HOME_ADVANTAGE_COEFFICIENT)).not.toThrow();
   });
 });
 

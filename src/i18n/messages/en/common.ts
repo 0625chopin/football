@@ -51,4 +51,7 @@ export const common: CommonMessages = {
     nextKickoffLabel: "Next kickoff",
     paused: "Paused",
   },
+  pagination: {
+    loadMore: "Load more",
+  },
 };

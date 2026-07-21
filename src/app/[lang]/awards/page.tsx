@@ -24,12 +24,18 @@ import type {
   PitchLineupData,
   PitchLineupPlayer,
 } from "@/components/composite/PitchLineup";
+import { LoadMoreLink, buildLoadMoreHref, parseLoadMoreLimit } from "@/components/ui/LoadMoreLink";
 import type { MultiAwardRankingEntry } from "@/lib/data/DataSource";
 import type { Award, AwardType, PlayerId, Position, TeamId } from "@/types";
 
-/** 통산 다관왕 랭킹 표에 노출할 최대 행수 — `stats` 페이지 `RANK_LIMIT`과 동일 판단
- * (R-10, 상위권만 의미 있고 전량 반환은 클라이언트 재집계 금지 규약과 맞지 않는다). */
-const RANKING_LIMIT = 10;
+/** 통산 다관왕 랭킹 표에 초기 노출할 행수 — `stats` 페이지 `RANK_LIMIT_DEFAULT`와 동일
+ * 판단(R-10, 상위권만 의미 있고 전량 반환은 클라이언트 재집계 금지 규약과 맞지 않는다).
+ * "더 보기"는 선수/감독/팀 3부문에 같은 `limit` 하나를 공유한다 — 부문별로 따로 늘리면
+ * "규약 통일"(43일차 수락 기준)에 어긋난다. 감독 부문은 항상 조회 불가 안내로 대체되어
+ * (아래 렌더링부 참조) `limit`이 몇이든 영향이 없다. */
+const RANKING_LIMIT_DEFAULT = 10;
+const RANKING_LIMIT_STEP = 10;
+const RANKING_LIMIT_MAX = 50;
 
 /** 베스트11류 수상 2종 — `getAwards`의 `type` 필터로 구분한다(`DataSource.ts` 528줄
  * 주석 "베스트11도 type 필터로 조회 가능해 별도 메서드가 불필요"). 이 두 타입은 "시즌별
@@ -131,11 +137,13 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
     seasons[0] ??
     null;
 
+  const rankingLimit = parseLoadMoreLimit(searchParams.limit, RANKING_LIMIT_DEFAULT, RANKING_LIMIT_MAX);
+
   const [seasonAwards, rankingResults] = await Promise.all([
     selectedSeason ? dataSource.getAwards({ seasonId: selectedSeason.id }) : Promise.resolve([]),
     Promise.all(
       RANKING_GROUPS.map((group) =>
-        dataSource.getMultiAwardRanking({ subjectType: group.subjectType, limit: RANKING_LIMIT }),
+        dataSource.getMultiAwardRanking({ subjectType: group.subjectType, limit: rankingLimit }),
       ),
     ),
   ]);
@@ -143,6 +151,12 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
   const rankingBySubjectType = new Map(
     RANKING_GROUPS.map((group, index) => [group.subjectType, rankingResults[index]] as const),
   );
+  const rankingHasMore = rankingResults.some(
+    (entries) => entries.length === rankingLimit && rankingLimit < RANKING_LIMIT_MAX,
+  );
+  const rankingLoadMoreHref = rankingHasMore
+    ? buildLoadMoreHref(searchParams, Math.min(rankingLimit + RANKING_LIMIT_STEP, RANKING_LIMIT_MAX))
+    : null;
 
   const bestXiAwardsByType = new Map<AwardType, Award[]>();
   const seasonAwardRows: Award[] = [];
@@ -381,6 +395,11 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
             );
           })}
         </CardContent>
+        {rankingLoadMoreHref ? (
+          <CardContent className="flex justify-center pt-0">
+            <LoadMoreLink locale={locale} href={rankingLoadMoreHref} />
+          </CardContent>
+        ) : null}
       </Card>
     </div>
   );

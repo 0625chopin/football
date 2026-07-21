@@ -6,10 +6,15 @@ import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import { Card, CardContent } from "@/components/ui/card";
 import { NewsItem } from "@/components/composite/NewsItem";
 import type { NewsItemData } from "@/components/composite/NewsItem";
+import { LoadMoreLink, buildLoadMoreHref, parseLoadMoreLimit } from "@/components/ui/LoadMoreLink";
 import type { NewsFeedItem, NewsFeedItemType } from "@/types";
 
-/** 피드에 노출할 최대 건수. 무한정 렌더하지 않는다(순위표 `RANK_LIMIT`과 동일 판단). */
-const TRANSFER_FEED_LIMIT = 30;
+/** 피드에 초기 노출할 건수. 무한정 렌더하지 않는다(순위표 `RANK_LIMIT_DEFAULT`와 동일
+ * 판단, `stats/page.tsx` 참조). "더 보기"를 누르면 `TRANSFER_FEED_STEP`만큼 늘어난
+ * `limit`으로 다시 조회한다 — `TRANSFER_FEED_MAX`에서 멈춘다. */
+const TRANSFER_FEED_DEFAULT = 30;
+const TRANSFER_FEED_STEP = 30;
+const TRANSFER_FEED_MAX = 150;
 
 /**
  * `/transfers`가 다루는 뉴스 유형 6종(와이어프레임 지시: 영입·임대·은퇴·유소년·감독교체·
@@ -96,13 +101,18 @@ export default async function Page(props: PageProps<"/[lang]/transfers">) {
   const dataSource = getDataSource();
 
   const selectedTypes = resolveSelectedTypes(searchParams.type);
+  const limit = parseLoadMoreLimit(searchParams.limit, TRANSFER_FEED_DEFAULT, TRANSFER_FEED_MAX);
 
   const newsFeed = await dataSource.getNewsFeed({
     types: selectedTypes,
-    limit: TRANSFER_FEED_LIMIT,
+    limit,
   });
 
   const newsItems = newsFeed.map(buildNewsItemData);
+  const hasMore = newsFeed.length === limit && limit < TRANSFER_FEED_MAX;
+  const loadMoreHref = hasMore
+    ? buildLoadMoreHref(searchParams, Math.min(limit + TRANSFER_FEED_STEP, TRANSFER_FEED_MAX))
+    : null;
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -156,6 +166,11 @@ export default async function Page(props: PageProps<"/[lang]/transfers">) {
             </div>
           )}
         </CardContent>
+        {loadMoreHref ? (
+          <CardContent className="flex justify-center pt-0">
+            <LoadMoreLink locale={locale} href={loadMoreHref} />
+          </CardContent>
+        ) : null}
       </Card>
     </div>
   );

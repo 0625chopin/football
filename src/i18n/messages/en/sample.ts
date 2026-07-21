@@ -17,7 +17,7 @@ export const sample: SampleMessages = {
     domainDescription: "8 components that represent a single entity such as a player or team.",
     compositeTitle: "Composite Components",
     compositeDescription:
-      "9 4-state components that combine multiple data points into one screen fragment (incl. MatchCard, StandingsTable) + 1 static display component (ZoneLegend).",
+      "10 4-state components that combine multiple data points into one screen fragment (incl. MatchCard, MatchScoreboard, StandingsTable) + 1 static display component (ZoneLegend).",
     stateTitle: "State & Utility Components",
     stateDescription: "6 shared loading/empty/error and utility components (not subject to the 4-state contract).",
     chartTitle: "Chart",
@@ -25,6 +25,10 @@ export const sample: SampleMessages = {
       "No chart-only category components yet — GrowthChart in the composite category is the first chart implementation (I-152).",
     adminTitle: "Admin",
     adminDescription: "No admin console components yet.",
+    paginationTitle: "Load-More Link",
+    paginationDescription:
+      "The shared pagination convention (increasing the limit query param) across /stats, /transfers, and /awards — renders nothing once exhausted.",
+    paginationExhaustedNote: "Exhausted state (right) — renders nothing",
   },
   status: {
     notImplemented: "Not implemented",

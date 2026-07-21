@@ -33,6 +33,7 @@ export const COMPOSITE_COMPONENT_NAMES: readonly string[] = [
   "GrowthChart",
   "InjuryTimeline",
   "MatchCard",
+  "MatchScoreboard",
   "NewsItem",
   "PitchLineup",
   "StandingsTable",

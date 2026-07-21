@@ -41,9 +41,13 @@
  * 비로소 `Fixture` 레코드가 된다.
  *
  * ## 홈/원정 배정 — 중립지라 승부에 영향 없지만 결정론은 지킨다
- * 요구사항이 "중립지 단판"이라 명시해 `isNeutral: true`이고, 27번 Task(43일차) 예정된
- * "중립지 홈 어드밴티지 미적용" 규칙과 정합적이다(그 규칙 자체의 구현은 `ability/` 소관 —
- * 여기서는 `isNeutral: true`만 보장한다). 그럼에도 스키마가 `homeTeamId`/`awayTeamId`를
+ * 요구사항이 "중립지 단판"이라 명시해 `isNeutral: true`이고, "중립지 홈 어드밴티지
+ * 미적용" 규칙과 정합적이다(43일차 Task 027 완료, I-219). 그 규칙은 두 층으로 나뉜다 —
+ * "결승 중립지에서는 홈 계수가 항상 1.0"이라는 **불변식**은 `knockout/seeding.ts`의
+ * `assertNeutralHomeAdvantage()`가 값으로 보증하고, 비중립 경기의 홈 계수 **공식**은
+ * 여전히 `ability/modifiers.ts`의 `homeModifier`(TODO, 미확정) 소관이다. 이 파일은
+ * 그중 어느 쪽도 계산하지 않고 `isNeutral: true`만 보장한다. 그럼에도 스키마가
+ * `homeTeamId`/`awayTeamId`를
  * 요구하므로, 동률 팀들을 `teamId` 오름차순으로 정규화해 첫 번째를 home으로 둔다 —
  * `tiebreak.ts`의 7단계 시드 추첨이 셔플 전에 쓰는 것과 같은 정규화(입력 배열 순서에
  * 결과가 우연히 의존하지 않게 하기 위함). 난수는 전혀 쓰지 않는다 — 동률 그룹 자체가

@@ -429,7 +429,7 @@ export const COMMON_CODE_GROUP_CATALOG = [
     groupCode: 'CRON_PARAM',
     groupName: '크론 설정',
     description:
-      '크론 설정 — 코드 예시(기본값): INTERVAL_MIN=1, LOCK_TIMEOUT_MIN=5, CATCHUP_MAX_PER_RUN=50, RETRY_MAX=3, GAP_DETECT_MULTIPLIER=3',
+      '크론 설정 — 코드 예시(기본값): INTERVAL_MIN=1, LOCK_TIMEOUT_MIN=5, CATCHUP_MAX_PER_RUN=30, RETRY_MAX=3, GAP_DETECT_MULTIPLIER=3',
     valueType: 'INT',
     applyPolicy: 'IMMEDIATE',
     relatedFr: ['FR-AD-017', 'FR-AD-018', 'FR-AD-019', 'FR-AD-020'],
