@@ -442,7 +442,8 @@
   - [x] 컴포넌트별 4상태 토글 컨트롤 + 뷰포트 프리뷰 전환(모바일/태블릿/데스크톱) *(35일차 — `StateToggleSlot.tsx`·`ViewportFrame.tsx` 신규, 22종 배선(`MatchCard` 등록으로 21→22). **Playwright 실측으로 판정** — 토글 실조작 시 렌더 전환 확인(스크린샷 `testPng/ability-radar-*`), 콘솔 에러 0건. **뷰포트 프리뷰는 실측 중 결함을 발견해 재구현**: 최초 구현이 컨테이너 `max-width`만 바꿨는데 Tailwind `sm:`/`lg:`는 뷰포트 기준이라 그리드가 실제로 재배치되지 않았다(코드 리뷰로는 못 잡는 결함) → Tailwind v4 컨테이너 쿼리(`@container`+`@sm:`/`@lg:`)로 교체해 모바일 1열·태블릿 3열 실재배치 확인)*
   - [ ] **로케일 전환 컨트롤** — 각 컴포넌트를 ko/en으로 즉시 비교 확인 (D-18)
   - [x] 개별 컴포넌트를 `ErrorBoundary`로 격리해 하나가 깨져도 쇼케이스가 살아있게 구성 *(37일차 — `src/components/state/ErrorBoundary.tsx`(신규). **Next 16.2 `unstable_catchError`(`next/error`)** 기반이며 팀장이 `node_modules/next/dist/client/components/catch-error.d.ts`에서 API 실재·사용 형태를 확인했다. `ComponentSlot` 22개 사용처 전량 배선 → 임시 크래시 컴포넌트를 슬롯 하나에 넣어 **나머지 21종 생존을 실측**한 뒤 제거)*
-  - [ ] 커버리지 체크리스트 자동 표기 — 등록 컴포넌트 수 / 4상태 구현 수 / 번역 키 누락 수 카운터
+  - [x] 커버리지 체크리스트 자동 표기 — 등록 컴포넌트 수 / 4상태 구현 수 / 번역 키 누락 수 카운터 *(38일차 — `sample/CoverageChecklist.tsx`·`sample/component-registry.ts`·`src/i18n/coverage.ts`(전부 신규, 각 `.test.ts` 동반). **3개 카운터 전부 실측** — 등록 22종 / 4상태 **16/16(100%)** / 번역 키 누락 **0**(ko·en 카탈로그 실제 순회 diff). domain·composite·state 섹션의 기존 **하드코딩 배지(8/8/6)도 같은 레지스트리로 교체**해 표기 이원화를 없앴다. Playwright 실측 — `/ko/sample`·`/en/sample` 콘솔 에러 0, 스크린샷 `.playwright-mcp/day38-coverage-checklist-{ko,en}.png`)*
+    - **RSC 경계 함정을 실측으로 발견·해소** — `component-registry.ts`가 `"use client"` 모듈(`StateToggleSlot.tsx`)의 배열 값을 직접 import하자 Server Component에서 **빈 값으로 치환돼 "0/16" 회귀**가 났다(코드 리뷰로는 잡히지 않고 Playwright 실측으로만 드러남). 런타임 카운트는 client 모듈 import 없이 리터럴 목록으로 분리하고, `StateToggleSlot`의 실제 디스패치 레지스트리와의 일치는 **vitest(Node, RSC 경계 없음)가 매 실행 교차검증**하도록 재설계했다 → 38일차 인계 3번
   - [x] 어댑터 토글(Mock ↔ Supabase) 스위치 배치 (UC-602) *(37일차 — `sample/DataSourceToggle.tsx` + `sample/data-source-actions.ts`(신규). `resetDataSourceCache()`(1팀이 "런타임 핫스왑" 용도로 문서화한 API) 경유, 전환 후 헬스체크(`getLeagues()`) → 실패 시 이전 어댑터 자동 복귀. `factory.ts`/`bootstrap.ts` 무수정. Playwright로 Mock↔Supabase 실전환 확인)*
     - ⚠️ **팀장 검증 지적 → dev 전용 가드 추가.** 최초 구현은 "`/sample`은 로컬 전용"이라는 전제를 **주석에만** 두었는데, `"use server"` 액션은 액션 ID로 외부에서 직접 POST 호출이 가능하고 `/sample`은 프로덕션 빌드에 포함되는 일반 라우트다 — 배포 시 **인증 없이 서버 프로세스 전역의 데이터 소스를 뒤집을 수 있는 엔드포인트**가 된다(헬스체크·자동복귀는 "전환 실패"만 막지 "전환 자체"를 막지 않는다). `setDataSourceKindAction` **최상단**(`applyEnv`/`resetDataSourceCache`보다 앞)에 `NODE_ENV !== 'development'` 조기 반환을 넣었고, 토글 UI 숨김은 보조 장치일 뿐 **서버측 거부가 본체**임을 주석에 명시했다
 - **수락 기준**: 등록 컴포넌트 4상태 커버율 100%. 이후 모든 신규 컴포넌트는 `/sample` 등록 + ko/en 확인이 완료 조건에 포함된다.
@@ -467,7 +468,8 @@
     - **지시 밖에서 발견·수정한 결함 1건** — 기존 empty/error가 board 표면 위에서 `text-muted-foreground` 등 **페이지 토큰**을 써 대비가 역전돼 있었다(Floodlit 규약 위반). board 전용 톤으로 교체. 팀장이 diff를 전수 검색해 잔존 위반 0건 확인
   - [x] 킥오프 시각은 UTC 저장값을 로케일 로컬 시각으로 변환 표기 (DC-07, D-18) *(37일차 — `formatKickoff` 경유, ko "오전 12:00" / en "12:00 AM"로 로케일 분기 확인)*
     - **36일차 관찰 "다음 킥오프 5건이 전부 오전 12:00"의 원인 확정 — 변환 로직이 아니라 mock 생성기다(I-195).** `world.ts:182` `MOCK_EPOCH_NOW = '2026-08-11T15:00:00.000Z'`가 KST 정각 00:00이고 `progress.ts:917` 등 오프셋이 전부 **1440분(1일) 배수**라 날짜만 바뀌고 time-of-day가 불변이다. 5팀이 3팀 소유 파일이라 수정하지 않고 판단만 회신했고, **팀장이 직접 재현해 확정**했다
-  - [ ] 모바일 세로 우선 레이아웃, LCP ≤ 2.5s / CLS ≤ 0.1 목표
+  - [~] 모바일 세로 우선 레이아웃, LCP ≤ 2.5s / CLS ≤ 0.1 목표 *(38일차 — 화면은 34~37일차에 이미 완성돼 **코드 변경 0건, 검증만 수행**(5팀). 6뷰포트 × 2로케일 스냅샷 12장 확보. **320px 가로 스크롤 0**(6뷰포트 전부 `scrollWidth === clientWidth`, ko/en 공통) · **LCP 전 12케이스 최대 268ms**(기준 2.5s) · **폴링/탭 비활성 중단 정상**(hidden 32초간 요청 0건 → visible 복귀 즉시 1건). **CLS만 `ko` 320px에서 0.1735로 미달 — I-200으로 판정 보류**, en 및 나머지 5뷰포트는 통과)*
+    - **CLS 미달은 dev 전용 아티팩트일 가능성이 높아 이 저장소에서 확정 불가.** 원인은 `[lang]/layout.tsx`의 Gothic A1이 서브셋 미지정 탓에 `preload:false`가 강제되는 구조인데, 팀장이 SSR 원문을 직접 확인한 결과 **dev는 `<style>` 0개·`@font-face` 0개·외부 스타일시트 1개**로 폰트 CSS를 첫 페인트 **이후** 합류시킨다 — `font-display`로 통제 불가능한 종류의 시프트다. 프로덕션은 인라인 방식이 다르나 **`npm run build`가 WSL EPERM으로 실패해 검증 수단이 없다**. 무효 확인된 시도(재시도 금지, 근거는 `layout.tsx` 헤더 주석): `display:"optional"` 0.1642(오차 수준·되돌림) / `adjustFontFallback:false` 0.371(악화) / `weight` 3종→1종 0.166(무효)
 - **수락 기준**: 접속 3초 내 진행 중 경기와 스코어 파악 가능(PS-1 성공 신호). 320px에서 가로 스크롤 0.
 - **테스트**: Playwright MCP — 폴링 네트워크 요청 관찰, 탭 비활성 시 중단 확인, 6개 뷰포트 × 2로케일 스냅샷.
 
@@ -676,7 +678,8 @@
     - 오늘 평점에 실제 반영되는 건 **Tier A 16종뿐**이다. FR-ST-003 예시의 "키패스"·"실책-실점"은 Tier B라 폴드에 키가 없어 가중치가 있어도 자동으로 무시되며, Tier A 승격 시 `rating.ts` 수정 없이 활성화된다
     - ⚠️ **`RATING_WEIGHT` 공통코드 접점 결함 — 팀장 검증에서 적발·해소(I-192).** 2팀 파서는 `{base,min,max,field,gk}`+스탯 키, 3팀 `fallback.ts`는 `{FIELD,GK}`+`MatchEventType` 키로 **각자 초록불인 채 갈라져** 파서가 `null`을 반환, 엔진이 공통코드를 못 읽고 하드코딩 테이블로 **조용히 폴백**했다(I-187 해소 목적인 NFR-CFG-001이 무산되고 FR-ST-003 수용 기준 ④도 미충족인 무증상 상태). **stat-keyed로 통일** — FR-ST-003 예시 6개 중 "키패스"·"실책-실점"이 `MatchEventType` 23종으로 표현 불가하고 `PENALTY_SHOOTOUT`은 득실이 `detail`에만 있어 type으로 안 갈리기 때문(05문서 "이벤트별"은 I-58로 구속력 없음). 저장 형태는 `ConstantGroupValues`가 "그룹→**코드**→JSON object"를 강제해 flat이 불가하므로(`TS2322`, 3팀이 착수 전 재현해 보고) **`{FIELD, GK, SCALE:{base,min,max}}` 3코드**로 확정. **재발 방지로 접점 통합 테스트 2건 추가**(테스트 전용 import — 프로덕션 엔진은 `src/lib/config/**`에 비의존, I-83 유지)
     - **`loadConstants('RATING_WEIGHT')`를 실제 호출해 엔진에 주입하는 오케스트레이션 지점은 아직 미배정** — 파서·값·접점 테스트는 완비됐으나 수용 기준 ④의 종단 충족은 소비자(정산·크론) 등장 시점에 소유 팀 지정 필요
-  - [ ] 선수·팀 지표 풀세트 집계 및 이벤트 로그 기반 재계산 함수 (FR-ST-005)
+  - [x] 선수·팀 지표 풀세트 집계 및 이벤트 로그 기반 재계산 함수 (FR-ST-005) *(38일차 — `sim/stats/recompute.ts`(신규): `accumulateMatchStatsIntoSeason`(경기 1건 누적) · `accumulateSeasonStats`(배치 리듀스) · `foldPlayerStatsIntoTeams`(로스터 귀속) · `recomputePlayerSeasonStatsFromEventLogs`/`recomputeTeamSeasonStatsFromEventLogs`(FR-ST-005 본체). `match/stats.ts`의 `accumulatePlayerMatchStats()`와 `standing/aggregate.ts`의 누적↔재계산 분리 패턴을 **재사용**해 로직 재구현 0. 테스트 9건 — 수락 기준 "이벤트→스탯 재계산 일치"를 동일 입력(3경기 이벤트 로그)으로 **누적 경로 vs 재계산 경로 `toEqual` 동치**(선수·팀 각각) + **경기 순서를 뒤집어도 동일**(교환법칙)로 단언)*
+    - "풀세트"는 **Tier A 16필드 한정**이다(Tier B 40필드는 라인업/detail 스키마 인계 대기 — `match/stats.ts` 기존 분류를 그대로 승계, 신규 이슈 아님). 팀 폴드의 `ownGoals`는 득점자 소속팀 귀속이라 `TeamSeasonStat.goalsAgainst`(상대 실점) 의미와 다르다는 점을 파일 헤더에 명시 — 실제 필드 매핑 시 참고
 - **수락 기준**: 순위표 조회가 실시간 계산 없이 p95 ≤ 120ms 경로로 동작. 7단계 각각이 단독으로 순위를 가르는 시나리오 통과.
 - **테스트**: Vitest — 타이브레이커 7 시나리오, 멱등성(재처리 시 스탯 이중 누적 0), 이벤트→스탯 재계산 일치.
 
@@ -775,8 +778,8 @@
   - [ ] 37개 그룹의 실제 기본값 시드 데이터 작성 (05문서 5.12.1 기준 36개 + 국적 비중 그룹 1개, I-88) → I-06 해소
   - [x] 타입·범위 메타데이터 및 DB 제약, JSON 스키마 검증 (NFR-CFG-004) *(37일차 — `src/lib/config/schema.ts`(신규): 코드별 숫자 min/max 카탈로그 + **자체 구현 JSON 스키마 서브셋**(외부 의존성 미추가) + `validateCommonCodeValue()` 저장 전 거부 게이트(`CommonCodeValidationError`). `schema.test.ts` 14건 통과 — 수락 기준 "범위 밖 값 저장 전 거부" 충족)*
     - 범위는 **문서에 단위가 명시된 코드(퍼센트·확률·물리적 음수불가 개수)만** 채우고 나이 임계값·상한 불명확한 배율은 의도적 무제한 — `catalog.ts`의 기존 억측 금지 원칙과 동일선상. **부분 커버리지임을 명시 → I-197**(031b 실측 보강)
-  - [ ] 발효 정책 적용 — `NEXT_SEASON` 그룹이 진행 중 시즌에 영향 0
-  - [ ] 상수 스냅샷 기록·해시 중복 제거 (시즌당 ≤ 20건, ≤ 1MB)
+  - [x] 발효 정책 적용 — `NEXT_SEASON` 그룹이 진행 중 시즌에 영향 0 *(38일차 — `src/lib/config/apply.ts`(신규) `resolveEffectiveCommonCode()`: 11일차 `policy.ts` + 9일차 `catalog.ts`를 결합해 current/pending 중 지금 발효될 쪽을 판정하며, `NEXT_SEASON`은 `effectiveFromSeason` 미도달 시 무조건 `current` 반환. **수락 기준 "NEXT_SEASON 즉시 반영 0건"을 시즌 1~9 전 구간 스윕으로 단언**)*
+  - [x] 상수 스냅샷 기록·해시 중복 제거 (시즌당 ≤ 20건, ≤ 1MB) *(38일차 — 같은 파일 `resolveSnapshotRecording()`: 12일차 `snapshot.ts`의 해시 dedup 위에 시즌당 ≤20건/≤1MB 예산 감사 계층을 얹었다(canonicalize + `TextEncoder` 바이트 실측). 예산 초과 시 throw가 아니라 `BUDGET_EXCEEDED` **판정 값 반환** — 실제 DB 쓰기 정책은 6팀 소관이라 결정을 호출자에게 남겼고 근거를 헤더에 명시. `apply.test.ts` 14건 포함 `src/lib/config` 62 tests 전건 통과. `loader.ts`는 미수정(배선은 별도))*
   - [ ] 변경 이력 append-only 기록 및 롤백(기본값 복원) 경로
   - [ ] **밸런싱 튜닝 루프** — 20시즌 장기 시뮬 → 밸런스 리포트 생성 → 상수 조정 → 재검증 (I-05 해소)
 - **수락 기준**: 공통코드 커버리지 ≥ 90%(KPI-10). `src/lib/sim/`에 대상 상수 숫자 리터럴 잔존 0건. KPI-8 밸런스 4지표 밴드 충족.

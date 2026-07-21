@@ -39,7 +39,7 @@ import { TrophyCase } from "@/components/composite/TrophyCase";
  * 컴포넌트 종류에 관계없이 같은 `state` 값을 그대로 전달할 수 있다.
  */
 
-type ComponentKey =
+export type ComponentKey =
   | "AbilityRadar"
   | "ConditionGauge"
   | "FitnessBar"
@@ -76,6 +76,12 @@ const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   PitchLineup,
   TrophyCase,
 };
+
+// Task 014(38일차) — 커버리지 체크리스트가 "4상태 구현 수"를 세는 근거로 이 배열을 그대로
+// 가져다 쓴다(`component-registry.ts`). 위 `COMPONENT_REGISTRY`가 실제 렌더 디스패치에
+// 쓰이는 유일한 레지스트리이므로, 여기서 키 목록을 파생하면 카운터가 별도로 손 유지하는
+// 목록과 어긋날 일이 없다(하드코딩 숫자 대신 실제 레지스트리를 세는 방식, I-168 참고).
+export const FOUR_STATE_COMPONENT_KEYS = Object.keys(COMPONENT_REGISTRY) as ComponentKey[];
 
 const TOGGLE_STATUSES = ["loading", "empty", "error", "ready"] as const;
 type ToggleStatus = (typeof TOGGLE_STATUSES)[number];

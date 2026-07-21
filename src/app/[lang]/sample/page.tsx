@@ -28,11 +28,14 @@ import { OddsButton } from "@/components/state/OddsButton";
 import { PhaseIndicator } from "@/components/state/PhaseIndicator";
 import { SkeletonBlock } from "@/components/state/SkeletonBlock";
 
+import { CoverageChecklist } from "./CoverageChecklist";
 import { DataSourceToggle } from "./DataSourceToggle";
 import { LocaleCompareToggle } from "./LocaleCompareToggle";
 import { StateToggleSlot } from "./StateToggleSlot";
 import { ViewportFrame } from "./ViewportFrame";
+import { computeComponentCoverage } from "./component-registry";
 
+import { computeTranslationKeyCoverage } from "@/i18n/coverage";
 import { getDataSource, getDataSourceKind } from "@/lib/data/factory";
 import type {
   AwardId,
@@ -66,6 +69,14 @@ import type {
  * (신설, 클라이언트)이 `data-source-actions.ts`의 서버 액션을 통해 `NEXT_PUBLIC_DATA_SOURCE`를
  * 런타임에 바꾸고 `factory.ts`의 `resetDataSourceCache()`로 캐시를 비운 뒤 이 라우트를
  * 재검증한다 — 설계 근거·안전장치(전환 실패 시 자동 복귀)는 그 파일 헤더 주석 참조.
+ *
+ * 38일차 추가분: **커버리지 체크리스트** — `CoverageChecklist`(신설)가 등록 컴포넌트 수·
+ * 4상태 구현 수·번역 키 누락 수 3개 카운터를 표시한다. 숫자는 전부 실제로 센 값이다(하드코딩
+ * 아님) — 컴포넌트 쪽은 `component-registry.ts`의 `computeComponentCoverage()`가
+ * `StateToggleSlot`의 실제 디스패치 레지스트리 키 수를 그대로 세고, 번역 키 쪽은
+ * `@/i18n/coverage`의 `computeTranslationKeyCoverage()`가 `messages.ko`/`messages.en`
+ * 카탈로그를 런타임에 순회해 diff한다. 아래 domain/composite/state 섹션의 `count` 배지도
+ * 같은 레지스트리 값(`coverage.domainCount` 등)으로 교체해 매직 넘버(8/8/6) 중복을 없앴다.
  *
  * `MatchCard`(5팀 Task 015, 34일차 구현 완료)를 composite 섹션에 8번째로 등록한다.
  * 차트/어드민 카테고리는 전용 컴포넌트가 아직 없어 섹션 골격만 두고 "미구현"으로 표기한다
@@ -168,6 +179,11 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
   // 뿐, 실제 방어선은 `data-source-actions.ts`의 서버 측 조기 반환이다. 그 파일 헤더 참조).
   const showDataSourceToggle = process.env.NODE_ENV === "development";
   const dataSource = getDataSource();
+
+  // 38일차 — 커버리지 체크리스트 집계는 로케일·데이터소스 무관이라 한 번만 계산해 아래
+  // `renderShowcaseBody`(ko/en 두 번 호출) 양쪽이 같은 값을 클로저로 참조한다.
+  const componentCoverage = computeComponentCoverage();
+  const translationKeyCoverage = computeTranslationKeyCoverage();
 
   const leagues = await dataSource.getLeagues();
   const primaryLeague = leagues[0] ?? null;
@@ -426,6 +442,14 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
           <p className="text-sm text-muted-foreground">{t(bodyLocale, "sample.meta.description")}</p>
         </header>
 
+        <CoverageChecklist
+          locale={bodyLocale}
+          registeredCount={componentCoverage.registeredCount}
+          fourStateImplementedCount={componentCoverage.fourStateImplementedCount}
+          fourStateEligibleCount={componentCoverage.fourStateEligibleCount}
+          missingTranslationKeyCount={translationKeyCoverage.missingCount}
+        />
+
         <ViewportFrame locale={bodyLocale}>
           <nav
             aria-label={t(bodyLocale, "sample.meta.title")}
@@ -448,7 +472,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             id="domain"
             title={t(bodyLocale, "sample.section.domainTitle")}
             description={t(bodyLocale, "sample.section.domainDescription")}
-            count={8}
+            count={componentCoverage.domainCount}
           >
             <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
               <ComponentSlot name="AbilityRadar" locale={bodyLocale}>
@@ -525,7 +549,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             id="composite"
             title={t(bodyLocale, "sample.section.compositeTitle")}
             description={t(bodyLocale, "sample.section.compositeDescription")}
-            count={8}
+            count={componentCoverage.compositeCount}
           >
             <div className="grid gap-4 @sm:grid-cols-2">
               <ComponentSlot name="BracketTree" locale={bodyLocale}>
@@ -601,7 +625,7 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
             id="state"
             title={t(bodyLocale, "sample.section.stateTitle")}
             description={t(bodyLocale, "sample.section.stateDescription")}
-            count={6}
+            count={componentCoverage.stateUtilityCount}
           >
             <div className="grid gap-4 @sm:grid-cols-2 @lg:grid-cols-3">
               <ComponentSlot name="CountdownTimer" locale={bodyLocale}>

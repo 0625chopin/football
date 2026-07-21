@@ -33,6 +33,17 @@ export const sample = {
     notImplemented: "미구현",
     componentCount: "{count}종 등록",
   },
+  coverage: {
+    // Task 014(38일차) — 커버리지 체크리스트(등록 컴포넌트 수·4상태 구현 수·번역 키 누락
+    // 수). 값은 레지스트리/카탈로그를 실제로 세어 채운다(`component-registry.ts`,
+    // `@/i18n/coverage`) — 여기 있는 건 라벨 문구뿐, 숫자는 하드코딩하지 않는다.
+    title: "커버리지 체크리스트",
+    registeredLabel: "등록 컴포넌트",
+    fourStateLabel: "4상태 구현",
+    fourStateValue: "{implemented}/{eligible}종 ({percent}%)",
+    missingKeysLabel: "번역 키 누락",
+    missingKeysValue: "{count}건",
+  },
   state: {
     toggleLabel: "상태 미리보기 전환",
     loading: "로딩",

@@ -29,6 +29,14 @@ export const sample: SampleMessages = {
     notImplemented: "Not implemented",
     componentCount: "{count} registered",
   },
+  coverage: {
+    title: "Coverage Checklist",
+    registeredLabel: "Registered components",
+    fourStateLabel: "4-state implemented",
+    fourStateValue: "{implemented}/{eligible} ({percent}%)",
+    missingKeysLabel: "Missing translation keys",
+    missingKeysValue: "{count}",
+  },
   state: {
     toggleLabel: "Switch preview state",
     loading: "Loading",
