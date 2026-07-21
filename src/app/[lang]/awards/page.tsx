@@ -256,7 +256,13 @@ export default async function Page(props: PageProps<"/[lang]/awards">) {
         return orderA - orderB;
       })
       .slice(0, 11)
-      .map(({ playerId, name }) => ({ playerId, name }));
+      // `href`는 프로필이 해석된 선수에게만 준다 — 표 쪽과 같은 원칙(죽은 링크 회피).
+      // 목적지를 컴포넌트가 아니라 여기서 정하는 이유는 `PitchLineupPlayer.href` 주석 참조.
+      .map(({ playerId, name }) => ({
+        playerId,
+        name,
+        href: playerById.has(playerId) ? `/${locale}/players/${playerId}` : undefined,
+      }));
   }
 
   return (

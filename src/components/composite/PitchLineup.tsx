@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
@@ -143,6 +145,17 @@ export interface PitchLineupPlayer {
   readonly playerId: PlayerId
   readonly name: string
   readonly isCaptain?: boolean
+  /**
+   * 이름을 눌렀을 때 이동할 경로. **주면 링크, 없으면 지금까지처럼 정적 텍스트**다(I-253,
+   * 49일차 마감 후). 기존 소비처(`/sample`·경기 상세)는 이 필드를 주지 않으므로 동작이
+   * 그대로다.
+   *
+   * `playerId`가 이미 있는데 왜 컴포넌트가 경로를 조립하지 않는가: 이 프로젝트의 선수 상세는
+   * `/{locale}/players/{id}`라 **로케일 프리픽스가 필요**한데, 그러면 이 컴포넌트가 라우팅
+   * 규칙을 알아야 한다. 라인업이 항상 선수 상세로만 가야 할 이유도 없다(경기 상세 안에서는
+   * 다른 목적지가 더 맞을 수 있다). 목적지 결정은 호출부에 남긴다.
+   */
+  readonly href?: string
 }
 
 export interface PitchLineupData {
@@ -198,6 +211,10 @@ export function orderStartersByFormation(
   }
   return ordered
 }
+
+/** 피치 위 선수명 한 줄의 공통 표시 규격 — 링크일 때와 아닐 때가 시각적으로 동일해야
+ * 하므로(링크 여부는 밑줄·포커스 링으로만 갈린다) 한 곳에 둔다. */
+const PLAYER_NAME_CLASS = "max-w-[10ch] truncate text-[10px] font-medium text-board-foreground"
 
 export interface PitchLineupProps {
   locale: SupportedLocale
@@ -289,15 +306,37 @@ export function PitchLineup({ locale, state, className }: PitchLineupProps) {
             >
               {slot.position}
             </span>
-            <span
-              className="max-w-[10ch] truncate text-[10px] font-medium text-board-foreground"
-              title={slot.player?.name}
-            >
-              {slot.player?.name ?? "—"}
-              {slot.player?.isCaptain ? (
-                <span title={t(locale, "match.lineup.captainLabel")}> {t(locale, "match.lineup.captainAbbr")}</span>
-              ) : null}
-            </span>
+            {(() => {
+              const label = (
+                <>
+                  {slot.player?.name ?? "—"}
+                  {slot.player?.isCaptain ? (
+                    <span title={t(locale, "match.lineup.captainLabel")}>
+                      {" "}
+                      {t(locale, "match.lineup.captainAbbr")}
+                    </span>
+                  ) : null}
+                </>
+              )
+              // 링크 강조는 **보드 표면 토큰만** 쓴다(`--board-line`) — 이 위에서 `--border`·
+              // `--ring` 같은 페이지 토큰은 대비 방향이 반대다(globals.css 규칙).
+              return slot.player?.href ? (
+                <Link
+                  href={slot.player.href}
+                  title={slot.player.name}
+                  className={cn(
+                    PLAYER_NAME_CLASS,
+                    "underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-board-line focus-visible:outline-none",
+                  )}
+                >
+                  {label}
+                </Link>
+              ) : (
+                <span className={PLAYER_NAME_CLASS} title={slot.player?.name}>
+                  {label}
+                </span>
+              )
+            })()}
           </div>
         ))}
       </div>

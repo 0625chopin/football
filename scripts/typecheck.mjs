@@ -50,10 +50,35 @@
  * `next build`로 재생성한 뒤 재실행하게 한다.
  *
  * CI는 영향 없다 — dev 서버가 없는 클린 체크아웃엔 `.next/dev/types/**` 자체가 생기지 않는다.
+ *
+ * ## I-254 — 두 산출물이 **동시에 존재**할 때의 stale 오탐 (49일차 마감 후 추가)
+ * 위 두 절은 `.next/dev/types/**` **한쪽의 손상**만 다룬다. 그런데 `.next/types/**`와
+ * `.next/dev/types/**`가 **둘 다 멀쩡히 존재하면서 내용이 다른** 경우가 따로 있다 —
+ * `next build`가 쓴 `.next/types/`는 그대로 남아 있는데 그 뒤 dev 세션에서 **새 라우트를
+ * 추가**하면 dev 서버는 `.next/dev/types/`만 갱신하기 때문이다. 두 `routes.d.ts`는 각각
+ * 자기 `AppRoutes` 유니온을 선언하고 **같은 이름의 전역 `PageProps`/`LayoutProps`를
+ * `declare global`로 병합**시키는데, 병합 결과의 제약(constraint)으로 어느 쪽 `AppRoutes`가
+ * 채택될지는 우리가 통제하지 못한다. 실제로 오래된 쪽이 채택돼 **새 라우트 파일이
+ * `TS2344: Type '"/[lang]/players"' does not satisfy the constraint 'AppRoutes'`로 실패**했다
+ * (49일차 마감 후 `players/page.tsx` 신설 중 실측).
+ *
+ * 이 오탐은 위 두 완화책 어디에도 걸리지 않는다 — 오류 파일이 `.next/`가 아니라 `src/**`라
+ * 재시도 대상이 아니고(그게 맞다, 진짜 회귀와 구분할 수 없으므로), 구문 오류도 아니다.
+ * 그래서 **tsc를 돌리기 전에** 두 산출물의 신선도를 맞춘다: 둘 다 있으면 `routes.d.ts`의
+ * mtime을 비교해 **오래된 쪽 디렉터리를 통째로 지운다**.
+ *
+ * - 왜 파일 하나가 아니라 디렉터리째인가: 같은 디렉터리의 `validator.ts`가 `./routes.js`를
+ *   import하므로 `routes.d.ts`만 지우면 `TS2307`로 바뀔 뿐이다.
+ * - 왜 I-242처럼 "지우고 종료"하지 않는가: 그 경우와 달리 **남는 쪽이 전역 타입 전량을
+ *   그대로 제공**한다(두 파일의 전역 선언 구조가 동일하다). 지워도 `PageProps` 부재로
+ *   오탐이 번지는 상황이 아니므로 같은 실행에서 계속 진행해도 안전하다.
+ * - 왜 `tsconfig.json`의 `include`에서 한쪽을 빼지 않는가: Next.js가 매 `next dev`/`next build`
+ *   마다 두 패턴을 다시 채워 넣는다(위 "배경" 절) — durable fix가 아니다.
+ * - CI 영향 없음: 산출물이 하나뿐이면(또는 둘 다 없으면) 이 단계는 아무것도 하지 않는다.
  */
 
 import { spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -101,7 +126,45 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** 라우트 타입 산출물 2종. 둘 다 `tsconfig.json`의 `include`에 들어 있고(Next.js가 그렇게
+ * 관리한다), 각자 `AppRoutes`와 전역 `PageProps`를 선언한다 — 내용이 어긋나면 오탐이 난다(I-254). */
+const ROUTE_TYPE_DIRS = ['.next/types', '.next/dev/types'];
+
+/**
+ * tsc 실행 전에 라우트 타입 산출물의 신선도를 맞춘다(I-254). 둘 다 존재할 때만 동작하며,
+ * `routes.d.ts`의 mtime이 오래된 쪽 디렉터리를 통째로 지운다 — 둘 다 gitignore 대상
+ * 재생성 산출물이고, 남는 쪽이 전역 타입 전량을 그대로 제공하므로 이 실행을 계속해도 된다.
+ */
+function reconcileRouteTypeArtifacts() {
+  const present = ROUTE_TYPE_DIRS.map((dir) => ({
+    dir,
+    routesFile: path.join(PROJECT_ROOT, dir, 'routes.d.ts'),
+  })).filter((entry) => existsSync(entry.routesFile));
+
+  if (present.length < 2) return;
+
+  const [older, newer] = present
+    .map((entry) => ({ ...entry, mtimeMs: statSync(entry.routesFile).mtimeMs }))
+    .sort((a, b) => a.mtimeMs - b.mtimeMs);
+
+  // 같은 시각이면 내용도 같다고 보고 건드리지 않는다(불필요한 삭제·재생성 회피).
+  if (older.mtimeMs === newer.mtimeMs) return;
+
+  try {
+    rmSync(path.join(PROJECT_ROOT, older.dir), { recursive: true, force: true });
+    console.warn(
+      `[typecheck] 라우트 타입 산출물이 2종 공존해 오래된 쪽을 제거했습니다: ${older.dir} ` +
+        `(최신: ${newer.dir}) — 두 산출물의 AppRoutes가 어긋나면 새 라우트가 TS2344로 ` +
+        `오탐 실패합니다(I-254). 지워진 쪽은 다음 next dev/next build가 재생성합니다.`,
+    );
+  } catch (err) {
+    console.warn(`[typecheck] 오래된 라우트 타입 산출물 제거 실패(${older.dir}): ${err.message}`);
+  }
+}
+
 async function main() {
+  reconcileRouteTypeArtifacts();
+
   let last = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
     const result = runTsc();
