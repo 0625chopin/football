@@ -35,13 +35,12 @@
  * `cron_run`/`cron_gap`과 달리 이건 실시간 집계(현재 시각 기준 `SCHEDULED` && `kickoff_at
  * <= now()`)라 `DataSource`에 대응 메서드가 없다. 새 메서드를 추가하려면 1팀 소유
  * `DataSource.ts`를 고쳐야 해서(I-188 위반) 대신 같은 `SupabaseQueryClient`로 `fixture`
- * 테이블을 직접 조회한다. `client.ts`는 정확한 `COUNT(*)`를 지원하지 않으므로(PostgREST
- * `Prefer: count=exact` 미배선, "범위 밖" 절 참조) `kickoff_at` 오름차순으로 최대
- * `BACKLOG_SCAN_LIMIT`건만 가져와 메모리에서 `kickoff_at <= now`인 건수를 센다 — 오름차순
- * 정렬이라 진짜 밀린 경기(킥오프가 이른 순)가 항상 먼저 오므로, 스캔 한도 안에 있는 한
- * 정확하다. 한도에 도달하면(=실제 백로그가 한도를 넘을 가능성) `backlogFixtureCountApprox:
- * true`로 표시한다 — 이 경우 정확한 COUNT가 필요하면 `client.ts`에 `count=exact` 지원을
- * 추가하는 후속 작업이 필요하다(이슈 후보로 별도 보고).
+ * 테이블을 직접 조회한다. **47일차(I-234)부터 `client.ts`가 `Prefer: count=exact` +
+ * `lte()`를 지원**하므로 `head: true`(본문 없이 총건수만) 요청 한 번으로 정확한 건수를
+ * 받는다 — 이전의 `BACKLOG_SCAN_LIMIT` 스캔·근사 로직은 제거됐다.
+ * `backlogFixtureCountApprox`는 계약 안정성을 위해 필드는 유지하되 이제 항상 `false`다
+ * (5팀 021 소비 시점인 56일차 이전이라 필드 삭제도 가능했지만, 값 의미가 "이제 항상 정확"으로
+ * 좁혀지는 것도 하위호환 방향이라 필드는 남겨 둔다).
  *
  * ## 항상 200 — `status` 필드로 이상 여부를 표현한다
  * NFR-OB-004 원문·`computeSystemHealth`의 계약 모두 "크론 중단 시 상태가 degraded로
@@ -61,9 +60,6 @@ import { computeSystemHealth, type CronHeartbeat } from "@/lib/obs/alert";
 import type { CronRun } from "@/types";
 
 export const dynamic = "force-dynamic";
-
-/** `fixture` 백로그 스캔 상한 — 파일 헤더 "밀린 Fixture 수" 절 참조. */
-const BACKLOG_SCAN_LIMIT = 1000;
 
 /** `CRON_PARAM` 미적재 시 폴백값 — `tick_run()` SQL의 `COALESCE` 폴백과 동일 수치. */
 const FALLBACK_INTERVAL_MIN = 1;
@@ -90,7 +86,8 @@ interface HealthResponseBody {
   readonly nextKickoffAt: string | null;
   /** 상태 필드 ④ — 밀린 Fixture 수(`SCHEDULED` && `kickoff_at <= now`). */
   readonly backlogFixtureCount: number;
-  /** true면 스캔 한도(`BACKLOG_SCAN_LIMIT`)에 도달해 실제 값이 더 클 수 있음(과소 집계 가능). */
+  /** 47일차(I-234)부터 `count=exact`로 항상 정확히 집계되어 이제 항상 `false`(계약 안정성을
+   *  위해 필드는 유지, 파일 헤더 "밀린 Fixture 수" 절 참조). */
   readonly backlogFixtureCountApprox: boolean;
   /** `computeSystemHealth`가 `degraded` 판정 사유를 그대로 전달(비어 있으면 `status`는 항상 `ok`). */
   readonly reasons: readonly string[];
@@ -151,7 +148,7 @@ export async function GET(): Promise<Response> {
     const dataSource = new SupabaseDataSource(client);
     const nowIso = new Date().toISOString();
 
-    const [latestRun, successRuns, partialRuns, cronParams, nextKickoff, scheduledFixtures] =
+    const [latestRun, successRuns, partialRuns, cronParams, nextKickoff, backlogCount] =
       await Promise.all([
         dataSource.getLatestCronRun(),
         dataSource.getCronRuns({ status: "SUCCESS", limit: 1 }),
@@ -160,10 +157,9 @@ export async function GET(): Promise<Response> {
         dataSource.getNextKickoff(),
         client
           .from("fixture")
-          .select("kickoff_at,status")
+          .select("id", { count: "exact", head: true })
           .eq("status", "SCHEDULED")
-          .order("kickoff_at", { ascending: true })
-          .limit(BACKLOG_SCAN_LIMIT),
+          .lte("kickoff_at", nowIso),
       ]);
 
     const lastSuccessfulRun = pickLastSuccessfulRun([...successRuns, ...partialRuns]);
@@ -180,17 +176,14 @@ export async function GET(): Promise<Response> {
 
     const health = computeSystemHealth({ cronHeartbeat: heartbeat });
 
-    const fixtureRows = scheduledFixtures.data ?? [];
-    const backlogFixtureCount = fixtureRows.filter((row) => row.kickoff_at <= nowIso).length;
-
     const body: HealthResponseBody = {
       status: health.status,
       checkedAt: health.checkedAt,
       schedulerAlive: health.status === "ok",
       lastCronRun: latestRun === null ? null : toLastCronRun(latestRun),
       nextKickoffAt: nextKickoff?.kickoffAt ?? null,
-      backlogFixtureCount,
-      backlogFixtureCountApprox: fixtureRows.length >= BACKLOG_SCAN_LIMIT,
+      backlogFixtureCount: backlogCount.count ?? 0,
+      backlogFixtureCountApprox: false,
       reasons: health.reasons,
     };
     return Response.json(body, { status: 200 });

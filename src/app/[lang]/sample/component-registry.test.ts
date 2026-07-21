@@ -37,12 +37,12 @@ describe("component-registry", () => {
   it("등록 컴포넌트 수와 4상태 커버율을 실제로 세어 100%를 반환한다", () => {
     const coverage = computeComponentCoverage();
 
-    expect(coverage.domainCount).toBe(8);
+    expect(coverage.domainCount).toBe(9);
     expect(coverage.compositeCount).toBe(11);
     expect(coverage.stateUtilityCount).toBe(6);
     expect(coverage.compositeStaticCount).toBe(4);
-    expect(coverage.registeredCount).toBe(29);
-    expect(coverage.fourStateEligibleCount).toBe(19);
+    expect(coverage.registeredCount).toBe(30);
+    expect(coverage.fourStateEligibleCount).toBe(20);
     expect(coverage.fourStateImplementedCount).toBe(coverage.fourStateEligibleCount);
   });
 });

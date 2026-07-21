@@ -25,6 +25,14 @@
  * `ilike`/`or` 등 텍스트 검색·논리합 연산자도 아직 없다 — 필요한 곳(`getAuditLogs`의
  * `search`)은 전체 로우를 받아 메모리에서 필터링한다(`SupabaseDataSource.ts` 참조).
  *
+ * ## `count: 'exact'` + `lte` — 47일차(I-234) 추가
+ * `/api/health`의 밀린 Fixture 수가 `BACKLOG_SCAN_LIMIT`(1000) 스캔 근사치였던 한계
+ * (I-234)를 없애기 위해 PostgREST `Prefer: count=exact` + `Content-Range` 파싱을
+ * 추가한다. `select(columns, { count: 'exact', head: true })`는 실제 `@supabase-js`와
+ * 동일 시그니처이며, `head: true`면 본문 없이(`HEAD` 메서드) 정확한 총건수만 받는다.
+ * `lte`는 "킥오프가 지난" 조건(`kickoff_at <= now`)을 서버 쪽 필터로 표현하기 위해
+ * `eq`와 대칭으로 추가한다.
+ *
  * ## `createSupabaseRestQueryClient` — 임시 브리지 구현체 (22일차 신규)
  * `factory.ts` self-registration(`registerDataSource('supabase', ...)`)을 오늘 처음 배선하는데
  * `@supabase-js`가 아직 미설치라 실제 `SupabaseClient`를 만들 수 없다. 새 패키지를 추가하지
@@ -47,11 +55,14 @@ export interface SupabaseQueryError {
 export interface SupabaseQueryResult<T> {
   readonly data: T | null;
   readonly error: SupabaseQueryError | null;
+  /** `count: 'exact'`를 요청했을 때만 채워지는 총건수(PostgREST `Content-Range`). */
+  readonly count?: number | null;
 }
 
 export interface SupabaseFilterBuilder<Row>
   extends PromiseLike<SupabaseQueryResult<readonly Row[]>> {
   eq(column: string, value: string | number | boolean): SupabaseFilterBuilder<Row>;
+  lte(column: string, value: string | number): SupabaseFilterBuilder<Row>;
   in(column: string, values: readonly (string | number)[]): SupabaseFilterBuilder<Row>;
   order(column: string, options?: { readonly ascending?: boolean }): SupabaseFilterBuilder<Row>;
   limit(count: number): SupabaseFilterBuilder<Row>;
@@ -61,7 +72,12 @@ export interface SupabaseFilterBuilder<Row>
 export interface SupabaseQueryClient {
   from<T extends keyof Tables>(
     table: T,
-  ): { readonly select: (columns: string) => SupabaseFilterBuilder<Tables[T]['Row']> };
+  ): {
+    readonly select: (
+      columns: string,
+      options?: { readonly count?: 'exact'; readonly head?: boolean },
+    ) => SupabaseFilterBuilder<Tables[T]['Row']>;
+  };
 }
 
 /* ────────────────────────────────────────────────────────────────────────
@@ -70,7 +86,7 @@ export interface SupabaseQueryClient {
 
 interface RestFilter {
   readonly column: string;
-  readonly op: 'eq' | 'in';
+  readonly op: 'eq' | 'lte' | 'in';
   readonly value: string;
 }
 
@@ -83,6 +99,15 @@ function stringifyFilterValue(value: string | number | boolean): string {
   return String(value);
 }
 
+/** `Content-Range: 0-24/117` 또는 `head:true`일 때의 `Content-Range: (star)/117`에서 총건수(117)만 뽑는다. 미상이면 null. */
+function parseContentRangeTotal(headerValue: string | null): number | null {
+  if (headerValue === null) return null;
+  const total = headerValue.split('/')[1];
+  if (total === undefined || total === '*') return null;
+  const parsed = Number(total);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
   constructor(
     private readonly baseUrl: string,
@@ -92,6 +117,8 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
     private readonly filters: readonly RestFilter[] = [],
     private readonly orderClause: string | null = null,
     private readonly limitCount: number | null = null,
+    private readonly countMode: 'exact' | null = null,
+    private readonly headMode: boolean = false,
   ) {}
 
   private withFilter(filter: RestFilter): RestFilterBuilder<Row> {
@@ -103,11 +130,17 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
       [...this.filters, filter],
       this.orderClause,
       this.limitCount,
+      this.countMode,
+      this.headMode,
     );
   }
 
   eq(column: string, value: string | number | boolean): SupabaseFilterBuilder<Row> {
     return this.withFilter({ column, op: 'eq', value: stringifyFilterValue(value) });
+  }
+
+  lte(column: string, value: string | number): SupabaseFilterBuilder<Row> {
+    return this.withFilter({ column, op: 'lte', value: stringifyFilterValue(value) });
   }
 
   in(column: string, values: readonly (string | number)[]): SupabaseFilterBuilder<Row> {
@@ -125,6 +158,8 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
       this.filters,
       `${column}.${direction}`,
       this.limitCount,
+      this.countMode,
+      this.headMode,
     );
   }
 
@@ -137,6 +172,8 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
       this.filters,
       this.orderClause,
       count,
+      this.countMode,
+      this.headMode,
     );
   }
 
@@ -156,13 +193,22 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
   }
 
   private async execute(): Promise<SupabaseQueryResult<readonly Row[]>> {
+    const requestHeaders =
+      this.countMode === null ? this.headers : { ...this.headers, Prefer: `count=${this.countMode}` };
     try {
-      const response = await fetch(this.buildUrl(), { headers: this.headers });
+      const response = await fetch(this.buildUrl(), {
+        method: this.headMode ? 'HEAD' : 'GET',
+        headers: requestHeaders,
+      });
+      const count = parseContentRangeTotal(response.headers?.get('content-range') ?? null);
       if (!response.ok) {
-        return { data: null, error: { message: `PostgREST ${response.status}` } };
+        return { data: null, error: { message: `PostgREST ${response.status}` }, count };
+      }
+      if (this.headMode) {
+        return { data: [], error: null, count };
       }
       const data = (await response.json()) as readonly Row[];
-      return { data, error: null };
+      return { data, error: null, count };
     } catch (err) {
       return { data: null, error: { message: err instanceof Error ? err.message : String(err) } };
     }
@@ -177,6 +223,8 @@ class RestFilterBuilder<Row> implements SupabaseFilterBuilder<Row> {
       this.filters,
       this.orderClause,
       1,
+      this.countMode,
+      this.headMode,
     );
     const result = await limited.execute();
     if (result.error !== null) {
@@ -217,8 +265,18 @@ export function createSupabaseRestQueryClient(config?: {
 
   return {
     from: <T extends keyof Tables>(table: T) => ({
-      select: (columns: string) =>
-        new RestFilterBuilder<Tables[T]['Row']>(baseUrl, headers, String(table), columns),
+      select: (columns: string, options?: { readonly count?: 'exact'; readonly head?: boolean }) =>
+        new RestFilterBuilder<Tables[T]['Row']>(
+          baseUrl,
+          headers,
+          String(table),
+          columns,
+          [],
+          null,
+          null,
+          options?.count ?? null,
+          options?.head ?? false,
+        ),
     }),
   };
 }

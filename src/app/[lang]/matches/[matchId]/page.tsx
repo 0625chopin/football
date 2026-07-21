@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import type { MatchTeamStatComparison } from "@/lib/data/DataSource";
+import { resolvePollIntervalMs } from "@/lib/data/poll-interval";
 import { t } from "@/i18n/t";
 import type { TranslationKey } from "@/i18n/keys";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
@@ -14,11 +15,11 @@ import {
   deriveMatchPhase,
   foldMatchScore,
 } from "@/components/composite/match-scoreboard";
-import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
-import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
 import { PitchLineup, orderStartersByFormation } from "@/components/composite/PitchLineup";
 import type { PitchLineupData, PitchLineupStarter } from "@/components/composite/PitchLineup";
 import { MatchOddsPanel } from "@/components/composite/MatchOddsPanel";
+import { LiveEventTimeline } from "./LiveEventTimeline";
+import { buildTimelineRows } from "./timeline";
 import { StatBar } from "@/components/domain/StatBar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -48,6 +49,17 @@ import type {
  * 45일차: D4(라인업 피치 뷰 + 선수별 평점 테이블)·D5(팀 스탯 비교바) 추가.
  * 46일차: D6(날씨·구장 정보)·D7(배당 패널, 표시 전용) 추가. D2(탭)는 여전히 스코프 밖 —
  * 지금은 D4~D7도 D3 아래 순서대로 쌓아 보여주고, 탭 배선은 이후 잔여 스코프다.
+ * 47일차: D3 잔여 스코프(D2) 이행 — 이벤트 타임라인이 3초 라이브 폴링으로 바뀌었다.
+ *
+ * ## D3 — 라이브 폴링(`./LiveEventTimeline.tsx`)
+ * D1·D4~D7은 여전히 서버 1회 렌더뿐이다. D3만 폴링하는 이유는 이 화면에서 **시간이 지나면
+ * 값이 바뀌는** 유일한 부분이 이벤트 로그이기 때문이다(경과분·스코어는 D3의 파생값이라
+ * 같이 갱신된다 — `LiveEventTimeline`이 자체 섹션 안의 R-11 경계 문구까지 함께 갱신). 주기는
+ * 1팀 H-02 훅 계약(`usePolling`)을 그대로 소비하고, 값은 **이 서버 컴포넌트가**
+ * `resolvePollIntervalMs("live")`로 해석해 prop으로 내려준다 — 클라이언트에서 직접 조회하면
+ * 안전망 값(15초)에 고정된다(44일차 I-222와 동일 원인, `@/lib/data/poll-interval` 참조).
+ * 재조회 자체는 `src/app/api/live/matches/[matchId]/events/route.ts`(Route Handler, I-182와
+ * 동일 원칙 — `DataSource`를 클라이언트에 노출하지 않는다)를 거친다.
  *
  * ## D6 — 구장·관중·날씨는 세 출처가 다르다
  * 구장명·수용인원은 `Team.stadiumName`/`stadiumCapacity`(E-04, 홈팀 기준 — 중립지 경기의
@@ -114,6 +126,9 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
     notFound();
   }
 
+  // 47일차(D3 라이브 폴링) — 서버가 해석한 값을 내려준다(위 파일 헤더 "D3 — 라이브 폴링" 절).
+  const pollIntervalMs = resolvePollIntervalMs("live");
+
   const [events, teams, league, lineups, ratings, teamStats, weather] = await Promise.all([
     dataSource.getMatchEvents(fixture.id),
     dataSource.getTeamsByIds([fixture.homeTeamId, fixture.awayTeamId]),
@@ -157,30 +172,14 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "match.detail.timelineTitle")}</h2>
 
-        {/* 새 이벤트가 폴링으로 늘어날 때 스크린리더가 자동으로 읽도록 준비해 둔다
-            (NFR-A11Y-004). 오늘은 서버 1회 렌더뿐이라 갱신은 없지만, 컨테이너 자체를
-            나중에 다시 감쌀 필요가 없도록 지금부터 붙여 둔다. */}
-        <div aria-live="polite" className="flex flex-col">
-          {timelineRows.length === 0 ? (
-            <EventTimelineItem locale={locale} state={{ status: "empty" }} />
-          ) : (
-            <div className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card px-4">
-              {timelineRows.map((row) => (
-                <EventTimelineItem key={row.event.id} locale={locale} state={{ status: "ready", data: row }} />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* R-11 경계 표시 — "결과를 미리 알 수 있으면 이 화면은 실패"(와이어프레임 04번
-            §2)라, 노출이 끊기는 지점을 침묵 대신 명문으로 알린다. FINISHED/VOID는 더
-            가릴 미래가 없어 표시하지 않는다. */}
-        {fixture.status === "LIVE" && scoreboardData.minute !== null && (
-          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-            <span aria-hidden>⏳</span>
-            {t(locale, "match.timeline.futureBoundary", { minute: scoreboardData.minute })}
-          </p>
-        )}
+        <LiveEventTimeline
+          locale={locale}
+          matchId={fixture.id}
+          initialStatus={fixture.status}
+          initialMinute={scoreboardData.minute}
+          initialRows={timelineRows}
+          pollIntervalMs={pollIntervalMs}
+        />
       </section>
 
       <section className="flex flex-col gap-4">
@@ -404,38 +403,6 @@ function buildScoreboardData(
     pkHome: fixture.pkHome,
     pkAway: fixture.pkAway,
   };
-}
-
-/**
- * D3 타임라인 행 — 시간 역순(최신 위, 와이어프레임 04번 §3-1)으로 정렬하고, `ASSIST`를
- * 자신이 가리키는 `GOAL`(E-2, `relatedEventSequence`)에 병합해 독립 행에서 제외한다.
- */
-function buildTimelineRows(
-  events: readonly MatchEvent[],
-  teamNameById: ReadonlyMap<TeamId, string>,
-  playerNameById: ReadonlyMap<PlayerId, string>,
-): readonly EventTimelineItemData[] {
-  const assistByGoalSequence = new Map<number, MatchEvent>();
-  for (const event of events) {
-    if (event.type === "ASSIST" && event.relatedEventSequence !== null) {
-      assistByGoalSequence.set(event.relatedEventSequence, event);
-    }
-  }
-
-  return [...events]
-    .sort(compareEventChronologically)
-    .reverse()
-    .filter((event) => event.type !== "ASSIST")
-    .map((event) => {
-      const assist = assistByGoalSequence.get(event.sequence);
-      const secondaryPlayerId = assist ? assist.primaryPlayerId : event.secondaryPlayerId;
-      return {
-        event,
-        teamName: event.teamId ? teamNameById.get(event.teamId) ?? null : null,
-        primaryPlayerName: event.primaryPlayerId ? playerNameById.get(event.primaryPlayerId) ?? null : null,
-        secondaryPlayerName: secondaryPlayerId ? playerNameById.get(secondaryPlayerId) ?? null : null,
-      };
-    });
 }
 
 /**

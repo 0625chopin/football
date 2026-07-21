@@ -223,3 +223,78 @@ describe('RestFilterBuilder — 쿼리 조립', () => {
     expect(result.error).toEqual({ message: 'boom' });
   });
 });
+
+describe('RestFilterBuilder — count: exact / head / lte (47일차, I-234)', () => {
+  it('lte가 쿼리스트링에 반영된다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createSupabaseRestQueryClient({ supabaseUrl: 'https://x.test', apiKey: 'k' });
+
+    await client.from('fixture').select('*').lte('kickoff_at', '2026-09-23T00:00:00.000Z');
+
+    const [calledUrl] = fetchMock.mock.calls[0] as [string];
+    expect(new URL(calledUrl).searchParams.getAll('kickoff_at')).toEqual([
+      'lte.2026-09-23T00:00:00.000Z',
+    ]);
+  });
+
+  it('count: exact 지정 시 Prefer 헤더를 보내고 Content-Range에서 count를 파싱한다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-range': '0-24/117' }),
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createSupabaseRestQueryClient({ supabaseUrl: 'https://x.test', apiKey: 'k' });
+
+    const result = await client.from('fixture').select('id', { count: 'exact' }).eq('status', 'SCHEDULED');
+
+    const [, calledInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect((calledInit.headers as Record<string, string>).Prefer).toBe('count=exact');
+    expect(result.count).toBe(117);
+  });
+
+  it('head: true는 HEAD 메서드로 요청하고 data는 빈 배열, count만 채운다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-range': '*/42' }),
+      json: () => Promise.reject(new Error('head 요청은 json()을 호출하면 안 된다')),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createSupabaseRestQueryClient({ supabaseUrl: 'https://x.test', apiKey: 'k' });
+
+    const result = await client
+      .from('fixture')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'SCHEDULED')
+      .lte('kickoff_at', '2026-09-23T00:00:00.000Z');
+
+    const [, calledInit] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(calledInit.method).toBe('HEAD');
+    expect(result.data).toEqual([]);
+    expect(result.count).toBe(42);
+    expect(result.error).toBeNull();
+  });
+
+  it('Content-Range가 없으면 count는 null이다', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers(),
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createSupabaseRestQueryClient({ supabaseUrl: 'https://x.test', apiKey: 'k' });
+
+    const result = await client.from('fixture').select('*');
+
+    expect(result.count).toBeNull();
+  });
+});

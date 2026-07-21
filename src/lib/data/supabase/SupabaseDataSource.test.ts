@@ -29,6 +29,10 @@ class FakeFilterBuilder<Row extends Record<string, unknown>>
     return new FakeFilterBuilder(this.rows.filter((row) => row[column] === value));
   }
 
+  lte(column: string, value: string | number): SupabaseFilterBuilder<Row> {
+    return new FakeFilterBuilder(this.rows.filter((row) => (row[column] as string | number) <= value));
+  }
+
   in(column: string, values: readonly (string | number)[]): SupabaseFilterBuilder<Row> {
     const wanted = new Set(values);
     return new FakeFilterBuilder(this.rows.filter((row) => wanted.has(row[column] as string | number)));

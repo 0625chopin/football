@@ -4,7 +4,8 @@ import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import { t } from "@/i18n/t";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
-import { BracketTree, type BracketTreeData, type BracketRoundData, type BracketMatchSlot } from "@/components/composite/BracketTree";
+import type { BracketTreeData, BracketRoundData, BracketMatchSlot } from "@/components/composite/BracketTree";
+import { BracketViewport } from "@/components/domain/BracketViewport";
 import type { CompositeViewState } from "@/components/composite/types";
 import type { Fixture, LeagueId, Team } from "@/types";
 
@@ -15,6 +16,10 @@ import type { Fixture, LeagueId, Team } from "@/types";
  * 8팀 시드/3라운드, 리그2 4팀/2라운드, 리그3 2팀/1라운드) `BracketTree`(5팀 013B)가
  * `data.rounds` 배열 길이를 그대로 컬럼 수로 쓰는 가변 구조라 화면 쪽에서 리그별 분기가
  * 필요 없다.
+ *
+ * 47일차(Task 020, 4팀): `BracketTree`를 직접 쓰지 않고 `BracketViewport`(domain/)로
+ * 감싼다 — 확대/축소 + 320px 모바일 라운드 페이징(수락 기준: 6라운드 브래킷이 320px에서도
+ * 가로 스크롤 컨테이너 내 탐색 가능). `BracketViewport` 헤더 주석 참조.
  *
  * ## 데이터
  * `getPlayoffBracket({ leagueId })`가 반환하는 평면 `Fixture[]`(competitionType='PLAYOFF')를
@@ -61,7 +66,7 @@ export default async function Page(
         </p>
       </header>
 
-      <BracketTree locale={locale} state={state} />
+      <BracketViewport locale={locale} state={state} />
     </div>
   );
 }

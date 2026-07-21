@@ -92,6 +92,14 @@ export const match = {
     // 43일차(Task 017, 5팀) — D3 R-11 경계 표시. "결과를 미리 알 수 있으면 이 화면은
     // 실패"(와이어프레임 04번 §2)라, 노출 중단 지점을 침묵 대신 명문으로 알린다.
     futureBoundary: "경기 진행 중 — {minute}분 이후 미공개",
+    // 47일차(Task 017, 5팀) — 킥오프 전 Empty 상태 명문 문구(와이어프레임 04번 §5,
+    // FR-UI-007). 일반 `empty`와 별개 키인 이유는 `EventTimelineItem.tsx` 주석 참조.
+    emptyKickoffPending: "아직 이벤트가 없습니다 (킥오프 대기)",
+    // 47일차(Task 017, 5팀) — D3 라이브 폴링 신규 이벤트 스크린리더 안내(NFR-A11Y-004,
+    // 와이어프레임 04번 §6 I-3). `eventLabel`은 `enums.matchEvent.*`(짧은 배지 라벨)를
+    // 그대로 주입한다 — 이 화면이 이미 쓰는 중계 문구 템플릿(`event.*`)과는 다른, 안내
+    // 전용의 짧은 문장이다.
+    liveAnnouncement: "{minute}분, {eventLabel}, {playerName}",
   },
   news: {
     loading: "뉴스를 불러오는 중…",
@@ -119,6 +127,17 @@ export const match = {
     empty: "표시할 대진표가 없습니다.",
     error: "대진표를 불러오지 못했습니다.",
     tbd: "미정",
+    // 47일차(Task 020, 4팀): `BracketViewport`(domain/) 확대/축소·모바일 라운드 페이징
+    // 컨트롤 라벨. D-33 등록형 — 새 네임스페이스가 아니라 기존 bracket 그룹 확장이다.
+    zoomGroupLabel: "대진표 확대/축소",
+    zoomOutLabel: "축소",
+    zoomInLabel: "확대",
+    zoomResetLabel: "원래대로",
+    zoomLevelFormat: "{percent}%",
+    roundNavGroupLabel: "라운드 이동",
+    prevRoundLabel: "이전 라운드",
+    nextRoundLabel: "다음 라운드",
+    roundProgressFormat: "{current} / {total}",
   },
   playoffs: {
     // {league}는 League.name 그대로 치환된다(고유명사, 번역 대상 아님, D-17).

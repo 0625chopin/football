@@ -3,12 +3,12 @@ import { getDataSource } from "@/lib/data/factory";
 import { t } from "@/i18n/t";
 import { DEFAULT_LOCALE, isSupportedLocale, type SupportedLocale } from "@/i18n/locales";
 import {
-  BracketTree,
   resolveBracketWinnerSide,
   type BracketTreeData,
   type BracketRoundData,
   type BracketMatchSlot,
 } from "@/components/composite/BracketTree";
+import { BracketViewport } from "@/components/domain/BracketViewport";
 import type { CompositeViewState } from "@/components/composite/types";
 import { TeamBadge } from "@/components/domain/TeamBadge";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,10 @@ import type { Fixture, Team, TeamId } from "@/types";
 
 /**
  * `/[lang]/cup` 컵대회 브래킷 — Task 020(45일차, 4팀).
+ *
+ * 47일차(Task 020, 4팀): `BracketTree`를 `BracketViewport`(domain/)로 교체 — 확대/축소 +
+ * 320px 모바일 라운드 페이징. 이 화면은 6라운드(64강~결승) 브래킷이라 수락 기준의 실측
+ * 대상이다.
  *
  * ## 브래킷 트리 — `/playoffs/[leagueId]`와 동일 패턴
  * `getCupBracket()`이 반환하는 평면 `Fixture[]`(competitionType='CUP', 리그 스코프 없음)를
@@ -94,7 +98,7 @@ export default async function Page(props: PageProps<"/[lang]/cup">) {
         </p>
       </header>
 
-      <BracketTree locale={locale} state={state} />
+      <BracketViewport locale={locale} state={state} />
 
       {byeTeams.length > 0 ? (
         <section className="flex flex-col gap-2">

@@ -652,6 +652,14 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={abilityRadarData}
                 />
               </ComponentSlot>
+              <ComponentSlot name="BracketViewport" locale={bodyLocale}>
+                <StateToggleSlot
+                  name="BracketViewport"
+                  componentKey="BracketViewport"
+                  locale={bodyLocale}
+                  readyData={bracketTreeReadyData}
+                />
+              </ComponentSlot>
               <ComponentSlot name="ConditionGauge" locale={bodyLocale}>
                 <StateToggleSlot
                   name="ConditionGauge"

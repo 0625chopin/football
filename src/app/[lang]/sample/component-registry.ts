@@ -15,15 +15,17 @@
  * `Record<ComponentKey, ...>`로 선언돼 **키가 빠지거나 남으면 typecheck가 즉시 실패**한다.
  * 불변식이 런타임 테스트에서 타입 시스템으로 올라갔으므로 복제도 대조 테스트도 필요 없다.
  *
- * - domain/composite 분류는 이 파일이 리터럴로 유지한다(4상태 대상 19종 + 비대상 10종, I-168 —
+ * - domain/composite 분류는 이 파일이 리터럴로 유지한다(4상태 대상 20종 + 비대상 10종, I-168 —
  *   46일차 `MatchOddsPanel`(4상태 대상)·`RoundNav`/`SeasonSelect`/`TiebreakNote`(비대상, 5팀
- *   산출물의 4팀 `/sample` 등록 인계분) 추가 반영).
+ *   산출물의 4팀 `/sample` 등록 인계분) 추가 반영. 47일차 Task 020 — `BracketViewport`(domain/,
+ *   `BracketTree`를 감싸는 확대/축소·모바일 라운드 페이징 래퍼, D-33 등록) 추가).
  * - `as const`가 필수다 — 떼면 타입이 `string[]`로 넓어져 `ComponentKey`가 `string`이 되고,
  *   레지스트리 exhaustive 검사가 통째로 무력화된다(조용히, 오류 없이).
  */
 
 export const DOMAIN_COMPONENT_NAMES = [
   "AbilityRadar",
+  "BracketViewport",
   "ConditionGauge",
   "FitnessBar",
   "FormStrip",

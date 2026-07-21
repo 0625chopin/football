@@ -50,9 +50,16 @@ export interface EventTimelineItemProps {
   locale: SupportedLocale
   state: CompositeViewState<EventTimelineItemData>
   className?: string
+  /**
+   * 47일차(Task 017, 5팀) — Empty 상태 문구 변형. `"kickoffPending"`은 와이어프레임 04번
+   * §5 명문 문구("아직 이벤트가 없습니다 (킥오프 대기)") 전용이다 — `Fixture.status`가
+   * `SCHEDULED`(킥오프 전)일 때만 쓰고, 그 외 "이벤트가 있어야 하는데 없음"(잠재 버그류,
+   * I-65 참조)과는 다른 문구라 별도 값으로 분리한다. 기본값은 기존 일반 Empty 문구.
+   */
+  emptyVariant?: "default" | "kickoffPending"
 }
 
-export function EventTimelineItem({ locale, state, className }: EventTimelineItemProps) {
+export function EventTimelineItem({ locale, state, className, emptyVariant = "default" }: EventTimelineItemProps) {
   if (state.status === "loading") {
     return (
       <div
@@ -74,7 +81,7 @@ export function EventTimelineItem({ locale, state, className }: EventTimelineIte
         data-status="empty"
         className={cn("py-2 text-sm text-muted-foreground", className)}
       >
-        {t(locale, "match.timeline.empty")}
+        {t(locale, emptyVariant === "kickoffPending" ? "match.timeline.emptyKickoffPending" : "match.timeline.empty")}
       </p>
     )
   }
