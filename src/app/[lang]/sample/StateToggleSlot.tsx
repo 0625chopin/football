@@ -25,6 +25,7 @@ import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
 import { GrowthChart } from "@/components/composite/GrowthChart";
 import { InjuryTimeline } from "@/components/composite/InjuryTimeline";
 import { MatchCard } from "@/components/composite/MatchCard";
+import { MatchOddsPanel } from "@/components/composite/MatchOddsPanel";
 import { MatchScoreboard } from "@/components/composite/MatchScoreboard";
 import { NewsItem } from "@/components/composite/NewsItem";
 import { PitchLineup } from "@/components/composite/PitchLineup";
@@ -49,7 +50,7 @@ import { TrophyCase } from "@/components/composite/TrophyCase";
 // `Record`는 **누락·잉여 키를 컴파일 시점에 잡는 exhaustive 검사**로 동작한다. 38일차처럼
 // 키 목록을 이 파일에서 따로 export해 서버가 읽게 하면 안 된다 — RSC 경계에서 빈 값으로
 // 평가돼 커버리지 배지가 조용히 틀린다(그 파일 헤더 참조).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 18종이 서로 다른 데이터 모양을 가진 동적 디스패치 레지스트리(쇼케이스 전용 리프 파일).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 19종이 서로 다른 데이터 모양을 가진 동적 디스패치 레지스트리(쇼케이스 전용 리프 파일).
 const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   AbilityRadar,
   ConditionGauge,
@@ -64,6 +65,7 @@ const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   GrowthChart,
   InjuryTimeline,
   MatchCard,
+  MatchOddsPanel,
   MatchScoreboard,
   NewsItem,
   PitchLineup,

@@ -1,4 +1,4 @@
-import type { MatchEventType } from "@/types";
+import type { MatchEventType, WeatherType } from "@/types";
 
 // Task 011(16일차) 골격 — 키 구조는 4팀 소유, 콘텐츠 확장은 5팀 기여 몫
 // (`docs/team-schedule/04-UI기반i18n팀.md` §1 소유 경로 각주).
@@ -43,6 +43,14 @@ import type { MatchEventType } from "@/types";
 // (`match.stat.*`, D5 팀 스탯 비교바) 그룹 신설. 와이어프레임 04번 §8 각주 "D4 선수 평점
 // 테이블은 StatBar 조합으로 구성하며 신규 컴포넌트를 만들지 않는다"에 따라 이 두 영역은
 // 전용 composite 없이 `matches/[matchId]/page.tsx`가 `StatBar`/`Table`을 직접 조합한다.
+//
+// 46일차(Task 017, 5팀): `info`(D6 날씨·구장 정보)·`weather`(WeatherType 9종 라벨)·
+// `odds`(D7 배당 패널) 그룹 추가. `weather`는 `event`와 동일 패턴으로 enum 값을 키로 그대로
+// 써 `satisfies Record<WeatherType, string>`로 9종 누락을 컴파일 타임에 막는다. `odds`의
+// 라벨 3종(`homeWinLabel`/`drawLabel`/`awayWinLabel`)은 `OddsButton`(4팀 013A)의
+// `selection.label`에 주입할 이미 번역된 문자열이다 — `BetSelection.label` 자체는 번역
+// 대상 여부가 미정(betting.ts 주석)이지만, 이 화면이 만드는 1X2 라벨은 이 팀이 직접
+// 정의하는 문구라 통상 번역 카탈로그 경로를 그대로 따른다.
 //
 // 44일차(Task 017, 5팀): `event` 그룹 추가 — 이벤트 23종 중계 문구 템플릿(와이어프레임
 // 04번 §4 D3 지정 프리픽스 `match.event.*`, "실제 중계 문구는 44일차에 작성한다" 각주 이행).
@@ -175,6 +183,45 @@ export const match = {
     yellowCards: "옐로카드",
     redCards: "레드카드",
     xg: "xG",
+  },
+  info: {
+    // D6 경기 정보(와이어프레임 04번 §4). 구장명 번역 여부는 미결(W-12) — `stadiumFormat`은
+    // `Team.stadiumName`을 변수 그대로 주입하고(D-17과 동일하게 고유명사 취급), 이 문구
+    // 자체가 번역 대상인 건 "(수용 {capacity}명)" 앞뒤 서식뿐이다.
+    sectionTitle: "경기 정보",
+    stadiumFormat: "{name} (수용 {capacity}명)",
+    attendanceFormat: "관중 {count}명",
+    weatherFormat: "{weather} · 기온 {temperature}℃",
+    empty: "표시할 경기 정보가 없습니다.",
+    error: "경기 정보를 불러오지 못했습니다.",
+  },
+  weather: {
+    // FR-MT-006 날씨 9종(enums.ts `WeatherType`) → 번역키(R-2). `event`와 동일하게 enum
+    // 값을 키로 그대로 써 `satisfies`로 9종 누락을 컴파일 타임에 막는다.
+    CLEAR: "맑음",
+    CLOUDY: "흐림",
+    RAIN: "비",
+    HEAVY_RAIN: "폭우",
+    SNOW: "눈",
+    WINDY: "강풍",
+    HOT: "폭염",
+    COLD: "혹한",
+    FOG: "안개",
+  } satisfies Record<WeatherType, string>,
+  odds: {
+    // D7 배당 패널(와이어프레임 04번 §4, FR-BT-014 표시 전용). 버튼 자체는 4팀 013A
+    // `OddsButton`(disabled 고정) 재사용 — 이 그룹은 셀렉션 라벨·상태 문구·비활성 사유
+    // 보조텍스트(I-9 `disabledHint`)만 담는다.
+    sectionTitle: "배당 (참고용)",
+    empty: "표시할 배당 정보가 없습니다.",
+    error: "배당 정보를 불러오지 못했습니다.",
+    homeWinLabel: "홈 승",
+    drawLabel: "무",
+    awayWinLabel: "원정 승",
+    // 알려지지 않은 셀렉션 키(1X2 밖 마켓)의 방어적 폴백 라벨 — 값을 지어내지 않되 빈
+    // 문자열보다는 화면에 뭔가 표시되게 한다.
+    otherLabel: "기타",
+    disabledHint: "1차 릴리스에서는 참고용입니다. 베팅 제출은 아직 지원하지 않습니다.",
   },
   event: {
     KICKOFF: "킥오프!",

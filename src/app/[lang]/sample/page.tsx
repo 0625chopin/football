@@ -13,6 +13,7 @@ import type { BracketParticipant, BracketTreeData } from "@/components/composite
 import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
 import type { InjuryTimelineData } from "@/components/composite/InjuryTimeline";
 import type { MatchCardData } from "@/components/composite/MatchCard";
+import type { MatchOddsPanelData } from "@/components/composite/MatchOddsPanel";
 import type { MatchScoreboardData } from "@/components/composite/MatchScoreboard";
 import {
   compareEventChronologically,
@@ -21,7 +22,11 @@ import {
 } from "@/components/composite/match-scoreboard";
 import type { NewsItemData } from "@/components/composite/NewsItem";
 import type { PitchLineupData } from "@/components/composite/PitchLineup";
+import { RoundNav } from "@/components/composite/RoundNav";
+import { SeasonSelect } from "@/components/composite/SeasonSelect";
 import type { StandingRowData, StandingsTableData } from "@/components/composite/StandingsTable";
+import { TiebreakNote } from "@/components/composite/TiebreakNote";
+import { buildTiebreakNoteBlocks } from "@/components/composite/tiebreak-note";
 import type {
   TrophyCaseAwardRow,
   TrophyCaseData,
@@ -199,12 +204,15 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
   const leagues = await dataSource.getLeagues();
   const primaryLeague = leagues[0] ?? null;
 
-  const [season, standings, liveFixtures, cupBracket, newsFeedItems] = await Promise.all([
+  const [season, standings, liveFixtures, cupBracket, newsFeedItems, seasons, roundBounds] = await Promise.all([
     dataSource.getCurrentSeason(),
     primaryLeague ? dataSource.getStandings({ leagueId: primaryLeague.id }) : Promise.resolve([]),
     dataSource.getLiveFixtures(),
     dataSource.getCupBracket(),
     dataSource.getNewsFeed({ limit: 1 }),
+    // RoundNav/SeasonSelect(46일차 /sample 등록 인계분, 5팀 산출물) 표본 데이터용.
+    dataSource.getSeasons(),
+    primaryLeague ? dataSource.getFixtureRoundBounds({ leagueId: primaryLeague.id }) : Promise.resolve(null),
   ]);
 
   const sampleStanding = standings[0] ?? null;
@@ -500,6 +508,20 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
         }
       : null;
 
+  // MatchOddsPanel(46일차, 5팀 Task 017 — /sample 등록은 4팀 인계분). 배당 엔진이 아직
+  // `DataSource`에 연결되지 않아(컴포넌트 파일 헤더 참조 — 실제 화면 호출부는 오늘 항상
+  // `empty` 상태를 내려보낸다) 조회 대신 표시 계약(`OddsDisplayPanel`, 3팀 H-19)에 맞춘
+  // 1X2 표본값을 직접 구성한다 — 실제 배당이 아니다.
+  const matchOddsPanelData: MatchOddsPanelData = {
+    format: "decimal",
+    bettingEnabled: false,
+    selections: [
+      { key: "HOME", decimalOdds: 1.85 },
+      { key: "DRAW", decimalOdds: 3.4 },
+      { key: "AWAY", decimalOdds: 4.2 },
+    ],
+  };
+
   // StandingsTable(39일차, 5팀 Task 016 — /sample 등록은 4팀 인계분) — 표 전체 24행은
   // 불필요해(팀장 인계 지침) 순위 상위 몇 행만 표본으로 쓴다. 존 판정(`resolveStandingZone`)
   // 은 5팀 소유 순수 함수를 그대로 재사용하고(로직 복제 금지), 팀 표시 정보는 위에서 이미
@@ -540,6 +562,31 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
           rows: standingsRows,
         }
       : null;
+
+  // RoundNav(41일차, 5팀 Task 016 — /sample 등록은 4팀 인계분, I-221) — 순수 GET
+  // 네비게이션 서버 컴포넌트라 로딩/에러 상태가 구조적으로 없다(파일 헤더 참조).
+  // `basePath`는 실제 소비 화면(`leagues/[leagueId]/fixtures`)과 동일 규약으로 로케일을
+  // 넣는다 — `bodyLocale`에 따라 달라지므로 실제 요소는 `renderShowcaseBody` 안에서 만든다.
+  const roundNavKickoffAt = sampleFixture?.kickoffAt ?? null;
+
+  // SeasonSelect(41일차, 5팀 Task 016 — /sample 등록은 4팀 인계분, I-221) — Mock이 진행
+  // 중 시즌 1건만 반환해(`MockDataSource.getSeasons()` 헤더 참조) 오늘은 옵션 1개뿐이라
+  // `<select disabled>`로 렌더된다(컴포넌트 자체 규약, 결함 아님).
+  const seasonSelectOptions = seasons.map((s) => ({ id: s.id, seasonNumber: s.seasonNumber }));
+
+  // TiebreakNote(40일차, 5팀 Task 016 — /sample 등록은 4팀 인계분, I-221) — 실제 순위표의
+  // 승점 동률 여부는 시드마다 달라 항상 재현되지는 않는다. 대신 컴포넌트 파일 헤더가 설명한
+  // 두 패턴(블록 전체가 한 단계로 갈림 / 블록 내부가 단계별로 다시 갈림)을 그대로 보여주는
+  // 표본 순위 데이터를 직접 구성한다 — 실제 순위가 아니다. `buildTiebreakNoteBlocks`(5팀
+  // 소유 순수 함수)를 그대로 재사용하고 로직을 복제하지 않는다.
+  const tiebreakNoteSampleBlocks = buildTiebreakNoteBlocks([
+    { rank: 1, points: 30, tiebreakApplied: null },
+    { rank: 2, points: 27, tiebreakApplied: 2 },
+    { rank: 3, points: 27, tiebreakApplied: 2 },
+    { rank: 4, points: 24, tiebreakApplied: 2 },
+    { rank: 5, points: 24, tiebreakApplied: 6 },
+    { rank: 6, points: 24, tiebreakApplied: 6 },
+  ]);
 
   // ZoneLegend(39일차, 5팀 Task 016) — 4상태 계약이 없는 순수 표시 컴포넌트라(`league` prop만
   // 받음) StateToggleSlot 토글 대상이 아니다. 팀장 인계 지침대로 tier가 다른 예시 2개를
@@ -714,6 +761,14 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   readyData={matchCardData}
                 />
               </ComponentSlot>
+              <ComponentSlot name="MatchOddsPanel" locale={bodyLocale}>
+                <StateToggleSlot
+                  name="MatchOddsPanel"
+                  componentKey="MatchOddsPanel"
+                  locale={bodyLocale}
+                  readyData={matchOddsPanelData}
+                />
+              </ComponentSlot>
               <ComponentSlot name="MatchScoreboard (LIVE)" locale={bodyLocale}>
                 <StateToggleSlot
                   name="MatchScoreboard (LIVE)"
@@ -795,6 +850,46 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                     <SkeletonBlock rows={1} />
                   )}
                 </div>
+              </ComponentSlot>
+              {/* RoundNav — 순수 GET 네비게이션 서버 컴포넌트라(파일 헤더 참조) 로딩/
+                  에러 상태가 구조적으로 없다. StateToggleSlot 토글 대상이 아니다(I-221). */}
+              <ComponentSlot name="RoundNav" locale={bodyLocale}>
+                {primaryLeague && roundBounds && roundBounds.maxRound > 0 ? (
+                  <RoundNav
+                    locale={bodyLocale}
+                    basePath={`/${bodyLocale}/leagues/${primaryLeague.id}/fixtures`}
+                    currentRound={roundBounds.currentRound}
+                    minRound={roundBounds.minRound}
+                    maxRound={roundBounds.maxRound}
+                    liveRound={roundBounds.currentRound}
+                    kickoffAt={roundNavKickoffAt}
+                    seasonParam={season?.id}
+                  />
+                ) : (
+                  <SkeletonBlock rows={1} />
+                )}
+              </ComponentSlot>
+              {/* SeasonSelect — 자체 로딩/에러 상태가 없는 클라이언트 `<select>`다(파일
+                  헤더 참조). Mock이 시즌 1건만 반환해 오늘은 `disabled`로 렌더된다(결함
+                  아님). StateToggleSlot 토글 대상이 아니다(I-221). */}
+              <ComponentSlot name="SeasonSelect" locale={bodyLocale}>
+                {seasonSelectOptions.length > 0 ? (
+                  <SeasonSelect
+                    locale={bodyLocale}
+                    seasons={seasonSelectOptions}
+                    currentSeasonId={season?.id ?? seasonSelectOptions[0].id}
+                  />
+                ) : (
+                  <SkeletonBlock rows={1} />
+                )}
+              </ComponentSlot>
+              {/* TiebreakNote — 이미 로드된 순위표에서 파생된 값만 받는 순수 컴포넌트라
+                  자체 로딩/에러 상태가 없다(파일 헤더 참조). 실제 순위표의 동률 발생은
+                  시드마다 달라 항상 재현되지 않으므로, 헤더가 설명하는 두 패턴을 보여주는
+                  표본 데이터(`tiebreakNoteSampleBlocks`)를 쓴다 — 실제 순위가 아니다.
+                  StateToggleSlot 토글 대상이 아니다(I-221). */}
+              <ComponentSlot name="TiebreakNote" locale={bodyLocale}>
+                <TiebreakNote locale={bodyLocale} blocks={tiebreakNoteSampleBlocks} />
               </ComponentSlot>
             </div>
           </ShowcaseSection>

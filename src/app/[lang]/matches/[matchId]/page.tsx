@@ -6,6 +6,7 @@ import type { MatchTeamStatComparison } from "@/lib/data/DataSource";
 import { t } from "@/i18n/t";
 import type { TranslationKey } from "@/i18n/keys";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
+import type { SupportedLocale } from "@/i18n/locales";
 import { MatchScoreboard } from "@/components/composite/MatchScoreboard";
 import type { MatchScoreboardData } from "@/components/composite/MatchScoreboard";
 import {
@@ -17,6 +18,7 @@ import { EventTimelineItem } from "@/components/composite/EventTimelineItem";
 import type { EventTimelineItemData } from "@/components/composite/EventTimelineItem";
 import { PitchLineup, orderStartersByFormation } from "@/components/composite/PitchLineup";
 import type { PitchLineupData, PitchLineupStarter } from "@/components/composite/PitchLineup";
+import { MatchOddsPanel } from "@/components/composite/MatchOddsPanel";
 import { StatBar } from "@/components/domain/StatBar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -37,14 +39,30 @@ import type {
   PlayerMatchStat,
   Team,
   TeamId,
+  WeatherType,
 } from "@/types";
 
 /**
  * `/[lang]/matches/[matchId]` 경기 상세 — Task 017(43일차 첫날, 5팀), 와이어프레임
  * `docs/wireframe/04-경기상세라이브중계.md` D1(스코어보드)·D3(이벤트 타임라인) 구현.
- * 45일차: D4(라인업 피치 뷰 + 선수별 평점 테이블)·D5(팀 스탯 비교바) 추가. D2(탭)·D6(경기
- * 정보)·D7(배당 패널)은 여전히 스코프 밖 — 지금은 D4·D5도 D3 아래 순서대로 쌓아 보여주고,
- * 탭(D2) 배선은 D6·D7이 합류하는 시점에 함께 한다.
+ * 45일차: D4(라인업 피치 뷰 + 선수별 평점 테이블)·D5(팀 스탯 비교바) 추가.
+ * 46일차: D6(날씨·구장 정보)·D7(배당 패널, 표시 전용) 추가. D2(탭)는 여전히 스코프 밖 —
+ * 지금은 D4~D7도 D3 아래 순서대로 쌓아 보여주고, 탭 배선은 이후 잔여 스코프다.
+ *
+ * ## D6 — 구장·관중·날씨는 세 출처가 다르다
+ * 구장명·수용인원은 `Team.stadiumName`/`stadiumCapacity`(E-04, 홈팀 기준 — 중립지 경기의
+ * 실제 개최 구장을 가리키는 별도 엔티티는 없다), 관중 수는 `Fixture.attendance`(E-15),
+ * 날씨는 `dataSource.getMatchWeather()`(E-18, 1:1) 세 곳에서 각각 온다. `MockDataSource`는
+ * 아직 날씨 생성기가 없어(그 파일 주석) 이 부분만 항상 `null` — D5 팀 스탯과 동일한
+ * "데이터 계층 미구현" 패턴이라 화면은 그 필드만 조건부로 생략한다(전체를 empty로
+ * 떨어뜨리지 않는다 — 구장·관중은 실제로 채워지므로).
+ *
+ * ## D7 — 배당 패널은 오늘 항상 `empty` 상태다 (재구현 대상 아님)
+ * `MatchOddsPanel`(신규, 46일차)은 3팀 H-19(`src/lib/odds/display.ts`의 `OddsDisplayPanel`)
+ * 타입을 그대로 ready 데이터로 받는 4상태 컴포넌트다. 다만 `DataSource`에 대진별 배당을
+ * 내려주는 메서드가 아직 없다(배당 엔진은 몬테카를로 프리시뮬 호출기까지만 나왔고, 결과
+ * 영속·서빙은 039/62일차 소관) — 그래서 이 페이지는 오늘 항상 `{ status: "empty" }`를
+ * 넘긴다. 나중에 `DataSource`가 메서드를 갖추면 이 한 줄만 실제 조회로 바꾸면 된다.
  *
  * ## R-11(미래 정보 노출 금지) — 이 페이지는 별도 컷오프 로직을 두지 않는다
  * `dataSource.getMatchEvents()`가 이미 "경과분 이후 이벤트는 절대 포함하지 않는다"는
@@ -96,13 +114,14 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
     notFound();
   }
 
-  const [events, teams, league, lineups, ratings, teamStats] = await Promise.all([
+  const [events, teams, league, lineups, ratings, teamStats, weather] = await Promise.all([
     dataSource.getMatchEvents(fixture.id),
     dataSource.getTeamsByIds([fixture.homeTeamId, fixture.awayTeamId]),
     fixture.leagueId ? dataSource.getLeague(fixture.leagueId) : Promise.resolve(null),
     dataSource.getMatchLineups(fixture.id),
     dataSource.getMatchPlayerRatings(fixture.id),
     dataSource.getMatchTeamStats(fixture.id),
+    dataSource.getMatchWeather(fixture.id),
   ]);
 
   const homeTeam = teams.find((team) => team.id === fixture.homeTeamId) ?? null;
@@ -261,9 +280,82 @@ export default async function Page(props: PageProps<"/[lang]/matches/[matchId]">
           </div>
         )}
       </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="eyebrow text-muted-foreground">{t(locale, "match.info.sectionTitle")}</h2>
+        {homeTeam === null && fixture.attendance === null && weather === null ? (
+          <p className="text-sm text-muted-foreground">{t(locale, "match.info.empty")}</p>
+        ) : (
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4 text-sm">
+            {homeTeam && (
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden>🏟</span>
+                {t(locale, "match.info.stadiumFormat", {
+                  name: homeTeam.stadiumName,
+                  capacity: formatCount(homeTeam.stadiumCapacity, locale),
+                })}
+              </p>
+            )}
+            {fixture.attendance !== null && (
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden>👥</span>
+                {t(locale, "match.info.attendanceFormat", { count: formatCount(fixture.attendance, locale) })}
+              </p>
+            )}
+            {weather && (
+              <p className="flex items-center gap-1.5">
+                <span aria-hidden>{WEATHER_ICON[weather.type]}</span>
+                {t(locale, "match.info.weatherFormat", {
+                  weather: t(locale, WEATHER_LABEL_KEYS[weather.type]),
+                  temperature: weather.temperature,
+                })}
+              </p>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="eyebrow text-muted-foreground">{t(locale, "match.odds.sectionTitle")}</h2>
+        {/* 46일차 — DataSource에 대진별 배당 조회 메서드가 아직 없어 항상 empty(파일 헤더
+            주석 참조). MatchOddsPanel 자체는 ready 데이터를 받을 준비가 이미 돼 있다. */}
+        <MatchOddsPanel locale={locale} state={{ status: "empty" }} />
+      </section>
     </div>
   );
 }
+
+/** D6 관중·수용인원 표기 — 로케일 천단위 구분 기호. `Points`가 아닌 일반 정수라
+ * `formatPoints`(4팀 `i18n/format.ts`) 대상이 아니다. */
+function formatCount(value: number, locale: SupportedLocale): string {
+  return new Intl.NumberFormat(locale === "ko" ? "ko-KR" : "en-US").format(value);
+}
+
+/** D6 날씨 아이콘 — FR-MT-006 9종. 색 단독 구분이 아니라 아이콘+텍스트 라벨을 항상 병기한다. */
+const WEATHER_ICON: Record<WeatherType, string> = {
+  CLEAR: "☀️",
+  CLOUDY: "☁️",
+  RAIN: "🌧",
+  HEAVY_RAIN: "⛈",
+  SNOW: "❄️",
+  WINDY: "💨",
+  HOT: "🥵",
+  COLD: "🥶",
+  FOG: "🌫️",
+};
+
+/** D6 날씨 라벨 번역키 — enum → 번역키 매핑(R-2). */
+const WEATHER_LABEL_KEYS: Record<WeatherType, TranslationKey> = {
+  CLEAR: "match.weather.CLEAR",
+  CLOUDY: "match.weather.CLOUDY",
+  RAIN: "match.weather.RAIN",
+  HEAVY_RAIN: "match.weather.HEAVY_RAIN",
+  SNOW: "match.weather.SNOW",
+  WINDY: "match.weather.WINDY",
+  HOT: "match.weather.HOT",
+  COLD: "match.weather.COLD",
+  FOG: "match.weather.FOG",
+};
 
 /**
  * `Fixture`/노출 이벤트 → `MatchScoreboardData` 변환. 페이즈는 `deriveMatchPhase`로

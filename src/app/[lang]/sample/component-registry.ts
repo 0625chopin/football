@@ -15,7 +15,9 @@
  * `Record<ComponentKey, ...>`로 선언돼 **키가 빠지거나 남으면 typecheck가 즉시 실패**한다.
  * 불변식이 런타임 테스트에서 타입 시스템으로 올라갔으므로 복제도 대조 테스트도 필요 없다.
  *
- * - domain/composite 분류는 이 파일이 리터럴로 유지한다(4상태 대상 18종 + 비대상 7종, I-168).
+ * - domain/composite 분류는 이 파일이 리터럴로 유지한다(4상태 대상 19종 + 비대상 10종, I-168 —
+ *   46일차 `MatchOddsPanel`(4상태 대상)·`RoundNav`/`SeasonSelect`/`TiebreakNote`(비대상, 5팀
+ *   산출물의 4팀 `/sample` 등록 인계분) 추가 반영).
  * - `as const`가 필수다 — 떼면 타입이 `string[]`로 넓어져 `ComponentKey`가 `string`이 되고,
  *   레지스트리 exhaustive 검사가 통째로 무력화된다(조용히, 오류 없이).
  */
@@ -37,6 +39,7 @@ export const COMPOSITE_COMPONENT_NAMES = [
   "GrowthChart",
   "InjuryTimeline",
   "MatchCard",
+  "MatchOddsPanel",
   "MatchScoreboard",
   "NewsItem",
   "PitchLineup",
@@ -49,7 +52,19 @@ export const COMPOSITE_COMPONENT_NAMES = [
 // empty/error 변형이 구조적으로 존재하지 않는다). 그래서 `COMPOSITE_COMPONENT_NAMES`(=
 // StateToggleSlot의 4상태 디스패치 레지스트리와 정확히 같아야 하는 집합, 아래 invariant
 // 테스트 참조)에는 넣지 않고, 이 별도 목록으로 "등록은 됐지만 4상태 비대상"임을 명시한다.
-export const COMPOSITE_STATIC_COMPONENT_NAMES = ["ZoneLegend"] as const;
+//
+// 46일차(I-221 본체, 5팀 산출물의 4팀 `/sample` 등록 인계분) — `RoundNav`(41일차)·
+// `SeasonSelect`(41일차)·`TiebreakNote`(40일차) 3종을 같은 이유로 여기 추가한다. 셋 다
+// `CompositeViewState<T>`가 없는 화면 로컬 컴포넌트다 — `RoundNav`는 순수 GET 네비게이션
+// (서버 컴포넌트, 로딩/에러 상태 없음), `SeasonSelect`는 클라이언트 `<select>`(자체 로딩/
+// 에러 없음, 42~45일차 동안 미등록으로 방치), `TiebreakNote`는 이미 로드된 순위표에서 파생된
+// 값만 받고 블록이 없으면 `null`을 반환하는 순수 파생 컴포넌트다(그 파일 헤더 주석 참조).
+export const COMPOSITE_STATIC_COMPONENT_NAMES = [
+  "RoundNav",
+  "SeasonSelect",
+  "TiebreakNote",
+  "ZoneLegend",
+] as const;
 
 // state·유틸 6종 — I-168에 따라 4상태 규약 비대상(위 `COMPONENT_REGISTRY`에 없다: 그 자체가
 // 4상태를 구현하는 도구라 대상이 아니다). `StateToggleSlot`을 거치지 않고 page.tsx가 직접
