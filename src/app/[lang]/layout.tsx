@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, Geist, Geist_Mono, Gothic_A1 } from "next/font/google";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { SeasonPhase } from "@/types";
@@ -9,9 +9,29 @@ import { TranslationProvider } from "@/i18n/provider";
 import { t } from "@/i18n/t";
 import type { TranslationKey } from "@/i18n/keys";
 import { LocaleSwitcher } from "@/components/ui/LocaleSwitcher";
+import { NavLink } from "@/components/ui/NavLink";
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import "../globals.css";
 
+/**
+ * Task 013C(36일차) — 타입 페이스 3역할.
+ *
+ * | 역할 | 라틴 | 한글 | 쓰는 곳 |
+ * |---|---|---|---|
+ * | 본문 | Geist | Gothic A1 | 기본 텍스트 |
+ * | 디스플레이 | Archivo | Gothic A1 | h1~h3 · `eyebrow` · `scoreboard` |
+ * | 데이터 | Geist Mono | (폴백) | ID·코드 등 |
+ *
+ * 한글은 라틴 페이스에 글리프가 없어 지금까지 OS 기본 폰트(윈도우=맑은 고딕,
+ * 리눅스=Noto)로 떨어졌다 — 기본 로케일이 ko인데 플랫폼마다 다른 글자가 나오는 상태였다.
+ * Gothic A1을 스택 **뒤쪽**에 두면 라틴은 Geist/Archivo가, 한글은 Gothic A1이 맡아
+ * 두 언어가 같은 무게감으로 붙는다(unicode-range 분할 덕에 en 사용자는 한글 청크를
+ * 내려받지 않는다).
+ *
+ * Archivo는 `wdth` 축을 가진 가변 폰트라 `font-stretch`로 폭을 조절할 수 있다 —
+ * `eyebrow`(75%)·`scoreboard`(80%)가 이 축을 쓴다(`globals.css` 유틸리티 참조).
+ * 가족을 하나만 쓰면서 폭으로 목소리를 나누는 것이 이 디렉션의 타이포 규칙이다.
+ */
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -20,6 +40,24 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const archivo = Archivo({
+  variable: "--font-archivo",
+  subsets: ["latin"],
+  axes: ["wdth"],
+});
+
+// `subsets`를 지정하지 않는다 — next/font의 Google 폰트 메타데이터에 Gothic A1의 한글
+// 서브셋이 이름으로 등재돼 있지 않아(`latin`/`cyrillic`/`greek`/`vietnamese`만 노출)
+// `subsets: ["korean"]`은 빌드 에러가 난다. 서브셋을 생략하면 Google이 내려주는 CSS
+// 전체(한글 unicode-range 청크 포함)를 그대로 쓰며, 그 대신 `preload: false`가 필수다
+// (프리로드할 서브셋을 특정할 수 없으므로). 한글 청크는 실제로 한글이 그려질 때만
+// 내려받으므로 en 사용자에게는 비용이 없다.
+const gothicA1 = Gothic_A1({
+  variable: "--font-gothic-a1",
+  weight: ["400", "500", "700"],
+  preload: false,
 });
 
 /**
@@ -151,15 +189,22 @@ export default async function RootLayout(props: LayoutProps<"/[lang]">) {
   return (
     <html
       lang={htmlLang}
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${archivo.variable} ${gothicA1.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <TranslationProvider locale={htmlLang}>
-          <div className="flex min-h-full flex-col">
+          {/* `flex-1`이 필요하다 — `min-h-full`(=부모 높이의 100%)만으로는 부모(`body`)의
+              높이가 auto라 백분율이 해석되지 않아, 내용이 짧은 화면에서 푸터가 화면 하단이
+              아니라 본문 바로 밑에 붙는다(36일차 모바일 검증에서 확인). 이 요소가 body의
+              남은 높이를 차지해야 푸터의 `mt-auto`가 동작한다. */}
+          <div className="flex min-h-full flex-1 flex-col">
             <SiteHeader lang={htmlLang} />
+            <MobileNav lang={htmlLang} />
+            {/* `items-start` + 사이드바 `sticky`로 내비가 본문 스크롤을 따라온다.
+                `min-w-0`은 본문 안의 넓은 표·그리드가 사이드바를 밀어내지 못하게 막는다. */}
             <div className="flex flex-1">
               <SideNav lang={htmlLang} />
-              <main className="flex-1">
+              <main className="min-w-0 flex-1">
                 <LocaleGate lang={lang}>{props.children}</LocaleGate>
               </main>
             </div>
@@ -181,6 +226,27 @@ function LocaleGate({ lang, children }: { lang: string; children: ReactNode }) {
 // mock — 시즌/페이즈 인디케이터 자리. 실제 값은 DataSource 연결(28일차 이후) 시 교체.
 const mockSeasonPhase: SeasonPhase = "REGULAR";
 
+/**
+ * 헤더의 비활성 자리(리그 스위처·시즌 페이즈·다음 킥오프)를 표시하는 칩.
+ *
+ * 36일차 판단: 이 세 자리는 여전히 데이터소스가 없어 placeholder지만, 종전처럼 본문과
+ * 같은 실선 테두리를 두르면 "누를 수 있는 컨트롤"로 읽힌다. 점선 테두리 + 낮은 명도로
+ * "아직 아님"을 시각적으로도 말하게 한다(라벨 문자열의 "(준비 중)"과 이중 전달).
+ */
+function HeaderSlot({ children, as = "span" }: { children: ReactNode; as?: "span" | "button" }) {
+  const className =
+    "hidden items-center rounded-md border border-dashed border-board-line px-2.5 py-1 text-xs text-board-muted lg:inline-flex";
+
+  if (as === "button") {
+    return (
+      <button type="button" disabled className={className}>
+        {children}
+      </button>
+    );
+  }
+  return <span className={className}>{children}</span>;
+}
+
 function SiteHeader({ lang }: { lang: SupportedLocale }) {
   // `enums.seasonPhase.${SeasonPhase}` 형태의 캐스트 — `EnumTranslationCatalog<SeasonPhase>`
   // (enums.ts)가 SeasonPhase 전 멤버 커버를 tsc로 강제하므로 이 형태의 경로는 항상
@@ -190,64 +256,166 @@ function SiteHeader({ lang }: { lang: SupportedLocale }) {
   const seasonPhaseKey = `enums.seasonPhase.${mockSeasonPhase}` as TranslationKey;
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-foreground/10 px-4 py-3">
-      <span className="font-semibold">{t(lang, "common.app.name")}</span>
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          type="button"
-          disabled
-          className="rounded border border-foreground/20 px-2 py-1 text-foreground/60"
+    // 36일차 — 헤더는 중계 표면(`board`)이다. 라이트 모드에서도 어둡다(globals.css의
+    // `--board-*` 주석 참조). `sticky`로 스크롤 중에도 세계 상태가 화면에 남는다.
+    <header className="board pitch-stripes sticky top-0 z-40 border-b">
+      <div className="flex h-14 items-center gap-3 px-4">
+        <Link
+          href={`/${lang}`}
+          className="flex items-center gap-2.5 rounded-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
         >
-          {t(lang, "common.header.leagueSwitcherPlaceholder")}
-        </button>
-        <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
-          {t(lang, "common.header.seasonPhaseLabel", { phase: t(lang, seasonPhaseKey) })}
-        </span>
-        <span className="rounded border border-foreground/20 px-2 py-1 text-foreground/60">
-          {t(lang, "common.header.nextKickoffPlaceholder")}
-        </span>
-        <LocaleSwitcher />
+          {/* 터치라인 — 활성 표시에 쓰는 것과 같은 3px 초크 바. 워드마크 앞에 한 번 더
+              놓아 이 장치가 이 제품의 구조 기호임을 처음부터 알린다. */}
+          <span aria-hidden className="h-5 w-[3px] rounded-full bg-primary" />
+          <span className="eyebrow text-[0.95rem] tracking-[0.2em]">
+            {t(lang, "common.app.name")}
+          </span>
+        </Link>
+
+        <div className="ml-auto flex items-center gap-2">
+          <HeaderSlot as="button">{t(lang, "common.header.leagueSwitcherPlaceholder")}</HeaderSlot>
+          <HeaderSlot>
+            {t(lang, "common.header.seasonPhaseLabel", { phase: t(lang, seasonPhaseKey) })}
+          </HeaderSlot>
+          <HeaderSlot>{t(lang, "common.header.nextKickoffPlaceholder")}</HeaderSlot>
+          <LocaleSwitcher />
+        </div>
       </div>
     </header>
   );
 }
 
-// 11일차까지 생성된 실제 라우트만 연결한다. admin/bet/my는 2차 대비 예약(플래그 비활성)이라 제외.
-const NAV_ITEMS: { labelKey: TranslationKey; path: string }[] = [
-  { labelKey: "common.nav.leagues", path: "leagues" },
-  { labelKey: "common.nav.matches", path: "matches" },
-  { labelKey: "common.nav.players", path: "players" },
-  { labelKey: "common.nav.teams", path: "teams" },
-  { labelKey: "common.nav.stats", path: "stats" },
-  { labelKey: "common.nav.playoffs", path: "playoffs" },
-  { labelKey: "common.nav.cup", path: "cup" },
-  { labelKey: "common.nav.transfers", path: "transfers" },
-  { labelKey: "common.nav.awards", path: "awards" },
-  { labelKey: "common.nav.archive", path: "archive" },
-  { labelKey: "common.nav.sponsors", path: "sponsors" },
+/**
+ * 11일차까지 생성된 실제 라우트만 연결한다. admin/bet/my는 2차 대비 예약(플래그 비활성)이라 제외.
+ *
+ * 36일차 — 평평한 11개 목록을 성격별 3그룹으로 묶었다. 그룹 머리말은 장식이 아니라
+ * 라우트가 무엇에 대한 것인지(대회 / 구성원 / 기록)를 말한다. 홈은 어느 그룹에도 속하지
+ * 않는 진입점이라 그룹 밖 맨 위에 단독으로 둔다.
+ */
+const NAV_GROUPS: {
+  readonly sectionKey: TranslationKey;
+  readonly items: readonly { readonly labelKey: TranslationKey; readonly path: string }[];
+}[] = [
+  {
+    sectionKey: "common.nav.sectionCompetition",
+    items: [
+      { labelKey: "common.nav.leagues", path: "leagues" },
+      { labelKey: "common.nav.matches", path: "matches" },
+      { labelKey: "common.nav.playoffs", path: "playoffs" },
+      { labelKey: "common.nav.cup", path: "cup" },
+    ],
+  },
+  {
+    sectionKey: "common.nav.sectionSquad",
+    items: [
+      { labelKey: "common.nav.teams", path: "teams" },
+      { labelKey: "common.nav.players", path: "players" },
+      { labelKey: "common.nav.transfers", path: "transfers" },
+    ],
+  },
+  {
+    sectionKey: "common.nav.sectionRecords",
+    items: [
+      { labelKey: "common.nav.stats", path: "stats" },
+      { labelKey: "common.nav.awards", path: "awards" },
+      { labelKey: "common.nav.archive", path: "archive" },
+      { labelKey: "common.nav.sponsors", path: "sponsors" },
+    ],
+  },
 ];
 
-function SideNav({ lang }: { lang: SupportedLocale }) {
+/**
+ * 모바일 가로 내비 레일 — `md`(768px) 미만에서 `SideNav`를 대신한다.
+ *
+ * 36일차 1차 작업에서 좁은 폭의 사이드바를 감추기만 하고 대체 내비를 두지 않아, 모바일에서
+ * 헤더 워드마크(홈) 외에는 어디로도 갈 수 없었다 — 그 구멍을 메운다.
+ *
+ * ## 왜 서랍(drawer)이 아니라 가로 레일인가
+ * 서랍은 열기 전까지 무엇이 있는지 감추므로 상태 표시(지금 어디인가)를 못 한다. 이 제품은
+ * 스코어 서비스처럼 화면을 자주 오가며 훑는 성격이라, 항목이 늘 보이고 현재 위치가 밑줄로
+ * 드러나는 레일이 맞다. 열고 닫는 상태도 필요 없어 클라이언트 상태가 늘지 않는다.
+ *
+ * 그룹(대회/구성원/기록)은 가로로 머리말을 세울 자리가 없어 **얇은 구분선**으로만 남긴다 —
+ * 순서는 사이드바와 동일하므로 묶음 자체는 보존된다.
+ *
+ * 알려진 한계: 활성 항목이 레일 오른쪽 끝에 있으면 스크롤해야 보인다(자동 스크롤은
+ * 클라이언트 스크립트가 필요해 이번 스코프에서 제외).
+ */
+function MobileNav({ lang }: { lang: SupportedLocale }) {
   return (
-    <nav className="w-48 shrink-0 border-r border-foreground/10 p-4">
-      <ul className="flex flex-col gap-1 text-sm">
+    <nav
+      aria-label={t(lang, "common.nav.primaryLabel")}
+      className="sticky top-14 z-30 overflow-x-auto border-b border-sidebar-border bg-sidebar text-sidebar-foreground md:hidden"
+    >
+      <ul className="flex w-max items-stretch px-1">
         <li>
-          <Link href={`/${lang}`}>{t(lang, "common.nav.home")}</Link>
+          <NavLink href={`/${lang}`} exact orientation="horizontal">
+            {t(lang, "common.nav.home")}
+          </NavLink>
         </li>
-        {NAV_ITEMS.map((item) => (
-          <li key={item.path}>
-            <Link href={`/${lang}/${item.path}`}>{t(lang, item.labelKey)}</Link>
-          </li>
-        ))}
+        {NAV_GROUPS.flatMap((group) => [
+          <li key={`${group.sectionKey}-divider`} aria-hidden className="my-2.5 w-px bg-sidebar-border" />,
+          ...group.items.map((item) => (
+            <li key={item.path}>
+              <NavLink href={`/${lang}/${item.path}`} orientation="horizontal">
+                {t(lang, item.labelKey)}
+              </NavLink>
+            </li>
+          )),
+        ])}
       </ul>
     </nav>
   );
 }
 
+function SideNav({ lang }: { lang: SupportedLocale }) {
+  return (
+    // 종전엔 320px 뷰포트에서도 192px 사이드바가 그대로 남아 본문이 128px로 찌그러졌다
+    // (NFR-RS-001 위반). `md`(768px) 미만에서는 감추고, 그 아래에서는 본문 상단의
+    // 가로 스크롤 내비(각 화면 몫)로 대체한다 — 헤더 워드마크가 홈으로 가는 경로를
+    // 유지하므로 모바일에서 내비게이션이 완전히 사라지지는 않는다.
+    // 바깥 래퍼가 열 전체 높이를 채우고(부모 flex의 기본 stretch), 안쪽 `nav`가 그 안에서
+    // sticky로 붙는다. 래퍼 없이 `nav` 자신에게 고정 높이 + sticky를 주면 페이지가 뷰포트보다
+    // 길 때 사이드바 아래로 본문 배경이 그대로 드러난다(36일차 1차 렌더에서 확인).
+    <div className="hidden w-56 shrink-0 bg-sidebar text-sidebar-foreground md:block">
+      <nav
+        aria-label={t(lang, "common.nav.primaryLabel")}
+        className="sticky top-14 max-h-[calc(100vh-3.5rem)] overflow-y-auto px-3 py-5"
+      >
+        <ul className="flex flex-col gap-0.5">
+          <li>
+            <NavLink href={`/${lang}`} exact>
+              {t(lang, "common.nav.home")}
+            </NavLink>
+          </li>
+        </ul>
+
+        {NAV_GROUPS.map((group) => (
+          <div key={group.sectionKey} className="mt-6">
+            <h2 className="eyebrow px-3.5 pb-2 text-sidebar-foreground/45">
+              {t(lang, group.sectionKey)}
+            </h2>
+            <ul className="flex flex-col gap-0.5">
+              {group.items.map((item) => (
+                <li key={item.path}>
+                  <NavLink href={`/${lang}/${item.path}`}>{t(lang, item.labelKey)}</NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </div>
+  );
+}
+
 function SiteFooter({ lang }: { lang: SupportedLocale }) {
   return (
-    <footer className="border-t border-foreground/10 px-4 py-3 text-sm text-foreground/60">
-      {t(lang, "common.footer.devStatus")}
+    <footer className="board mt-auto border-t">
+      <div className="flex items-center gap-2.5 px-4 py-4">
+        <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-primary/70" />
+        <span className="eyebrow text-board-muted">{t(lang, "common.footer.devStatus")}</span>
+      </div>
     </footer>
   );
 }

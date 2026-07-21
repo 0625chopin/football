@@ -45,10 +45,12 @@ export function PhaseIndicator({ locale, season, round, className }: PhaseIndica
   });
 
   return (
-    <div className={cn("flex items-center gap-2 text-sm", className)}>
-      <span className="font-medium">{summary}</span>
+    // 36일차 — `CountdownTimer`와 같은 자리(라이브 보드 헤더)에 나란히 서므로 같은
+    // 규칙을 쓴다: 눈썹 라벨 + 색은 `currentColor` 파생만.
+    <div className={cn("flex items-baseline gap-2", className)}>
+      <span className="text-sm font-medium">{summary}</span>
       {round && (
-        <Badge variant="outline" className="tabular-nums">
+        <Badge variant="outline" className="scoreboard border-current/30">
           {t(locale, "common.phase.roundProgress", {
             current: round.current,
             total: round.total,

@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import { computeElapsedMinutes } from "@/components/composite/MatchCard";
@@ -130,64 +132,120 @@ export default async function Page(props: PageProps<"/[lang]">) {
   const leagueNameRecord: Record<LeagueId, string> = Object.fromEntries(leagueNameById);
 
   return (
-    <main className="flex flex-col gap-4 p-6">
-      {(season || nextKickoff) && (
-        <section className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {season && <PhaseIndicator locale={locale} season={season} />}
-          {nextKickoff && (
-            <CountdownTimer locale={locale} targetAt={nextKickoff.kickoffAt} isPaused={world.isPaused} />
+    <div className="flex flex-col">
+      {/* ── A1+A2 라이브 보드 ─────────────────────────────────────────────────
+          36일차(Task 013C) 재구성. 이 화면의 명제는 "지금 계산되고 있는 세계"다 —
+          그래서 첫 화면은 요약 카드 나열이 아니라 **중계 보드**다. 세계 시계(시즌·
+          페이즈·카운트다운)와 진행 중 경기를 같은 어두운 표면 위에 올려, 둘이 하나의
+          상태라는 것을 재질로 말한다. 페이지 배경으로 흘러나오는 나머지 섹션(킥오프·
+          뉴스)은 이 보드보다 조용해야 하므로 밝은 본문 표면에 둔다. */}
+      <section className="board pitch-stripes border-b px-4 py-6 md:px-6 md:py-8">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+            <h1 className="flex items-center gap-2.5 text-xl md:text-2xl">
+              <span aria-hidden className="h-6 w-[3px] shrink-0 rounded-full bg-primary" />
+              {t(locale, "match.card.gridTitle")}
+            </h1>
+            {/* 세계 시계 판독 패널 — 이 제품에만 있는 정보(시뮬레이션 세계의 시즌·페이즈와
+                다음 킥오프까지의 시간)라 헤더 옆에 흘려 두지 않고 계기판처럼 따로 세운다.
+                왼쪽 초크 라인이 이 값들이 한 덩어리임을 묶는다. */}
+            {(season || nextKickoff) && (
+              <div className="flex items-center gap-3 border-l border-board-line pl-3">
+                <div className="flex flex-col gap-1">
+                  {season && <PhaseIndicator locale={locale} season={season} />}
+                  {nextKickoff && (
+                    <CountdownTimer
+                      locale={locale}
+                      targetAt={nextKickoff.kickoffAt}
+                      isPaused={world.isPaused}
+                      className="text-board-muted"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <LiveMatchGrid
+            locale={locale}
+            initialCards={cards}
+            teamNameById={teamNameRecord}
+            leagueNameById={leagueNameRecord}
+            surface="board"
+            // 기본 그리드(`sm:grid-cols-2`)를 쓰지 않는다 — 이 프로젝트는 `sm`을 375px로
+            // 재정의해 뒀어(globals.css 24일차 브레이크포인트) 모바일 폭에서 바로 2열이
+            // 되고, 팀명이 "Moorhaven …"으로 잘린다. 2열은 md(768px)부터 연다.
+            className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
+          />
+        </div>
+      </section>
+
+      <div className="mx-auto grid w-full max-w-[1400px] grid-cols-1 gap-8 px-4 py-8 md:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        {/* ── A3 다음 킥오프 ─────────────────────────────────────────────────
+            36일차 — 카드 다섯 장을 쌓던 것을 **한 장의 타임 시트**로 합쳤다. 이 목록은
+            "각각이 독립된 개체"가 아니라 "시간 순으로 이어지는 하나의 일정"이라, 항목마다
+            테두리를 두르면 그 연속성이 끊긴다. 시각 열을 왼쪽에 고정폭으로 세워
+            스캔이 위→아래 한 줄로 떨어지게 한다. */}
+        <section className="flex flex-col gap-3">
+          <SectionHeading>{t(locale, "match.upcoming.sectionTitle")}</SectionHeading>
+          {upcomingFixtures.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t(locale, "match.upcoming.empty")}</p>
+          ) : (
+            // NFR-A11Y-005: 열 헤더가 의미 없는 목록이라 표가 아니라 <ul>로 마크업한다.
+            <ul className="overflow-hidden rounded-lg border border-border bg-card">
+              {upcomingFixtures.map((fixture) => (
+                <li
+                  key={fixture.id}
+                  className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-border px-4 py-3 text-sm last:border-b-0 even:bg-muted/40"
+                >
+                  <time className="scoreboard shrink-0 text-base text-muted-foreground">
+                    {formatKickoff(fixture.kickoffAt, locale, "time")}
+                  </time>
+                  {/* 좁은 폭에서는 자르지 않고 줄바꿈시킨다 — 대진은 이 행의 본문이라
+                      잘리면 어느 경기인지 알 수 없게 된다. */}
+                  <span className="min-w-0 flex-1 md:truncate">
+                    {t(locale, "match.upcoming.matchupFormat", {
+                      home: teamNameById.get(fixture.homeTeamId) ?? fixture.homeTeamId,
+                      away: teamNameById.get(fixture.awayTeamId) ?? fixture.awayTeamId,
+                    })}
+                  </span>
+                  <span className="eyebrow shrink-0 truncate text-muted-foreground">
+                    {leagueNameById.get(fixture.leagueId) ?? fixture.leagueId}
+                  </span>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
-      )}
-      <h1 className="text-lg font-semibold">{t(locale, "match.card.gridTitle")}</h1>
-      <LiveMatchGrid
-        locale={locale}
-        initialCards={cards}
-        teamNameById={teamNameRecord}
-        leagueNameById={leagueNameRecord}
-      />
-      <section className="flex flex-col gap-2">
-        <h2 className="text-base font-semibold">{t(locale, "match.upcoming.sectionTitle")}</h2>
-        {upcomingFixtures.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t(locale, "match.upcoming.empty")}</p>
-        ) : (
-          // NFR-A11Y-005: 열 헤더가 의미 없는 목록이라 표가 아니라 <ul>로 마크업한다.
-          <ul className="flex flex-col gap-2">
-            {upcomingFixtures.map((fixture) => (
-              <li
-                key={fixture.id}
-                className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm"
-              >
-                <span className="shrink-0 tabular-nums text-muted-foreground">
-                  {formatKickoff(fixture.kickoffAt, locale, "time")}
-                </span>
-                <span className="min-w-0 flex-1 truncate">
-                  {t(locale, "match.upcoming.matchupFormat", {
-                    home: teamNameById.get(fixture.homeTeamId) ?? fixture.homeTeamId,
-                    away: teamNameById.get(fixture.awayTeamId) ?? fixture.awayTeamId,
-                  })}
-                </span>
-                <span className="shrink-0 truncate text-xs text-muted-foreground">
-                  {leagueNameById.get(fixture.leagueId) ?? fixture.leagueId}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold">{t(locale, "match.news.sectionTitle")}</h2>
-        {newsItems.length === 0 ? (
-          <NewsItem locale={locale} state={{ status: "empty" }} />
-        ) : (
-          <div className="flex flex-col gap-3">
-            {newsItems.map((data) => (
-              <NewsItem key={data.id} locale={locale} state={{ status: "ready", data }} />
-            ))}
-          </div>
-        )}
-      </section>
-    </main>
+
+        {/* ── A4 주요 뉴스 ─────────────────────────────────────────────────── */}
+        <section className="flex flex-col gap-3">
+          <SectionHeading>{t(locale, "match.news.sectionTitle")}</SectionHeading>
+          {newsItems.length === 0 ? (
+            <NewsItem locale={locale} state={{ status: "empty" }} />
+          ) : (
+            <div className="flex flex-col">
+              {newsItems.map((data) => (
+                <NewsItem key={data.id} locale={locale} state={{ status: "ready", data }} />
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 섹션 머리 — 눈썹 라벨 + 규칙선. 제목 오른쪽으로 흐르는 얇은 선이 섹션의 폭을 알려
+ * 두 열(킥오프·뉴스)이 같은 리듬으로 시작하게 한다.
+ */
+function SectionHeading({ children }: { readonly children: ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-3">
+      <span className="eyebrow text-muted-foreground">{children}</span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+    </h2>
   );
 }
 

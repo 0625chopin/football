@@ -81,18 +81,21 @@ export function CountdownTimer({
   }, [targetAt, isPaused]);
 
   return (
-    <div className={cn("flex items-center gap-1.5 text-sm", className)}>
-      <span className="text-muted-foreground">{t(locale, labelKey)}</span>
+    // 36일차 — 라벨은 눈썹 크기로 내리고 숫자를 키운다. 이 컴포넌트가 놓이는 자리는
+    // 어두운 라이브 보드일 수도, 밝은 본문일 수도 있어 라벨 색은 `currentColor` 파생
+    // (`opacity-70`)만 쓴다 — `text-muted-foreground`는 어두운 표면에서 읽히지 않는다.
+    <div className={cn("flex items-baseline gap-2", className)}>
+      <span className="eyebrow opacity-70">{t(locale, labelKey)}</span>
       {isPaused ? (
         // --warning-foreground는 페이지 배경 위 단독 사용이 금지된 토큰이다(다크 모드
         // 대비 1.54:1 — globals.css 25일차 주석). 반드시 --warning 배경 위에서만 쓴다
         // (그 조합은 8.2~9.6:1로 충분) — 그래서 텍스트만 색칠하지 않고 --warning 배경
         // 배지로 감싼다.
-        <span className="rounded bg-warning px-1.5 py-0.5 font-medium text-warning-foreground">
+        <span className="eyebrow rounded-sm bg-warning px-1.5 py-1 text-warning-foreground">
           {t(locale, "common.countdown.paused")}
         </span>
       ) : (
-        <span className="font-medium tabular-nums">
+        <span className="scoreboard text-lg text-current">
           {remainingMs === null ? "--:--:--" : formatCountdownClock(remainingMs)}
         </span>
       )}

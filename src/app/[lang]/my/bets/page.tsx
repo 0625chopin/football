@@ -10,8 +10,8 @@ export default async function Page(props: PageProps<"/[lang]/my/bets">) {
   const { lang } = await props.params;
 
   return (
-    <main>
-      <pre>{JSON.stringify({ route: "/[lang]/my/bets", lang })}</pre>
-    </main>
+    <div className="p-4">
+      <pre className="overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground">{JSON.stringify({ route: "/[lang]/my/bets", lang })}</pre>
+    </div>
   );
 }

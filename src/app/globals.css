@@ -62,9 +62,23 @@
   --color-warning-foreground: var(--warning-foreground);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  /* Task 013C(36일차) — "야간 조명(Floodlit)" 비주얼 디렉션 토큰.
+     `--board-*`는 라이트/다크 공통이다. 이 제품의 정체성은 "지금 계산되고 있는 세계를
+     중계로 지켜본다"는 것이고, 중계 화면(스코어보드)은 사용자의 OS 테마와 무관하게 늘
+     야간 경기장이다 — 그래서 이 표면만 모드 전환에서 제외한다(라이트 모드에서 어두운
+     패널이 뜨는 것은 결함이 아니라 의도). 대비는 board-foreground/board 14.9:1. */
+  --color-board: var(--board);
+  --color-board-foreground: var(--board-foreground);
+  --color-board-muted: var(--board-muted);
+  --color-board-line: var(--board-line);
+  /* 폰트 스택 — 라틴은 앞쪽(Geist/Archivo), 한글은 뒤쪽(Gothic A1)이 맡는다.
+     역할 분담표와 근거는 `src/app/[lang]/layout.tsx` 상단 주석이 단일 소스다. */
+  --font-sans: var(--font-geist-sans), var(--font-gothic-a1), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  /* 디스플레이 페이스는 본문(Geist)과 분리한다 — Archivo를 `wdth` 축과 함께 불러
+     좁은 폭(75%)은 스코어보드·라벨에, 기본 폭은 헤딩에 쓴다. */
+  --font-display: var(--font-archivo), var(--font-gothic-a1), ui-sans-serif, sans-serif;
+  --font-heading: var(--font-display);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -103,42 +117,74 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   Task 013C(36일차) — 비주얼 디렉션 "Floodlit(야간 조명)" 전면 개편.
+
+   ## 왜 바꿨나
+   25~26일차에 확정된 것은 **시맨틱 5색·브레이크포인트·타이포 스케일**이었고, 중립색은
+   create-next-app/shadcn 기본값(채도 0의 순수 회색 + 회색조 chart 5종)이 그대로 남아
+   있었다. 그 결과 34~35일차에 화면이 처음 렌더되자 전 화면이 무채색으로만 보였다.
+
+   ## 디렉션
+   - **브랜드 브라이트 = 조명 호박색(`--primary`, hue 68~70).** 초록을 브랜드색으로 쓰지
+     않는다 — `--promotion`(승격)이 이미 초록이라 브랜드 초록과 충돌하면 시맨틱 색의
+     의미가 희석된다(NFR-A11Y-002는 색을 보조 신호로 쓰되 그 구분력은 보장하라는 요구).
+   - **중립 = 야간 잔디 잉크(hue 172~180의 극저채도).** 무채색 대신 청록 쪽으로 아주 약간
+     기울여(C 0.006~0.03) 회색이 "죽어 보이는" 문제를 없앤다.
+   - **`--board-*` = 항상 야간인 중계 표면.** 라이트/다크 공통(위 @theme 주석 참조).
+
+   ## 회귀 가드
+   모든 값은 `src/lib/a11y/contrast.test.ts`의 수식으로 사전 실측했다. 최소 여유 구간은
+   ⓐ 다크 `--relegation` 대 배경 3.599:1(하한 3) — 다크 `--background`의 L을 0.163보다
+   올리면 깨진다, ⓑ 라이트 `--muted-foreground` 대 `--muted` 5.108:1(하한 4.5).
+   시맨틱 5색(promotion/playoff/relegation/live/warning·warning-foreground)은 ΔE 여유가
+   0.56뿐이라(I-144) **일절 건드리지 않았다** — 아래 값은 전부 26일차 그대로다.
+   ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --background: oklch(0.985 0.006 172); /* 초크 — 순백 대신 청록기 있는 종이 */
+  --foreground: oklch(0.19 0.024 176); /* 피치 잉크 */
+  --card: oklch(1 0 0); /* 카드는 순백 — 초크 배경 위에서 스스로 떠오른다 */
+  --card-foreground: oklch(0.19 0.024 176);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.52 0 0); /* Task 012(26일차) — WCAG 실측 결과 create-next-app
-    기본값(L=0.556)이 --muted 배경 위에서 텍스트 대비 4.339:1로 4.5:1 미달(WCAG 1.4.3) —
-    L=0.52로 낮춰 --muted 위 5.051:1·--background 위 5.509:1로 통과시킴. 실측:
-    src/lib/a11y/contrast.test.ts "텍스트 대비 4.5:1" 블록. */
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.19 0.024 176);
+  --primary: oklch(0.762 0.148 68); /* 조명 호박색. 밝은 채움이라 전경은 잉크를 쓴다 */
+  --primary-foreground: oklch(0.2 0.035 68);
+  --secondary: oklch(0.955 0.009 176);
+  --secondary-foreground: oklch(0.28 0.03 176);
+  --muted: oklch(0.955 0.009 176);
+  --muted-foreground: oklch(0.505 0.022 180); /* Task 012(26일차)에 L=0.556→0.52로 낮춰 둔
+    값을, 36일차에 청록 색조(C=0.022 h=180)를 얹으며 L=0.505로 재조정했다. 채도가 붙으면
+    상대휘도가 미세하게 달라지므로 재실측했다 — --muted 위 5.108:1 / --background 위
+    5.571:1로 둘 다 4.5:1 통과(src/lib/a11y/contrast.test.ts "텍스트 대비 4.5:1" 블록). */
+  --accent: oklch(0.94 0.018 176);
+  --accent-foreground: oklch(0.26 0.035 176);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --border: oklch(0.898 0.009 176);
+  --input: oklch(0.898 0.009 176);
+  --ring: oklch(0.72 0.13 68); /* 포커스 링도 브랜드 호박색 — 키보드 초점이 눈에 띈다 */
+  /* 차트 5종 — 종전 회색조(L만 다른 5단계)라 계열 구분이 사실상 불가능했다. 색상각을
+     60/205/292/355/145로 벌려 시맨틱 5색과도, 서로도 겹치지 않게 잡았다. 라이트는 L≈0.5~0.66,
+     다크는 L≈0.68~0.78로 각 배경에서 3:1 이상 확보(위 palette 실측). */
+  --chart-1: oklch(0.66 0.145 62);
+  --chart-2: oklch(0.56 0.088 205);
+  --chart-3: oklch(0.5 0.13 292);
+  --chart-4: oklch(0.62 0.15 355);
+  --chart-5: oklch(0.6 0.11 145);
+  --radius: 0.375rem; /* 0.625rem → 0.375rem. 계기판·스코어보드 쪽으로 모서리를 조인다 */
+  /* 사이드바는 라이트 모드에서도 어둡다 — 중계 화면의 좌측 랙(rack)에 해당하는 자리라
+     본문(초크)과 재질을 분리한다. `--board`와 같은 계열이되 아주 약간 밝다. */
+  --sidebar: oklch(0.195 0.024 176);
+  --sidebar-foreground: oklch(0.93 0.012 176);
+  --sidebar-primary: oklch(0.762 0.148 68);
+  --sidebar-primary-foreground: oklch(0.2 0.035 68);
+  --sidebar-accent: oklch(0.27 0.03 176);
+  --sidebar-accent-foreground: oklch(0.97 0.008 176);
+  --sidebar-border: oklch(0.3 0.025 176);
+  --sidebar-ring: oklch(0.72 0.13 68);
+  --board: oklch(0.175 0.028 192);
+  --board-foreground: oklch(0.965 0.01 180);
+  --board-muted: oklch(0.72 0.028 185);
+  --board-line: oklch(0.98 0.02 180 / 14%);
   --promotion: oklch(0.5 0.13 150); /* 승격 — 초록. C=0.15→0.13(색역 안으로) */
   --playoff: oklch(0.5 0.156 255); /* 플레이오프 — 파랑. C=0.17→0.156(색역 안으로) */
   --relegation: oklch(0.48 0.184 25); /* 강등 — 빨강. C=0.2→0.184(색역 안으로) */
@@ -149,37 +195,42 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    /* 다크 모드 — 라이트와 같은 색상각(176~180)을 유지해 두 모드가 같은 세계로 보이게 한다.
+       ⚠️ --background의 L(0.163)은 --relegation 대비 3.599:1(하한 3)을 만드는 값이라
+       이보다 밝게 올리면 contrast.test.ts가 깨진다. */
+    --background: oklch(0.163 0.022 178);
+    --foreground: oklch(0.96 0.008 176);
+    --card: oklch(0.213 0.025 178);
+    --card-foreground: oklch(0.96 0.008 176);
+    --popover: oklch(0.213 0.025 178);
+    --popover-foreground: oklch(0.96 0.008 176);
+    /* 종전 다크 --primary는 거의 흰색(0.922 0 0)이라 브랜드가 사라졌다. 라이트와 같은
+       호박색을 쓰되 어두운 배경에서 눈부시지 않도록 L만 조금 올린다. */
+    --primary: oklch(0.79 0.145 70);
+    --primary-foreground: oklch(0.2 0.035 68);
+    --secondary: oklch(0.272 0.026 178);
+    --secondary-foreground: oklch(0.95 0.008 176);
+    --muted: oklch(0.272 0.026 178);
+    --muted-foreground: oklch(0.722 0.019 180);
+    --accent: oklch(0.3 0.03 178);
+    --accent-foreground: oklch(0.96 0.008 176);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --border: oklch(0.98 0.02 180 / 12%);
+    --input: oklch(0.98 0.02 180 / 16%);
+    --ring: oklch(0.62 0.115 70);
+    --chart-1: oklch(0.78 0.145 66);
+    --chart-2: oklch(0.72 0.095 205);
+    --chart-3: oklch(0.68 0.135 292);
+    --chart-4: oklch(0.72 0.145 355);
+    --chart-5: oklch(0.75 0.13 145);
+    --sidebar: oklch(0.193 0.024 178);
+    --sidebar-foreground: oklch(0.93 0.012 176);
+    --sidebar-primary: oklch(0.79 0.145 70);
+    --sidebar-primary-foreground: oklch(0.2 0.035 68);
+    --sidebar-accent: oklch(0.28 0.03 178);
+    --sidebar-accent-foreground: oklch(0.97 0.008 176);
+    --sidebar-border: oklch(0.98 0.02 180 / 12%);
+    --sidebar-ring: oklch(0.62 0.115 70);
     --promotion: oklch(0.72 0.16 150);
     --playoff: oklch(0.72 0.14 255); /* C=0.15→0.14(색역 안으로) */
     --relegation: oklch(0.55 0.19 25);
@@ -198,5 +249,129 @@
   }
   html {
     @apply font-sans;
+  }
+  /* 36일차 — 헤딩은 디스플레이 페이스로. `--font-display`가 로드되지 않으면
+     `--font-sans`로 자연스럽게 떨어진다(레이아웃이 두 변수를 모두 주입한다). */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+  }
+  ::selection {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  /* 숫자는 이 제품의 본문이다 — 스코어·분·배당·순위가 열마다 흔들리지 않도록 전역으로
+     고정폭 숫자를 켠다. Geist/Archivo 모두 tabular figure를 갖고 있다. */
+  table,
+  time,
+  [data-slot="num"] {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   36일차 — "Floodlit" 디렉션 전용 유틸리티.
+   여기 있는 것만이 이 디렉션의 시그니처다. 새 화면은 임의의 색/그림자를 직접 쓰지 말고
+   이 유틸리티를 조합할 것(색은 전부 위 토큰을 경유한다).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/** 중계 표면 — 라이트/다크 공통으로 어둡다. 홈 라이브 보드·스코어보드 스트립이 소비한다. */
+@utility board {
+  background-color: var(--board);
+  color: var(--board-foreground);
+  border-color: var(--board-line);
+}
+
+/** 잔디 결(mown stripes) — 보드 위에만 아주 옅게 깐다. 장식이 아니라 "여기는 피치"라는
+    재질 표시라 대비를 3% 이하로 눌러 텍스트 가독성에 영향을 주지 않는다. */
+@utility pitch-stripes {
+  background-image: repeating-linear-gradient(
+    115deg,
+    oklch(1 0 0 / 2.5%) 0 22px,
+    transparent 22px 44px
+  );
+}
+
+/** 눈썹 라벨 — 섹션·열 머리에 쓰는 초소형 대문자 라벨. 좁은 폭(75%)으로 눌러
+    본문 그로테스크(Geist)와 확실히 다른 목소리를 낸다. */
+@utility eyebrow {
+  font-family: var(--font-display);
+  font-stretch: 75%;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/** 스코어보드 숫자 — 점수·분·카운트다운·배당이 쓰는 단 하나의 숫자 표현. */
+@utility scoreboard {
+  font-family: var(--font-display);
+  font-stretch: 80%;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/** 터치라인 — 활성 상태를 나타내는 유일한 구조 장치(좌측 3px 초크 라인). */
+@utility touchline {
+  position: relative;
+}
+@utility touchline-on {
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    width: 3px;
+    border-radius: 3px;
+    background-color: var(--primary);
+  }
+}
+/** 가로 내비(모바일 레일)용 — 같은 초크 바를 90° 돌려 밑줄로 쓴다. */
+@utility touchline-under-on {
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    height: 3px;
+    border-radius: 3px;
+    background-color: var(--primary);
+  }
+}
+
+/** LIVE 점멸 — 진행 중 신호에만 쓴다. 색 단독으로 의미를 전달하지 않으므로(NFR-A11Y-002)
+    반드시 "LIVE" 라벨과 함께 배치할 것. */
+@keyframes floodlight-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+}
+@utility live-dot {
+  display: inline-block;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 9999px;
+  background-color: var(--live);
+  animation: floodlight-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

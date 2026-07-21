@@ -29,11 +29,16 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   )
 }
 
+// Task 013C(36일차) — 잔디 결(mown stripes) 밴딩.
+// 순위표처럼 행이 많고 열이 좁은 표에서 시선이 행을 가로질러 미끄러지는 것을 막는 장치이자,
+// 이 디자인의 피치 재질을 표에도 잇는 자리다. 짝수 행 채움을 3%로 아주 옅게만 둬
+// (`--muted`의 30%) 구분선과 경쟁하지 않게 한다. 밴딩을 원치 않는 표(2~3행짜리 요약 등)는
+// 소비처가 `className="[&_tr]:bg-transparent"`로 끌 수 있다.
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
     <tbody
       data-slot="table-body"
-      className={cn("[&_tr:last-child]:border-0", className)}
+      className={cn("[&_tr:last-child]:border-0 [&_tr:nth-child(even)]:bg-muted/30", className)}
       {...props}
     />
   )
@@ -84,7 +89,9 @@ function TableHead({
       data-slot="table-head"
       data-numeric={numeric || undefined}
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        // 36일차 — 헤더는 눈썹 라벨로. 표의 열 이름은 문장이 아니라 라벨이고,
+        // 본문(팀명·숫자)과 다른 목소리로 말해야 헤더 행이 데이터 행으로 오독되지 않는다.
+        "eyebrow h-9 px-2 text-left align-middle whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         numeric && "text-right tabular-nums",
         className
       )}
@@ -104,7 +111,8 @@ function TableCell({
       data-numeric={numeric || undefined}
       className={cn(
         "p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0",
-        numeric && "text-right tabular-nums",
+        // 숫자 열은 스코어보드 숫자로 — 순위·승점·득실차가 카드의 점수와 같은 목소리를 낸다.
+        numeric && "scoreboard text-right",
         className
       )}
       {...props}

@@ -1,14 +1,15 @@
 "use client"; // Error Boundary는 Client Component여야 한다(error.md)
 
-import { useEffect } from "react";
-import { useTranslation } from "@/i18n/provider";
+import { RouteError } from "@/components/state/RouteError";
 
 /**
- * `/[lang]/playoffs/[leagueId]` 에러 폴백 — Task 005(13일차), 빈 자리표시자.
+ * `/[lang]/playoffs/[leagueId]` 에러 폴백 — Task 005(13일차) 신설, Task 013C(36일차) 공용 껍데기로 통합.
+ * 자세한 내용은 `RouteError` 파일 주석 참조.
  *
- * 화면 본문은 5팀 소관이며 28일차 이후 채워진다. 4팀은 라우트 골격만 만든다.
- * `unstable_retry`는 v16.2.0 신규 API — 공식 문서가 `reset`보다 우선 권장한다.
- * Client Component라 `useTranslation()`(provider.tsx)으로 현재 활성 로케일을 그대로 따라간다(`src/i18n/README.md` §4, 22일차).
+ * `unstable_retry`(v16.2.0 신규 API — 공식 문서가 `reset`보다 우선 권장)를 그대로 넘긴다.
+ * 이 파일이 `"use client"`를 다시 선언하는 이유: Next.js는 `error.tsx` **파일 자체**가
+ * 클라이언트 경계여야 한다고 요구하며, import한 컴포넌트가 클라이언트인 것만으로는
+ * 대신할 수 없다.
  */
 export default function Error({
   error,
@@ -17,22 +18,5 @@ export default function Error({
   error: Error & { digest?: string };
   unstable_retry: () => void;
 }) {
-  const t = useTranslation();
-
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
-  return (
-    <main className="p-4 text-sm">
-      <h2 className="font-semibold">{t("error.generic.title")}</h2>
-      <button
-        type="button"
-        onClick={() => unstable_retry()}
-        className="mt-2 rounded border border-foreground/20 px-2 py-1"
-      >
-        {t("error.generic.retryLabel")}
-      </button>
-    </main>
-  );
+  return <RouteError error={error} retry={unstable_retry} />;
 }

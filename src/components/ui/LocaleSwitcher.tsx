@@ -55,10 +55,14 @@ export function LocaleSwitcher() {
   }
 
   return (
+    // 36일차 — 두 개의 낱개 버튼에서 세그먼티드 컨트롤로. 색은 `currentColor` 파생
+    // (`border-current/25` 등)만 쓴다 — 이 스위처는 어두운 헤더(`board`)와 밝은 본문
+    // 양쪽에 놓일 수 있어 `foreground` 토큰을 직접 참조하면 한쪽에서 보이지 않는다.
+    // 선택 상태는 색(브랜드 호박색) 외에 `aria-pressed`와 굵기로도 함께 전달한다.
     <div
       role="group"
       aria-label={t("common.header.localeSwitcherLabel")}
-      className="flex items-center gap-1"
+      className="inline-flex items-center gap-0.5 rounded-md border border-current/20 p-0.5"
     >
       {SUPPORTED_LOCALES.map((option) => (
         <button
@@ -66,10 +70,10 @@ export function LocaleSwitcher() {
           type="button"
           aria-pressed={option === locale}
           onClick={() => handleSelect(option)}
-          className={`rounded border px-2 py-1 text-sm ${
+          className={`rounded-sm px-2 py-0.5 text-xs transition-colors focus-visible:ring-2 focus-visible:ring-current/40 focus-visible:outline-none ${
             option === locale
-              ? "border-foreground/40 font-semibold"
-              : "border-foreground/20 text-foreground/60"
+              ? "bg-primary font-semibold text-primary-foreground"
+              : "opacity-60 hover:opacity-100"
           }`}
         >
           {t(LOCALE_OPTION_LABEL_KEY[option])}

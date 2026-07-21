@@ -9,14 +9,14 @@ export default async function Page(
   const { lang, playerId } = await props.params;
 
   return (
-    <main>
-      <pre>
+    <div className="p-4">
+      <pre className="overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground">
         {JSON.stringify({
           route: "/[lang]/players/[playerId]",
           lang,
           playerId,
         })}
       </pre>
-    </main>
+    </div>
   );
 }

@@ -74,9 +74,9 @@ export function AbilityRadar({ locale, state, className }: AbilityRadarProps) {
       ))}
       <polygon
         points={pointsToSvgPolygon(dataPoints)}
-        fill="var(--color-primary)"
+        fill="var(--color-chart-2)"
         fillOpacity={0.35}
-        stroke="var(--color-primary)"
+        stroke="var(--color-chart-2)"
         strokeWidth={1.5}
       />
       {labelPoints.map((label, i) => (

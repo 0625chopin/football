@@ -7,8 +7,8 @@ export default async function Page(props: PageProps<"/[lang]/archive">) {
   const { lang } = await props.params;
 
   return (
-    <main>
-      <pre>{JSON.stringify({ route: "/[lang]/archive", lang })}</pre>
-    </main>
+    <div className="p-4">
+      <pre className="overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground">{JSON.stringify({ route: "/[lang]/archive", lang })}</pre>
+    </div>
   );
 }

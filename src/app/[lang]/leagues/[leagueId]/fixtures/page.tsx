@@ -9,14 +9,14 @@ export default async function Page(
   const { lang, leagueId } = await props.params;
 
   return (
-    <main>
-      <pre>
+    <div className="p-4">
+      <pre className="overflow-x-auto text-xs whitespace-pre-wrap text-muted-foreground">
         {JSON.stringify({
           route: "/[lang]/leagues/[leagueId]/fixtures",
           lang,
           leagueId,
         })}
       </pre>
-    </main>
+    </div>
   );
 }

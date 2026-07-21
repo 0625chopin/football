@@ -1,4 +1,3 @@
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
@@ -63,14 +62,41 @@ export interface MatchCardProps {
   state: CompositeViewState<MatchCardData>
   /** 기본값 `"card"`(그리드용). `"row"`는 목록/표 형태 재사용 대비. */
   density?: "card" | "row"
+  /**
+   * Task 013C(36일차) — 놓이는 표면. 기본값 `"card"`는 밝은 본문 배경(쇼케이스·목록),
+   * `"board"`는 홈 라이브 보드처럼 어두운 중계 표면 위를 뜻한다. 두 표면의 대비 방향이
+   * 반대라 `border`/`muted-foreground` 같은 페이지 토큰을 그대로 쓸 수 없어, board에서는
+   * `currentColor` 파생 값만 쓴다(부모가 `text-board-foreground`를 준다).
+   */
+  surface?: "card" | "board"
   className?: string
 }
 
-const CARD_CLASS_NAME = "flex flex-col gap-2 rounded-xl border border-border p-4"
-const ROW_CLASS_NAME = "flex items-center gap-3 rounded-lg border border-border px-3 py-2"
+const CARD_CLASS_NAME = "flex flex-col gap-3 rounded-lg border p-4"
+const ROW_CLASS_NAME = "flex items-center gap-3 rounded-md border px-3 py-2"
 
-export function MatchCard({ locale, state, density = "card", className }: MatchCardProps) {
-  const containerClassName = density === "row" ? ROW_CLASS_NAME : CARD_CLASS_NAME
+const SURFACE_CLASS_NAME: Record<NonNullable<MatchCardProps["surface"]>, string> = {
+  card: "border-border bg-card",
+  board: "border-board-line bg-white/[0.04]",
+}
+/** 보조 텍스트(리그명·경과분) 색 — 표면에 따라 참조 토큰이 달라진다. */
+const MUTED_CLASS_NAME: Record<NonNullable<MatchCardProps["surface"]>, string> = {
+  card: "text-muted-foreground",
+  board: "text-board-muted",
+}
+
+export function MatchCard({
+  locale,
+  state,
+  density = "card",
+  surface = "card",
+  className,
+}: MatchCardProps) {
+  const containerClassName = cn(
+    density === "row" ? ROW_CLASS_NAME : CARD_CLASS_NAME,
+    SURFACE_CLASS_NAME[surface],
+  )
+  const mutedClassName = MUTED_CLASS_NAME[surface]
 
   if (state.status === "loading") {
     return (
@@ -113,12 +139,21 @@ export function MatchCard({ locale, state, density = "card", className }: MatchC
 
   const { data } = state
   const isLive = data.status === "LIVE"
-  const scoreLabel =
-    data.homeScore !== null && data.awayScore !== null
-      ? t(locale, "match.card.scoreFormat", { home: data.homeScore, away: data.awayScore })
-      : formatKickoff(data.kickoffAt, locale, "time")
+  const { homeScore, awayScore } = data
+  const hasScore = homeScore !== null && awayScore !== null
+  const homeIsLeading = hasScore && homeScore > awayScore
+  const awayIsLeading = hasScore && awayScore > homeScore
+  const scoreLabel = hasScore
+    ? t(locale, "match.card.scoreFormat", { home: homeScore, away: awayScore })
+    : formatKickoff(data.kickoffAt, locale, "time")
 
-  const liveBadge = isLive ? <Badge variant="destructive">{t(locale, "match.live.label")}</Badge> : null
+  // LIVE 표시는 색(빨강) 단독이 아니라 점멸 점 + 라벨 텍스트를 함께 낸다(NFR-A11Y-002).
+  const liveBadge = isLive ? (
+    <span className="inline-flex shrink-0 items-center gap-1.5 text-live">
+      <span aria-hidden className="live-dot" />
+      <span className="eyebrow">{t(locale, "match.live.label")}</span>
+    </span>
+  ) : null
   const elapsedLabel =
     isLive && data.elapsedMinutes !== null
       ? t(locale, "match.card.elapsedFormat", { minute: data.elapsedMinutes })
@@ -130,17 +165,18 @@ export function MatchCard({ locale, state, density = "card", className }: MatchC
         data-slot="match-card"
         data-status="ready"
         data-density="row"
-        className={cn(ROW_CLASS_NAME, className)}
+        data-surface={surface}
+        className={cn(containerClassName, className)}
       >
-        <span className="w-20 shrink-0 truncate text-xs text-muted-foreground" title={data.leagueName}>
+        <span className={cn("w-20 shrink-0 truncate text-xs", mutedClassName)} title={data.leagueName}>
           {data.leagueName}
         </span>
         <span className="min-w-0 flex-1 truncate text-sm">{data.homeTeamName}</span>
-        <span className="shrink-0 text-sm font-semibold tabular-nums">{scoreLabel}</span>
+        <span className="scoreboard shrink-0 text-sm">{scoreLabel}</span>
         <span className="min-w-0 flex-1 truncate text-right text-sm">{data.awayTeamName}</span>
         {liveBadge}
         {elapsedLabel ? (
-          <span className="w-10 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+          <span className={cn("scoreboard w-10 shrink-0 text-right text-xs", mutedClassName)}>
             {elapsedLabel}
           </span>
         ) : null}
@@ -148,27 +184,74 @@ export function MatchCard({ locale, state, density = "card", className }: MatchC
     )
   }
 
+  /**
+   * 36일차 — 카드 밀도를 "한 줄에 A 0-1 B"에서 **세로 스코어보드**로 바꿨다.
+   *
+   * 근거: 종전 인라인 배치는 점수가 팀명 두 개 사이에 끼여 셋 다 같은 크기·무게로 보였고,
+   * 정작 이 화면에서 가장 먼저 읽혀야 할 값(점수)이 가장 안 보였다. 실제 스코어 서비스와
+   * 중계 자막이 쓰는 세로 2행 배치는 ① 팀명 길이가 서로 달라도 점수 열이 흔들리지 않고
+   * ② 팀명이 길어져도 잘리지 않으며 ③ 점수를 크게 키울 자리가 생긴다.
+   *
+   * 점수가 아직 없는 경기(SCHEDULED 등)는 두 행 모두 숫자 자리를 비우고 킥오프 시각을
+   * 메타 행에 낸다 — 미래 정보(예상 스코어)를 만들어 채우지 않는다.
+   */
   return (
     <div
       data-slot="match-card"
       data-status="ready"
       data-density="card"
-      className={cn(CARD_CLASS_NAME, className)}
+      data-surface={surface}
+      className={cn(containerClassName, className)}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 truncate text-xs text-muted-foreground" title={data.leagueName}>
+        <span className={cn("eyebrow min-w-0 truncate", mutedClassName)} title={data.leagueName}>
           {data.leagueName}
         </span>
         {liveBadge}
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium">{data.homeTeamName}</span>
-        <span className="shrink-0 text-sm font-semibold tabular-nums">{scoreLabel}</span>
-        <span className="min-w-0 flex-1 truncate text-right text-sm font-medium">{data.awayTeamName}</span>
+
+      <div className="flex flex-col gap-1.5">
+        <TeamRow name={data.homeTeamName} score={homeScore} isLeading={homeIsLeading} />
+        <TeamRow name={data.awayTeamName} score={awayScore} isLeading={awayIsLeading} />
       </div>
-      {elapsedLabel ? (
-        <span className="text-xs tabular-nums text-muted-foreground">{elapsedLabel}</span>
-      ) : null}
+
+      <div className={cn("flex items-center gap-2 border-t pt-2.5 text-xs", mutedClassName)}>
+        {/* 경과분이 이 카드의 "지금" 신호다 — 있으면 그것을, 없으면 킥오프 시각을 낸다. */}
+        <span className="scoreboard">{elapsedLabel ?? scoreLabel}</span>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * 스코어보드 한 행 — 팀명(가변폭) + 점수(고정폭 우측 정렬).
+ *
+ * 앞서고 있는 쪽은 굵기로만 구분한다(색 단독 금지 원칙과 별개로, 리드 여부는 점수 숫자
+ * 자체가 이미 말하고 있어 색까지 얹으면 LIVE 신호와 경쟁한다).
+ */
+function TeamRow({
+  name,
+  score,
+  isLeading,
+}: {
+  readonly name: string
+  readonly score: number | null
+  readonly isLeading: boolean
+}) {
+  return (
+    <div className="flex items-baseline gap-3">
+      <span className={cn("min-w-0 flex-1 truncate text-sm", isLeading ? "font-semibold" : "font-normal")} title={name}>
+        {name}
+      </span>
+      <span
+        className={cn(
+          "scoreboard w-7 shrink-0 text-right text-2xl leading-none",
+          score === null && "opacity-30",
+          !isLeading && score !== null && "opacity-70",
+        )}
+      >
+        {score ?? "–"}
+      </span>
     </div>
   )
 }

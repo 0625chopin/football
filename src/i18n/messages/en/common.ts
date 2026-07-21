@@ -15,6 +15,10 @@ export const common: CommonMessages = {
     localeSwitcherOptionEn: "English",
   },
   nav: {
+    primaryLabel: "Primary navigation",
+    sectionCompetition: "Competition",
+    sectionSquad: "Squad",
+    sectionRecords: "Records",
     home: "Home",
     leagues: "Leagues",
     matches: "Matches",

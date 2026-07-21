@@ -236,11 +236,16 @@ export function PitchLineup({ locale, state, className }: PitchLineupProps) {
       </div>
       <div
         data-slot="pitch-lineup-field"
-        className="relative aspect-[3/2] w-full overflow-hidden rounded-xl border border-border bg-emerald-800/90 dark:bg-emerald-950"
+        // Task 013C(36일차) — Tailwind 팔레트 직참(`bg-emerald-800`)에서 디자인 토큰으로.
+        // 종전 밝은 에메랄드는 이 프로젝트 어디에도 없는 색이라 쇼케이스에서 홀로 튀었고,
+        // 라이트/다크에 서로 다른 색을 하드코딩해 토큰 체계 밖에 있었다. 피치는 이 디자인이
+        // 이미 가진 재질(`board` = 야간 경기장 + `pitch-stripes` = 잔디 결)로 그린다 —
+        // 라인마킹도 흰색 직참 대신 `--board-line`(초크)을 쓴다.
+        className="board pitch-stripes relative aspect-[3/2] w-full overflow-hidden rounded-lg border"
       >
-        <div className="pointer-events-none absolute inset-0 border-2 border-white/25" />
-        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white/25" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/25" />
+        <div className="pointer-events-none absolute inset-2 border-2 border-board-line" />
+        <div className="pointer-events-none absolute top-2 bottom-2 left-1/2 w-px -translate-x-1/2 bg-board-line" />
+        <div className="pointer-events-none absolute top-1/2 left-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-board-line" />
         {slots.map((slot, index) => (
           <div
             key={slot.player?.playerId ?? `${slot.position}-${index}`}
@@ -250,11 +255,14 @@ export function PitchLineup({ locale, state, className }: PitchLineupProps) {
           >
             <span
               title={t(locale, `enums.position.${slot.position}`)}
-              className="flex h-6 w-6 items-center justify-center rounded-full bg-background text-[10px] font-semibold text-foreground shadow"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground"
             >
               {slot.position}
             </span>
-            <span className="max-w-[10ch] truncate text-[10px] font-medium text-white" title={slot.player?.name}>
+            <span
+              className="max-w-[10ch] truncate text-[10px] font-medium text-board-foreground"
+              title={slot.player?.name}
+            >
               {slot.player?.name ?? "—"}
               {slot.player?.isCaptain ? (
                 <span title={t(locale, "match.lineup.captainLabel")}> {t(locale, "match.lineup.captainAbbr")}</span>

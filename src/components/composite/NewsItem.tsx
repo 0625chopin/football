@@ -1,6 +1,5 @@
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
@@ -41,7 +40,14 @@ export interface NewsItemProps {
   className?: string
 }
 
-const CARD_CLASS_NAME = "flex flex-col gap-2 rounded-xl border border-border p-4"
+/**
+ * 36일차 — 항목마다 테두리를 두른 카드에서 **구분선으로 이어지는 편집면**으로 바꿨다.
+ * 뉴스 요약은 서로 독립된 개체가 아니라 하나의 피드라, 카드 다섯 장을 세로로 쌓으면
+ * 테두리 열 개가 정작 읽어야 할 헤드라인보다 강하게 보였다. 마지막 항목의 아래 선은
+ * `last:border-b-0`으로 지운다(목록의 끝은 선이 아니라 여백이 말한다).
+ */
+const CARD_CLASS_NAME =
+  "flex flex-col gap-1.5 border-b border-border py-4 last:border-b-0"
 
 export function NewsItem({ locale, state, className }: NewsItemProps) {
   if (state.status === "loading") {
@@ -93,11 +99,15 @@ export function NewsItem({ locale, state, className }: NewsItemProps) {
 
   const body = (
     <>
-      <div className="flex items-center gap-2">
-        {categoryLabel ? <Badge variant="secondary">{categoryLabel}</Badge> : null}
-        <span className="text-xs text-muted-foreground">{publishedLabel}</span>
+      {/* 카테고리는 배지 채움(회색 알약)에서 눈썹 라벨로 내렸다 — 한 화면에 다섯 개가
+          쌓이면 채운 배지들이 헤드라인과 대비를 다투기 때문이다. 짧은 규칙선이 분류와
+          날짜를 가른다. */}
+      <div className="flex items-center gap-2.5">
+        {categoryLabel ? <span className="eyebrow text-foreground/70">{categoryLabel}</span> : null}
+        <span aria-hidden className="h-px w-4 shrink-0 bg-border" />
+        <time className="text-xs text-muted-foreground">{publishedLabel}</time>
       </div>
-      <h3 className="text-sm font-medium">{data.title}</h3>
+      <h3 className="text-base leading-snug font-semibold">{data.title}</h3>
       <p className="line-clamp-2 text-sm text-muted-foreground">{data.summary}</p>
     </>
   )
@@ -108,7 +118,11 @@ export function NewsItem({ locale, state, className }: NewsItemProps) {
         href={data.href}
         data-slot="news-item"
         data-status="ready"
-        className={cn(CARD_CLASS_NAME, "transition-colors hover:bg-muted/50", className)}
+        className={cn(
+          CARD_CLASS_NAME,
+          "-mx-3 px-3 transition-colors hover:bg-muted/60",
+          className,
+        )}
       >
         {body}
       </Link>

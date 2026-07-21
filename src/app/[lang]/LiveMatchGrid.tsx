@@ -43,6 +43,12 @@ export interface LiveMatchGridProps {
   readonly teamNameById: Readonly<Record<TeamId, string>>;
   readonly leagueNameById: Readonly<Record<LeagueId, string>>;
   readonly className?: string;
+  /**
+   * 36일차 — 이 그리드가 놓이는 표면. 홈은 어두운 라이브 보드(`"board"`) 위에 둔다.
+   * 값을 그대로 `MatchCard`에 전달만 하며(그 파일의 `surface` prop 주석 참조), 4상태
+   * (loading/empty/error) 렌더에도 동일하게 넘겨 표면이 상태마다 바뀌지 않게 한다.
+   */
+  readonly surface?: "card" | "board";
 }
 
 export function LiveMatchGrid({
@@ -51,6 +57,7 @@ export function LiveMatchGrid({
   teamNameById,
   leagueNameById,
   className,
+  surface = "card",
 }: LiveMatchGridProps) {
   const result = usePollingList<MatchCardData>(
     () => fetchLiveMatchCards(teamNameById, leagueNameById),
@@ -61,19 +68,28 @@ export function LiveMatchGrid({
     // 진단용 원문(`result.error.message`)은 사용자 대면 문구가 아니므로 그대로 넘기지
     // 않는다(`result.ts` 파일 헤더 "ResultError" 절) — MatchCard가 번역된 기본 문구로
     // 대체하도록 `message`를 비운다.
-    return <MatchCard locale={locale} state={{ status: "error" }} className={className} />;
+    return (
+      <MatchCard locale={locale} state={{ status: "error" }} surface={surface} className={className} />
+    );
   }
 
   const cards = isLoading(result) ? initialCards : isSuccess(result) ? result.data : [];
 
   if (cards.length === 0) {
-    return <MatchCard locale={locale} state={{ status: "empty" }} className={className} />;
+    return (
+      <MatchCard locale={locale} state={{ status: "empty" }} surface={surface} className={className} />
+    );
   }
 
   return (
     <div className={className ?? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"}>
       {cards.map((data) => (
-        <MatchCard key={data.id} locale={locale} state={{ status: "ready", data }} />
+        <MatchCard
+          key={data.id}
+          locale={locale}
+          state={{ status: "ready", data }}
+          surface={surface}
+        />
       ))}
     </div>
   );

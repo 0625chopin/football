@@ -73,7 +73,7 @@ export function PositionMap({ locale, state, className }: PositionMapProps) {
         stroke="currentColor"
         strokeOpacity={0.3}
       />
-      <circle cx={point.x} cy={point.y} r={5} fill="var(--color-primary)" />
+      <circle cx={point.x} cy={point.y} r={5} fill="var(--color-chart-2)" />
       <text
         x={point.x}
         y={point.y - 9}

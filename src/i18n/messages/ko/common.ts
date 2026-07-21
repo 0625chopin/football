@@ -27,6 +27,12 @@ export const common = {
     localeSwitcherOptionEn: "English",
   },
   nav: {
+    primaryLabel: "주 메뉴",
+    // Task 013C(36일차) — 사이드 내비를 3개 그룹으로 묶으면서 신설한 그룹 머리말.
+    // 그룹은 장식이 아니라 라우트의 성격(대회/구성원/기록)을 표시한다.
+    sectionCompetition: "대회",
+    sectionSquad: "구성원",
+    sectionRecords: "기록",
     home: "홈",
     leagues: "리그",
     matches: "경기",

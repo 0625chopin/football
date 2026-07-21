@@ -33,10 +33,16 @@ export function OddsButton({ locale, selection, odds, className }: OddsButtonPro
       variant="outline"
       disabled
       title={t(locale, "common.action.comingSoon")}
-      className={cn("flex h-auto min-w-[6ch] flex-col items-center gap-0.5 px-3 py-1.5", className)}
+      // 36일차 — 배당은 이 제품의 절반(승부 예측)이라 일반 버튼이 아니라 **배당판**처럼
+      // 읽혀야 한다: 선택지 라벨은 눈썹으로 내리고 배당 숫자를 스코어보드 글자로 키운다.
+      // `disabled:opacity-50`(Button 기본)이 이미 비활성을 알리므로 별도 색을 더하지 않는다.
+      className={cn(
+        "flex h-auto min-w-[7ch] flex-col items-center gap-1 px-3 py-2",
+        className,
+      )}
     >
-      <span className="text-xs text-muted-foreground">{selection.label}</span>
-      <span className="text-sm font-semibold tabular-nums">
+      <span className="eyebrow opacity-70">{selection.label}</span>
+      <span className="scoreboard text-lg leading-none">
         {formatOdds(odds.decimalOdds, locale)}
       </span>
     </Button>
