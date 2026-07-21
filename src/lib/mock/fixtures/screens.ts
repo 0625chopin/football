@@ -196,6 +196,7 @@ export function buildMockFixtureScreens(worldSeed: WorldSeed = FIXTURE_WORLD_SEE
     FIXTURE_NOW,
     CURRENT_ROUND,
     nextMatchSeed,
+    seasonSeedValue,
   );
   const schedule = scheduleStep.value;
 

@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { createState } from '@/lib/sim/rng/prng';
-import { deriveMatchSeed } from '@/lib/sim/rng/derive';
+import { deriveMatchSeed, deriveSeasonSeed } from '@/lib/sim/rng/derive';
 import type { MatchSeed, SeasonId, SnapshotId, WorldSeed } from '@/types';
 import { generateMockWorld } from '../world';
 import { CURRENT_ROUND, generateSeasonSchedule } from './schedule';
@@ -18,6 +18,8 @@ const world = generateMockWorld(SEED_A);
 const seasonId = 'season-test' as SeasonId;
 const snapshotId = 'snapshot-test' as SnapshotId;
 const NOW = '2026-08-12T12:00:00.000Z';
+// 7단계(시드 추첨) 타이브레이커 계산에 필요 — 40일차, `resolveStandings()` 위임 이후 신규.
+const seasonSeedValue = deriveSeasonSeed(SEED_A, 1);
 
 function nextMatchSeedFactory(): () => MatchSeed {
   let key = 0;
@@ -45,6 +47,7 @@ describe('generateSeasonSchedule', () => {
       NOW,
       CURRENT_ROUND,
       nextMatchSeedFactory(),
+      seasonSeedValue,
     );
     const second = generateSeasonSchedule(
       state,
@@ -55,6 +58,7 @@ describe('generateSeasonSchedule', () => {
       NOW,
       CURRENT_ROUND,
       nextMatchSeedFactory(),
+      seasonSeedValue,
     );
     expect(second.value).toEqual(first.value);
   });
@@ -79,6 +83,7 @@ describe('generateSeasonSchedule', () => {
         NOW,
         CURRENT_ROUND,
         nextMatchSeedFactory(),
+        seasonSeedValue,
       );
 
       expect(result.value.totalRounds).toBe(2 * (league.teamCount - 1));
@@ -130,6 +135,7 @@ describe('generateSeasonSchedule', () => {
       NOW,
       CURRENT_ROUND,
       nextMatchSeedFactory(),
+      seasonSeedValue,
     );
 
     expect(result.value.standings).toHaveLength(league.teamCount);

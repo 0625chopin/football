@@ -36,6 +36,8 @@ import { installHardcodedFallback } from '@/lib/config/fallback';
 import { loadConstants } from '@/lib/config/loader';
 import { nextIntBelow, nextIntBetween } from '@/lib/sim/rng/prng';
 import type { PrngResult, PrngState } from '@/lib/sim/rng/prng';
+import { resolveStandings } from '@/lib/sim/standing/tiebreak';
+import type { HeadToHeadFixtureInput, StandingBasis, TiebreakMatchPoints } from '@/lib/sim/standing/tiebreak';
 import type {
   Fixture,
   FixtureId,
@@ -199,6 +201,16 @@ function simulateScore(
  * `round` 이하로 미리 필터링해서 넘겨야 한다. **18일차 `MockDataSource.getStandings`가
  * 임의 라운드 질의를 지원하려고 이 함수를 그대로 재사용한다**(export, I-106 후속) — 별도
  * 재구현 없이 이 파일이 "순위표 역산"의 단일 소스로 남는다.
+ *
+ * ## 40일차 — 순위·`tiebreakApplied` 산출을 2팀 `standing/tiebreak.ts`로 위임 (팀장 피드백)
+ * 이 함수는 각 팀의 승/무/패·득실만 집계하고(`Row`), 최종 순위(`rank`)와 어느 단계에서
+ * 갈렸는지(`tiebreakApplied`)는 자체 3단계 정렬(승점→GD→GF)을 흉내 내지 않고 FR-LG-005
+ * 7단계 타이브레이커의 단일 소스인 `resolveStandings()`(2팀, 순수 함수)를 그대로 호출해
+ * 얻는다 — mock이 독자 규칙을 갖고 있으면 실데이터 전환 시 순서가 표류할 위험이 있었다
+ * (팀장 40일차 검증 피드백). 7단계(시드 추첨)까지 실제로 동작하려면 `seasonSeed`가
+ * 필요해 이 함수의 파라미터로 추가했다 — 호출자는 이미 갖고 있는 `deriveSeasonSeed()`
+ * 결과(`MockDataSource.seasonSeedValue`/`screens.ts`의 `seasonSeedValue`)를 그대로
+ * 넘기면 된다. 2팀 파일은 읽고 import만 하며 편집하지 않는다(I-188).
  */
 export function deriveStandingsFromFixtures(
   state: PrngState,
@@ -208,6 +220,7 @@ export function deriveStandingsFromFixtures(
   seasonId: SeasonId,
   round: number,
   matchPoints: Readonly<Record<string, number>>,
+  seasonSeed: number,
 ): PrngResult<readonly Standing[]> {
   let cursor = state;
 
@@ -275,8 +288,7 @@ export function deriveStandingsFromFixtures(
     }
   }
 
-  const standings: Standing[] = [];
-  const built: (Omit<Standing, 'rank'>)[] = [];
+  const built: StandingBasis[] = [];
 
   for (const team of teams) {
     const row = rows.get(team.id);
@@ -303,12 +315,29 @@ export function deriveStandingsFromFixtures(
       points: row.won * matchPoints.WIN + row.drawn * matchPoints.DRAW + row.lost * matchPoints.LOSS,
       form,
       fairPlayScore: fairPlayStep.value,
-      tiebreakApplied: null,
     });
   }
 
-  built.sort((a, b) => b.points - a.points || b.gd - a.gd || b.gf - a.gf);
-  built.forEach((row, i) => standings.push({ ...row, rank: i + 1 }));
+  // `matchPoints`는 이 함수 시그니처상 제네릭 `Readonly<Record<string, number>>`(공통코드
+  // 원본 형태)라 `resolveStandings()`가 요구하는 `TiebreakMatchPoints`(WIN/DRAW/LOSS 고정
+  // 필드)로 명시적으로 좁혀서 넘긴다.
+  const tiebreakMatchPoints: TiebreakMatchPoints = {
+    WIN: matchPoints.WIN,
+    DRAW: matchPoints.DRAW,
+    LOSS: matchPoints.LOSS,
+  };
+
+  // 4단계(승자승) 재계산은 `resolveStandings()` 내부가 FINISHED·스코어 non-null만 걸러
+  // 쓰므로, 이 리그의 전체 `fixtures`(호출자가 필요 시 이미 `round` 이하로 필터링해 둔
+  // 것)를 그대로 넘긴다 — 별도 매핑 없이 `Fixture`가 `HeadToHeadFixtureInput`의 상위집합.
+  const headToHeadFixtures: readonly HeadToHeadFixtureInput[] = fixtures;
+
+  const standings = resolveStandings({
+    seasonSeed,
+    teams: built,
+    headToHeadFixtures,
+    matchPoints: tiebreakMatchPoints,
+  });
 
   return { state: cursor, value: standings };
 }
@@ -322,6 +351,10 @@ export function deriveStandingsFromFixtures(
  * `nowIso`를 앵커로 `currentRound`보다 작은 라운드는 `FINISHED`, 같은 라운드는 각
  * 경기를 `FINISHED`/`LIVE`/`SCHEDULED` 중 하나로 섞어 "오늘 진행 중"인 라운드를
  * 표현하고, 이후 라운드는 전부 `SCHEDULED`다(스코어는 `null`).
+ *
+ * `seasonSeed`는 순위표 역산(`deriveStandingsFromFixtures`)이 FR-LG-005 7단계
+ * 타이브레이커의 7단계(시드 추첨)를 계산하는 데 그대로 전달된다(40일차 — 위 함수
+ * 헤더 참조). 호출자가 이미 갖고 있는 `deriveSeasonSeed()` 결과를 넘기면 된다.
  */
 export function generateSeasonSchedule(
   state: PrngState,
@@ -332,6 +365,7 @@ export function generateSeasonSchedule(
   nowIso: string,
   currentRound: number,
   nextMatchSeed: () => MatchSeed,
+  seasonSeed: number,
 ): PrngResult<MockSeasonSchedule> {
   installHardcodedFallback();
   let cursor = state;
@@ -427,6 +461,7 @@ export function generateSeasonSchedule(
     seasonId,
     currentRound - 1,
     matchPoints,
+    seasonSeed,
   );
   cursor = standingsStep.state;
 

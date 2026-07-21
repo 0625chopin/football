@@ -306,6 +306,7 @@ export class MockDataSource implements DataSource {
         MOCK_NOW,
         CURRENT_ROUND,
         nextMatchSeed,
+        this.seasonSeedValue,
       );
       schedulesByLeague.set(league.id, scheduleStep.value);
       for (const fixture of scheduleStep.value.fixtures) {
@@ -402,6 +403,7 @@ export class MockDataSource implements DataSource {
       this.progress.season.id,
       round,
       matchPoints,
+      this.seasonSeedValue,
     );
     return step.value;
   }

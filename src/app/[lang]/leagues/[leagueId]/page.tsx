@@ -7,17 +7,19 @@ import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import { StandingsTable, type StandingRowData } from "@/components/composite/StandingsTable";
 import { ZoneLegend } from "@/components/composite/ZoneLegend";
 import { resolveStandingZone } from "@/components/composite/standings-zone";
+import { TiebreakNote } from "@/components/composite/TiebreakNote";
+import { buildTiebreakNoteBlocks } from "@/components/composite/tiebreak-note";
 import type { LeagueId } from "@/types";
 
 /**
  * `/[lang]/leagues/[leagueId]` 순위표 — Task 016(39일차, 5팀), 와이어프레임
  * `docs/wireframe/02-리그-순위표.md` B1(간이)·B2(존 범례)·B3(순위 테이블) 구현.
  *
- * ## 오늘 스코프
- * 오늘 팀장 지시 범위는 순위·팀·경기·승무패·득실·승점·최근5경기(`FormStrip`) + 존 표기
- * (NFR-A11Y-002 색+아이콘+라벨 3중)다. 와이어프레임의 B1-t(탭)·B4(타이브레이커 주석)·
- * B5(리그3 리빌드 제재 안내)·시즌 선택기(UC-011 아카이브 연동)는 Task 016 잔여 스코프
- * (39~40일차 중 40일차분)로 남겨 둔다 — 오늘 임의로 채우지 않는다.
+ * ## 오늘 스코프 (40일차)
+ * 39일차 범위(순위·팀·경기·승무패·득실·승점·최근5경기 + 존 표기 NFR-A11Y-002)에 이어,
+ * 오늘은 **B4 타이브레이커 적용 단계 표시**(`TiebreakNote`)를 더한다. B4의 두 번째 줄
+ * (TIEBREAK Fixture 예정 안내)·B1-t(탭)·B5(리그3 리빌드 제재 안내)·시즌 선택기(UC-011
+ * 아카이브 연동)는 여전히 Task 016 잔여 스코프다 — 오늘 임의로 채우지 않는다.
  *
  * ## 순위·승점 계산은 2팀 엔진 산출물을 그대로 쓴다
  * `Standing.rank`/`points`/`gd` 등은 2팀이 38일차 Task 026(타이브레이커 포함 순위 산정)에서
@@ -55,31 +57,34 @@ export default async function Page(
   const isSeasonLive = season !== null && standings.length > 0;
   const seasonLabel = season ? t(locale, "league.header.seasonLabel", { number: season.seasonNumber }) : "";
 
-  const rows: StandingRowData[] = isSeasonLive
-    ? [...standings]
-        .sort((a, b) => a.rank - b.rank)
-        .map((standing) => {
-          // 팀 배치 조회(`getTeamsByIds`)는 순위표가 넘긴 teamId 전량으로 조회했으므로
-          // 여기서 항상 찾아진다(데이터 정합성 전제 — Standing이 존재하지 않는 팀을
-          // 가리키는 것은 구조적으로 불가능하다).
-          const team = teamById.get(standing.teamId)!;
-          return {
-            rank: standing.rank,
-            zone: resolveStandingZone(standing.rank, league),
-            teamId: standing.teamId,
-            team,
-            played: standing.played,
-            won: standing.won,
-            drawn: standing.drawn,
-            lost: standing.lost,
-            gf: standing.gf,
-            ga: standing.ga,
-            gd: standing.gd,
-            points: standing.points,
-            form: standing.form,
-          };
-        })
-    : [];
+  const sortedStandings = isSeasonLive ? [...standings].sort((a, b) => a.rank - b.rank) : [];
+
+  const rows: StandingRowData[] = sortedStandings.map((standing) => {
+    // 팀 배치 조회(`getTeamsByIds`)는 순위표가 넘긴 teamId 전량으로 조회했으므로
+    // 여기서 항상 찾아진다(데이터 정합성 전제 — Standing이 존재하지 않는 팀을
+    // 가리키는 것은 구조적으로 불가능하다).
+    const team = teamById.get(standing.teamId)!;
+    return {
+      rank: standing.rank,
+      zone: resolveStandingZone(standing.rank, league),
+      teamId: standing.teamId,
+      team,
+      played: standing.played,
+      won: standing.won,
+      drawn: standing.drawn,
+      lost: standing.lost,
+      gf: standing.gf,
+      ga: standing.ga,
+      gd: standing.gd,
+      points: standing.points,
+      form: standing.form,
+    };
+  });
+
+  // B4 — `Standing.tiebreakApplied`(2팀 Task 026)에서 파생되는 값이라 별도 조회 없이
+  // 이미 받아 둔 순위 배열에서 바로 뽑는다(`tiebreak-note.ts` 상단 주석 참조 — 승점이
+  // 같았던 블록 단위로 묶어야 단독 순위 문장이 나오지 않는다, 40일차 회귀 수정).
+  const tiebreakBlocks = buildTiebreakNoteBlocks(sortedStandings);
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -101,6 +106,8 @@ export default async function Page(
             : { status: "empty" }
         }
       />
+
+      {isSeasonLive && <TiebreakNote locale={locale} blocks={tiebreakBlocks} />}
     </div>
   );
 }
