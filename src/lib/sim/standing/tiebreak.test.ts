@@ -11,6 +11,7 @@ import type { LeagueId, SeasonId, TeamId } from '@/types';
 import { deriveStandingDrawSeed, hashKey, stateForSeed } from '../rng/derive';
 import { nextIntBelow } from '../rng/prng';
 import {
+  groupStandingsBeforeSeedDraw,
   MATCH_POINTS_DEFAULT,
   resolveStandings,
   type HeadToHeadFixtureInput,
@@ -239,6 +240,81 @@ describe('resolveStandings — 7단계 시드 추첨(단독 결정)', () => {
     }
 
     expect(actual.map((s) => s.teamId)).toEqual(expectedIds);
+  });
+});
+
+describe('resolveStandings — 4단계에서 갈리지 않은 잔여 팀이 5단계로 계속 캐스케이드된다', () => {
+  it('3팀 중 1팀은 미니리그(4단계)로 갈리고, 나머지 2팀은 미니리그도 동률이라 5단계(다승)로 넘어간다', () => {
+    // A는 B·C 양쪽 원정에서 모두 완봉승 → 미니 승점 6으로 단독 1위(stage4에서 확정).
+    // B-C전은 0-0 무승부로 맞춰 B/C의 미니 승점(1)·미니 골득실(-2)·미니 원정다득점(0)이
+    // 셋 다 완전히 같아지도록 설계 — 미니리그 자체가 다시 동률이면 5단계로 넘긴다는
+    // tiebreak.ts 헤더의 "4단계 승자승 미니리그" 절 규칙을 3팀 케이스로 증명한다.
+    const tiedBasis = { points: 20, gd: 5, gf: 15 };
+    const teams = [
+      team('A', tiedBasis),
+      team('B', { ...tiedBasis, won: 8 }),
+      team('C', { ...tiedBasis, won: 5 }),
+    ];
+    const headToHeadFixtures: HeadToHeadFixtureInput[] = [
+      { homeTeamId: 'A' as TeamId, awayTeamId: 'B' as TeamId, homeScore: 2, awayScore: 0, status: 'FINISHED' },
+      { homeTeamId: 'A' as TeamId, awayTeamId: 'C' as TeamId, homeScore: 2, awayScore: 0, status: 'FINISHED' },
+      { homeTeamId: 'B' as TeamId, awayTeamId: 'C' as TeamId, homeScore: 0, awayScore: 0, status: 'FINISHED' },
+    ];
+    const result = resolveStandings({ seasonSeed: SEASON_SEED, teams, headToHeadFixtures });
+
+    expect(result.map((s) => s.teamId)).toEqual(['A', 'B', 'C']);
+    expect(rankOf(result, 'A').tiebreakApplied).toBe(4);
+    expect(rankOf(result, 'B').tiebreakApplied).toBe(5);
+    expect(rankOf(result, 'C').tiebreakApplied).toBe(5);
+  });
+});
+
+describe('resolveStandings — 재호출 멱등성', () => {
+  it('동일 입력으로 여러 번 호출해도 항상 완전히 동일한 결과를 반환한다(재시도 안전)', () => {
+    const tiedBasis = { points: 20, gd: 5, gf: 15, won: 6, fairPlayScore: 4 };
+    const teams = [team('A', tiedBasis), team('B', tiedBasis), team('C', { points: 10 })];
+    const headToHeadFixtures: HeadToHeadFixtureInput[] = [
+      { homeTeamId: 'A' as TeamId, awayTeamId: 'B' as TeamId, homeScore: 1, awayScore: 1, status: 'FINISHED' },
+    ];
+    const input = { seasonSeed: SEASON_SEED, teams, headToHeadFixtures };
+
+    const first = resolveStandings(input);
+    const second = resolveStandings(input);
+    const third = resolveStandings(input);
+
+    expect(second).toEqual(first);
+    expect(third).toEqual(first);
+  });
+
+  it('호출 전후로 입력 teams/headToHeadFixtures 배열의 내용이 변형되지 않는다', () => {
+    const teams = [
+      team('A', { points: 20, fairPlayScore: 4 }),
+      team('B', { points: 20, fairPlayScore: 4 }),
+    ];
+    const headToHeadFixtures: HeadToHeadFixtureInput[] = [
+      { homeTeamId: 'A' as TeamId, awayTeamId: 'B' as TeamId, homeScore: 3, awayScore: 1, status: 'FINISHED' },
+    ];
+    const teamsSnapshot = JSON.parse(JSON.stringify(teams));
+    const fixturesSnapshot = JSON.parse(JSON.stringify(headToHeadFixtures));
+
+    resolveStandings({ seasonSeed: SEASON_SEED, teams, headToHeadFixtures });
+
+    expect(teams).toEqual(teamsSnapshot);
+    expect(headToHeadFixtures).toEqual(fixturesSnapshot);
+  });
+});
+
+describe('groupStandingsBeforeSeedDraw — 재호출 멱등성(playoff-tiebreak.ts 소비 전제)', () => {
+  it('동일 입력으로 여러 번 호출해도 항상 동일한 그룹 분할을 반환한다', () => {
+    const fullyTied = { points: 20, gd: 5, gf: 15, won: 6, fairPlayScore: 4 };
+    const teams = [team('A', fullyTied), team('B', fullyTied), team('C', { points: 10 })];
+    const input = { headToHeadFixtures: [] as HeadToHeadFixtureInput[] };
+
+    const first = groupStandingsBeforeSeedDraw(teams, input);
+    const second = groupStandingsBeforeSeedDraw(teams, input);
+
+    expect(second).toEqual(first);
+    expect(first.map((g) => g.map((t) => t.teamId))).toEqual([['A', 'B'], ['C']]);
   });
 });
 

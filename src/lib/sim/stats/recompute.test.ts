@@ -117,6 +117,63 @@ describe('recomputePlayerSeasonStatsFromEventLogs — 재계산 결과 = 누적 
   });
 });
 
+describe('recomputePlayerSeasonStatsFromEventLogs / recomputeTeamSeasonStatsFromEventLogs — 재호출 멱등성', () => {
+  it('선수 단위 재계산을 여러 번 호출해도 항상 완전히 동일한 결과다(누적되지 않음)', () => {
+    const first = recomputePlayerSeasonStatsFromEventLogs(SEASON_EVENT_LOGS);
+    const second = recomputePlayerSeasonStatsFromEventLogs(SEASON_EVENT_LOGS);
+    const third = recomputePlayerSeasonStatsFromEventLogs(SEASON_EVENT_LOGS);
+
+    expect(second).toEqual(first);
+    expect(third).toEqual(first);
+    // "매번 재계산해도 goals가 2에서 4, 6으로 불어나지 않는다"를 값으로 직접 증명.
+    expect(second.get(PLAYER_A)?.goals).toBe(first.get(PLAYER_A)?.goals);
+  });
+
+  it('팀 단위 재계산을 여러 번 호출해도 항상 완전히 동일한 결과다(누적되지 않음)', () => {
+    const roster: ReadonlyMap<PlayerId, TeamId> = new Map([
+      [PLAYER_A, TEAM_HOME],
+      [PLAYER_B, TEAM_AWAY],
+      [PLAYER_C, TEAM_HOME],
+    ]);
+    const teamEventLogs: readonly TeamStatEventLogEntry[] = SEASON_EVENT_LOGS.map((events) => ({
+      events,
+      roster,
+    }));
+
+    const first = recomputeTeamSeasonStatsFromEventLogs(teamEventLogs);
+    const second = recomputeTeamSeasonStatsFromEventLogs(teamEventLogs);
+
+    expect(second).toEqual(first);
+  });
+
+  it('재계산 호출 전후로 원본 이벤트 로그·로스터 맵이 변형되지 않는다', () => {
+    const roster: ReadonlyMap<PlayerId, TeamId> = new Map([[PLAYER_A, TEAM_HOME]]);
+    const rosterSnapshot = new Map(roster);
+    const eventsSnapshot = JSON.parse(JSON.stringify(SEASON_EVENT_LOGS));
+
+    recomputePlayerSeasonStatsFromEventLogs(SEASON_EVENT_LOGS);
+    recomputeTeamSeasonStatsFromEventLogs([{ events: MATCH_1_EVENTS, roster }]);
+
+    expect(SEASON_EVENT_LOGS).toEqual(eventsSnapshot);
+    expect(roster).toEqual(rosterSnapshot);
+  });
+});
+
+describe('accumulateMatchStatsIntoSeason — 인자 불변(순수 함수)', () => {
+  it('season/matchFold 인자를 변형하지 않고 항상 새 Map을 반환한다', () => {
+    const season = accumulateMatchStatsIntoSeason(new Map(), accumulatePlayerMatchStats(MATCH_1_EVENTS));
+    const seasonSnapshot = new Map(season);
+    const matchFold = accumulatePlayerMatchStats(MATCH_2_EVENTS);
+    const matchFoldSnapshot = new Map(matchFold);
+
+    const next = accumulateMatchStatsIntoSeason(season, matchFold);
+
+    expect(season).toEqual(seasonSnapshot);
+    expect(matchFold).toEqual(matchFoldSnapshot);
+    expect(next).not.toBe(season);
+  });
+});
+
 describe('foldPlayerStatsIntoTeams — 로스터 귀속', () => {
   const ROSTER: ReadonlyMap<PlayerId, TeamId> = new Map([
     [PLAYER_A, TEAM_HOME],

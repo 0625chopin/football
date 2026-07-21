@@ -35,8 +35,16 @@ export const COMPOSITE_COMPONENT_NAMES: readonly string[] = [
   "MatchCard",
   "NewsItem",
   "PitchLineup",
+  "StandingsTable",
   "TrophyCase",
 ];
+
+// 39일차(Task 016 등록분, 5팀 산출물) — `ZoneLegend`는 composite/ 소유이지만
+// `CompositeViewState<T>` 계약이 없는 순수 표시 컴포넌트다(`league` prop만 받음, loading/
+// empty/error 변형이 구조적으로 존재하지 않는다). 그래서 `COMPOSITE_COMPONENT_NAMES`(=
+// StateToggleSlot의 4상태 디스패치 레지스트리와 정확히 같아야 하는 집합, 아래 invariant
+// 테스트 참조)에는 넣지 않고, 이 별도 목록으로 "등록은 됐지만 4상태 비대상"임을 명시한다.
+export const COMPOSITE_STATIC_COMPONENT_NAMES: readonly string[] = ["ZoneLegend"];
 
 // state·유틸 6종 — I-168에 따라 4상태 규약 비대상(위 `COMPONENT_REGISTRY`에 없다: 그 자체가
 // 4상태를 구현하는 도구라 대상이 아니다). `StateToggleSlot`을 거치지 않고 page.tsx가 직접
@@ -54,7 +62,9 @@ export interface ComponentCoverage {
   readonly domainCount: number;
   readonly compositeCount: number;
   readonly stateUtilityCount: number;
-  /** 쇼케이스에 등록된 전체 컴포넌트 수 (domain + composite + state·유틸). */
+  /** `COMPOSITE_STATIC_COMPONENT_NAMES`(4상태 비대상 composite 등록분)의 수. */
+  readonly compositeStaticCount: number;
+  /** 쇼케이스에 등록된 전체 컴포넌트 수 (domain + composite + composite정적 + state·유틸). */
   readonly registeredCount: number;
   /** 4상태 규약 대상(domain + composite)의 수 — 분모. */
   readonly fourStateEligibleCount: number;
@@ -71,13 +81,15 @@ export function computeComponentCoverage(): ComponentCoverage {
   const domainCount = DOMAIN_COMPONENT_NAMES.length;
   const compositeCount = COMPOSITE_COMPONENT_NAMES.length;
   const stateUtilityCount = STATE_UTILITY_COMPONENT_NAMES.length;
+  const compositeStaticCount = COMPOSITE_STATIC_COMPONENT_NAMES.length;
   const fourStateEligibleCount = domainCount + compositeCount;
 
   return {
     domainCount,
     compositeCount,
     stateUtilityCount,
-    registeredCount: fourStateEligibleCount + stateUtilityCount,
+    compositeStaticCount,
+    registeredCount: fourStateEligibleCount + stateUtilityCount + compositeStaticCount,
     fourStateEligibleCount,
     fourStateImplementedCount: fourStateEligibleCount,
   };

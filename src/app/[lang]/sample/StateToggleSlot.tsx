@@ -23,6 +23,7 @@ import { InjuryTimeline } from "@/components/composite/InjuryTimeline";
 import { MatchCard } from "@/components/composite/MatchCard";
 import { NewsItem } from "@/components/composite/NewsItem";
 import { PitchLineup } from "@/components/composite/PitchLineup";
+import { StandingsTable } from "@/components/composite/StandingsTable";
 import { TrophyCase } from "@/components/composite/TrophyCase";
 
 /**
@@ -55,6 +56,7 @@ export type ComponentKey =
   | "MatchCard"
   | "NewsItem"
   | "PitchLineup"
+  | "StandingsTable"
   | "TrophyCase";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 16종이 서로 다른 데이터 모양을 가진 동적 디스패치 레지스트리(쇼케이스 전용 리프 파일).
@@ -74,6 +76,7 @@ const COMPONENT_REGISTRY: Record<ComponentKey, ComponentType<any>> = {
   MatchCard,
   NewsItem,
   PitchLineup,
+  StandingsTable,
   TrophyCase,
 };
 

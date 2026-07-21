@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FOUR_STATE_COMPONENT_KEYS } from "./StateToggleSlot";
 import {
   COMPOSITE_COMPONENT_NAMES,
+  COMPOSITE_STATIC_COMPONENT_NAMES,
   DOMAIN_COMPONENT_NAMES,
   STATE_UTILITY_COMPONENT_NAMES,
   computeComponentCoverage,
@@ -29,14 +30,22 @@ describe("component-registry", () => {
     expect(STATE_UTILITY_COMPONENT_NAMES.length).toBe(6);
   });
 
+  it("4상태 비대상 composite 등록분(ZoneLegend 등)은 COMPOSITE_COMPONENT_NAMES와 겹치지 않는다", () => {
+    expect(new Set(COMPOSITE_STATIC_COMPONENT_NAMES).size).toBe(COMPOSITE_STATIC_COMPONENT_NAMES.length);
+    for (const name of COMPOSITE_STATIC_COMPONENT_NAMES) {
+      expect(COMPOSITE_COMPONENT_NAMES.includes(name)).toBe(false);
+    }
+  });
+
   it("등록 컴포넌트 수와 4상태 커버율을 실제로 세어 100%를 반환한다", () => {
     const coverage = computeComponentCoverage();
 
     expect(coverage.domainCount).toBe(8);
-    expect(coverage.compositeCount).toBe(8);
+    expect(coverage.compositeCount).toBe(9);
     expect(coverage.stateUtilityCount).toBe(6);
-    expect(coverage.registeredCount).toBe(22);
-    expect(coverage.fourStateEligibleCount).toBe(16);
+    expect(coverage.compositeStaticCount).toBe(1);
+    expect(coverage.registeredCount).toBe(24);
+    expect(coverage.fourStateEligibleCount).toBe(17);
     expect(coverage.fourStateImplementedCount).toBe(coverage.fourStateEligibleCount);
   });
 });

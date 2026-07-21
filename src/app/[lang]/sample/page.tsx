@@ -14,11 +14,14 @@ import type { InjuryTimelineData } from "@/components/composite/InjuryTimeline";
 import type { MatchCardData } from "@/components/composite/MatchCard";
 import type { NewsItemData } from "@/components/composite/NewsItem";
 import type { PitchLineupData } from "@/components/composite/PitchLineup";
+import type { StandingRowData, StandingsTableData } from "@/components/composite/StandingsTable";
 import type {
   TrophyCaseAwardRow,
   TrophyCaseData,
   TrophyCaseTrophyRow,
 } from "@/components/composite/TrophyCase";
+import { ZoneLegend } from "@/components/composite/ZoneLegend";
+import { resolveStandingZone } from "@/components/composite/standings-zone";
 
 import { CountdownTimer } from "@/components/state/CountdownTimer";
 import { EmptyState } from "@/components/state/EmptyState";
@@ -43,6 +46,7 @@ import type {
   Injury,
   InjuryId,
   PlayerAttributeHistory,
+  Seed,
   TeamId,
   TrophyId,
 } from "@/types";
@@ -232,6 +236,10 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
   if (sampleFixture) {
     teamIdsToResolve.add(sampleFixture.homeTeamId);
     teamIdsToResolve.add(sampleFixture.awayTeamId);
+  }
+  // StandingsTable(39일차, 5팀 016 등록분) 행 표시용 팀명 — 아래 벌크 조회에 함께 담는다.
+  for (const standing of standings) {
+    teamIdsToResolve.add(standing.teamId);
   }
   const [teamsForDisplay, eventPrimaryPlayer, eventSecondaryPlayer] = await Promise.all([
     dataSource.getTeamsByIds([...teamIdsToResolve]),
@@ -425,6 +433,53 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
       }
     : null;
 
+  // StandingsTable(39일차, 5팀 Task 016 — /sample 등록은 4팀 인계분) — 표 전체 24행은
+  // 불필요해(팀장 인계 지침) 순위 상위 몇 행만 표본으로 쓴다. 존 판정(`resolveStandingZone`)
+  // 은 5팀 소유 순수 함수를 그대로 재사용하고(로직 복제 금지), 팀 표시 정보는 위에서 이미
+  // 벌크 조회한 `teamById`를 그대로 재사용한다(N+1 방지).
+  const STANDINGS_SAMPLE_ROW_COUNT = 6;
+  const standingsRows: readonly StandingRowData[] = primaryLeague
+    ? [...standings]
+        .sort((a, b) => a.rank - b.rank)
+        .slice(0, STANDINGS_SAMPLE_ROW_COUNT)
+        .map((standing) => {
+          const team = teamById.get(standing.teamId);
+          return {
+            rank: standing.rank,
+            zone: resolveStandingZone(standing.rank, primaryLeague),
+            teamId: standing.teamId,
+            team: {
+              name: team?.name ?? standing.teamId,
+              shortName: team?.shortName ?? standing.teamId,
+              crestSeed: team?.crestSeed ?? (0 as Seed),
+            },
+            played: standing.played,
+            won: standing.won,
+            drawn: standing.drawn,
+            lost: standing.lost,
+            gf: standing.gf,
+            ga: standing.ga,
+            gd: standing.gd,
+            points: standing.points,
+            form: standing.form,
+          };
+        })
+    : [];
+  const standingsTableData: StandingsTableData | null =
+    primaryLeague && season && standingsRows.length > 0
+      ? {
+          leagueName: primaryLeague.name,
+          seasonLabel: `S${season.seasonNumber}`,
+          rows: standingsRows,
+        }
+      : null;
+
+  // ZoneLegend(39일차, 5팀 Task 016) — 4상태 계약이 없는 순수 표시 컴포넌트라(`league` prop만
+  // 받음) StateToggleSlot 토글 대상이 아니다. 팀장 인계 지침대로 tier가 다른 예시 2개를
+  // 정적으로 나란히 보여준다: 승격이 있는 리그(tier>1)와 강등이 없는 리그(tier=3, 최하위).
+  const zoneLegendPromotionLeague = leagues.find((league) => league.tier > 1) ?? null;
+  const zoneLegendNoRelegationLeague = leagues.find((league) => league.tier === 3) ?? null;
+
   /* ── state 6종(4상태 규약 비대상) ──────────────────────────────────── */
   const phaseIndicatorRound = { current: 10, total: 20 };
 
@@ -615,6 +670,48 @@ export default async function Page(props: PageProps<"/[lang]/sample">) {
                   locale={bodyLocale}
                   readyData={trophyCaseData}
                 />
+              </ComponentSlot>
+              <ComponentSlot name="StandingsTable" locale={bodyLocale}>
+                <StateToggleSlot
+                  name="StandingsTable"
+                  componentKey="StandingsTable"
+                  locale={bodyLocale}
+                  readyData={standingsTableData}
+                />
+              </ComponentSlot>
+              {/* ZoneLegend — `state: CompositeViewState<T>` 계약이 없는 순수 표시
+                  컴포넌트(파일 헤더 참조, `league` prop만 받음)라 StateToggleSlot 토글
+                  대상이 아니다. tier가 다른 2개 예시를 정적으로 나란히 보여준다(팀장
+                  인계 지침 — 승격 있는 리그 / 강등 없는 리그). */}
+              <ComponentSlot name="ZoneLegend" locale={bodyLocale}>
+                <div className="space-y-3">
+                  {zoneLegendPromotionLeague ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {t(bodyLocale, "sample.zoneLegend.tierLabel", {
+                          league: zoneLegendPromotionLeague.name,
+                          tier: zoneLegendPromotionLeague.tier,
+                        })}
+                      </p>
+                      <ZoneLegend locale={bodyLocale} league={zoneLegendPromotionLeague} />
+                    </div>
+                  ) : (
+                    <SkeletonBlock rows={1} />
+                  )}
+                  {zoneLegendNoRelegationLeague ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">
+                        {t(bodyLocale, "sample.zoneLegend.tierLabel", {
+                          league: zoneLegendNoRelegationLeague.name,
+                          tier: zoneLegendNoRelegationLeague.tier,
+                        })}
+                      </p>
+                      <ZoneLegend locale={bodyLocale} league={zoneLegendNoRelegationLeague} />
+                    </div>
+                  ) : (
+                    <SkeletonBlock rows={1} />
+                  )}
+                </div>
               </ComponentSlot>
             </div>
           </ShowcaseSection>

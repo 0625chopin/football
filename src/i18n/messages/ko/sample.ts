@@ -20,7 +20,8 @@ export const sample = {
     domainTitle: "도메인 표현 컴포넌트",
     domainDescription: "선수·팀 등 단일 엔티티를 표현하는 컴포넌트 8종.",
     compositeTitle: "복합 컴포넌트",
-    compositeDescription: "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 8종(MatchCard 포함).",
+    compositeDescription:
+      "여러 데이터를 조합해 화면 한 조각을 구성하는 컴포넌트 9종(4상태, MatchCard·StandingsTable 포함) + 정적 표시 1종(ZoneLegend).",
     stateTitle: "상태·유틸 컴포넌트",
     stateDescription: "로딩/빈/에러 등 공용 상태와 유틸리티 컴포넌트 6종(4상태 규약 비대상).",
     chartTitle: "차트",
@@ -68,6 +69,11 @@ export const sample = {
     optionSupabase: "Supabase",
     switching: "전환 중…",
     revertedToMock: "전환에 실패해 이전 어댑터로 되돌렸습니다.",
+  },
+  // 39일차 — 5팀 Task 016 등록분(ZoneLegend). 4상태 토글 대상이 아니라 정적 예시 2개를
+  // 나란히 보여줄 때 각 예시를 구분하는 라벨.
+  zoneLegend: {
+    tierLabel: "{league} (티어 {tier})",
   },
 };
 

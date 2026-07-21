@@ -16,7 +16,8 @@ export const sample: SampleMessages = {
     domainTitle: "Domain Components",
     domainDescription: "8 components that represent a single entity such as a player or team.",
     compositeTitle: "Composite Components",
-    compositeDescription: "8 components that combine multiple data points into one screen fragment (incl. MatchCard).",
+    compositeDescription:
+      "9 4-state components that combine multiple data points into one screen fragment (incl. MatchCard, StandingsTable) + 1 static display component (ZoneLegend).",
     stateTitle: "State & Utility Components",
     stateDescription: "6 shared loading/empty/error and utility components (not subject to the 4-state contract).",
     chartTitle: "Chart",
@@ -61,5 +62,8 @@ export const sample: SampleMessages = {
     optionSupabase: "Supabase",
     switching: "Switching…",
     revertedToMock: "The switch failed, so it was reverted to the previous adapter.",
+  },
+  zoneLegend: {
+    tierLabel: "{league} (tier {tier})",
   },
 };
