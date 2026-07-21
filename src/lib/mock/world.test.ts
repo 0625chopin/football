@@ -44,6 +44,14 @@ describe('generateMockWorld', () => {
     expect(mock.sponsors.length).toBeGreaterThanOrEqual(40);
   });
 
+  it('부도 위험 배지 조건(Sponsor.balance < 0)을 만족하는 스폰서가 최소 1개 존재한다(49일차, I-231 후속)', () => {
+    const mock = generateMockWorld(SEED_A);
+    const atRiskSponsors = mock.sponsors.filter((s) => s.balance < 0);
+    expect(atRiskSponsors.length).toBeGreaterThan(0);
+    // 확정 부도(bankruptAtSeason)와는 구분되는 "위험" 상태여야 한다.
+    expect(atRiskSponsors.every((s) => s.bankruptAtSeason === null)).toBe(true);
+  });
+
   it('팀당 스쿼드는 22~30명이고 GK≥2, CB≥3을 만족한다', () => {
     const mock = generateMockWorld(SEED_A);
 

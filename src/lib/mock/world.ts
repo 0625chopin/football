@@ -907,12 +907,21 @@ function generateSponsors(
     const reputationStep = nextIntBetween(cursor, 0, 100);
     cursor = reputationStep.state;
 
+    // 부도 위험 배지 데모 픽스처(49일차, I-231 후속) — 풀의 첫 스폰서(count가 항상
+    // POOL_MIN 이상이라 존재 보장)만 잔고를 음수로 뒤집는다. RNG를 추가로 소비하지
+    // 않고 이미 뽑은 scaleStep/balanceStep 값을 그대로 재사용하는 순수 후처리라
+    // 결정론(KPI-3)에 영향이 없다. `bankruptAtSeason`은 null로 남겨 "확정 부도"가
+    // 아니라 "위험"만 표현한다 — 배지 조건 두 갈래(`Sponsor.balance < 0` /
+    // `bankruptAtSeason !== null`, `DataSource.ts` 주석)를 Mock에서 구분해 보여준다.
+    const rawBalance = scaleStep.value * balanceStep.value;
+    const balance = i === 0 ? -Math.max(200, Math.round(rawBalance * 0.05)) : rawBalance;
+
     sponsors.push({
       id: idStep.value as SponsorId,
       name,
       industry: industryStep.value,
       scale: scaleStep.value,
-      balance: (scaleStep.value * balanceStep.value) as Points,
+      balance: balance as Points,
       reputation: reputationStep.value,
       bankruptAtSeason: null,
     });
