@@ -128,6 +128,8 @@ const LAYER_TAG = {
   EVENT: 0x45564e01,
   /** 026(35일차) 순위표 7단계 타이브레이커 — 마지막 단계(시드 추첨) 전용. */
   STANDING: 0x53544401,
+  /** 027(41일차) 컵대회 2라운드 이후 "시드 기반 무작위" 대진 추첨 전용(`knockout/cup.ts`). */
+  CUP_DRAW: 0x43555001,
 } as const;
 
 /** 부호 없는 32비트로 정규화. */
@@ -377,6 +379,33 @@ export function deriveStandingDrawSeed(
   assertUint32(tiedGroupKey, 'tiedGroupKey');
 
   return derive(seasonSeed, LAYER_TAG.STANDING, [round, tiedGroupKey]);
+}
+
+/**
+ * 컵대회 2라운드 이후 "시드 기반 무작위" 대진 추첨 전용(FR-LG-015, `knockout/cup.ts`
+ * 027/41일차 산출물). 1라운드는 D-24 우선순위 규칙(티어 교차 매칭)으로 결정론적으로
+ * 정해져 추첨이 없으므로 대상이 아닙니다.
+ *
+ * `matchKey`/`tiedGroupKey`를 재사용하지 않고 별도 `LAYER_TAG.CUP_DRAW`를 둔 이유는
+ * `deriveStandingDrawSeed` 헤더와 동일합니다(계층 태그를 분리하면 값 집합이 서로소가
+ * 되어 실제 경기 시드·타이브레이커 추첨 시드와 섞일 여지가 구조적으로 사라집니다).
+ *
+ * @param seasonSeed `deriveSeasonSeed()` 결과
+ * @param round 대회 전체를 관통하는 연속 라운드 번호(2~6 — 1라운드는 추첨이 없습니다)
+ * @param participantsKey 그 라운드에 진출한 팀들의 원 시드 번호 집합을 식별하는 32비트
+ *   정수. 호출부는 진출 시드 번호를 오름차순 정렬 후 `hashKey()`로 접어 넘기십시오(호출부가
+ *   넘긴 배열의 원래 순서에 무관하게 같은 참가 구성이면 같은 키가 되도록 하기 위함).
+ */
+export function deriveCupDrawSeed(
+  seasonSeed: number,
+  round: number,
+  participantsKey: number,
+): number {
+  assertSafeSeed(seasonSeed, 'seasonSeed');
+  assertIndex(round, 'round');
+  assertUint32(participantsKey, 'participantsKey');
+
+  return derive(seasonSeed, LAYER_TAG.CUP_DRAW, [round, participantsKey]);
 }
 
 /**

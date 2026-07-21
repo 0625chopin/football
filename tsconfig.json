@@ -30,5 +30,12 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": [
+    "node_modules",
+    // supabase/functions/** 는 Deno 런타임(Edge Function)이며 이 프로젝트(Next.js/Node)
+    // tsconfig의 lib/모듈 해석 대상이 아니다 — `jsr:`/`npm:` 지정자와 전역 `Deno`는 Deno가
+    // 자체 타입 검사를 하므로(41일차, 6팀) 여기서 제외한다. `.next/dev/types/**` include는
+    // 건드리지 않음(CLAUDE.md — Next.js 16이 관리하는 휘발성 산출물).
+    "supabase/functions/**"
+  ]
 }

@@ -8,6 +8,12 @@
 // 단계 명사구 + 한국어 조사(로/으로)를 미리 붙여 둔 완성형이다(예: "골득실로"). 문장은
 // `decidedBy` 템플릿이 `{ranks}위는 {stage} 순위가 갈렸습니다` 형태로 그대로 이어붙인다 —
 // 조사 결합기를 새로 만들지 않고 고정 7종 enum이라는 점을 이용해 값 자체에 조사를 담았다.
+//
+// 41일차(Task 016, 5팀): `tab`(B1-t)·`rebuild`(B5) 그룹 + `header.seasonSelectorLabel` 추가.
+// `tab`은 순위표·일정 두 화면이 공유하는 세그먼트 레이아웃(`leagues/[leagueId]/layout.tsx`,
+// W-16 해소)에서 쓴다. `rebuild`는 FR-LG-007 원문(`docs/require/03-functional-requirements.md`
+// 85행)의 페널티 3종·구제 2종 수치를 그대로 옮긴 요약이며, 리그3(`tier === 3`)에서만 렌더된다
+// (조건부 영역, 빈 박스 금지 원칙과 별개로 애초에 다른 티어에선 이 그룹 자체를 참조하지 않는다).
 export const league = {
   list: {
     title: "리그 목록",
@@ -24,6 +30,12 @@ export const league = {
     teamCountFormat: "{count}팀",
     // {number}는 Season.seasonNumber 그대로 치환된다.
     seasonLabel: "시즌 {number}",
+    // 시즌 선택기(B1 "[시즌 3▾]")의 접근성 라벨. 표시 텍스트는 옵션마다 seasonLabel 재사용.
+    seasonSelectorLabel: "시즌 선택",
+  },
+  tab: {
+    standingsLabel: "순위표",
+    fixturesLabel: "일정/결과",
   },
   zone: {
     legendTitle: "존 범례",
@@ -72,6 +84,18 @@ export const league = {
     stage5Suffix: "다승으로",
     stage6Suffix: "페어플레이로",
     stage7Suffix: "시드 추첨으로",
+  },
+  rebuild: {
+    title: "리빌드 제재 안내",
+    summary: "리그3 최하위 2팀(15~16위)에는 강등 대신 리빌드 제재가 적용됩니다.",
+    penaltyTitle: "페널티",
+    penalty1: "시즌 종료 포인트 최저 구간 지급",
+    penalty2: "다음 프리시즌 신규 스폰서 협상 시 팀 명성 −5 보정(1회)",
+    penalty3: "팀 명성 −3 영구 반영",
+    reliefTitle: "구제",
+    relief1: "리빌드 보조금 — 리그3 1위 포인트의 40% 지급",
+    relief2: "다음 시즌 유소년 배출 확률 +10%p(1시즌 한정)",
+    footnote: "리그 탈락·해체는 하지 않습니다.",
   },
   empty: {
     message: "표시할 리그가 없습니다.",

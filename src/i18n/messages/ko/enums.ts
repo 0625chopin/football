@@ -135,10 +135,10 @@ const betMarketStatus: EnumTranslationCatalog<BetMarketStatus> = {
 };
 
 const awardScope: EnumTranslationCatalog<AwardScope> = {
-  LEAGUE: "LEAGUE",
-  WORLD: "WORLD",
-  CUP: "CUP",
-  PLAYOFF: "PLAYOFF",
+  LEAGUE: "리그",
+  WORLD: "월드",
+  CUP: "컵대회",
+  PLAYOFF: "플레이오프",
 };
 
 // 33일차(I-166): `TrophyType`(E-32, 4종) 정본 표시명 카탈로그 신설. `TrophyCase.tsx`

@@ -102,10 +102,10 @@ export const enums: EnumsMessages = {
     VOIDED: "Voided",
   },
   awardScope: {
-    LEAGUE: "LEAGUE",
-    WORLD: "WORLD",
-    CUP: "CUP",
-    PLAYOFF: "PLAYOFF",
+    LEAGUE: "League",
+    WORLD: "World",
+    CUP: "Cup",
+    PLAYOFF: "Playoff",
   },
   // 33일차(I-166) — `trophyType` 그룹 신설, ko와 동일한 4종.
   trophyType: {

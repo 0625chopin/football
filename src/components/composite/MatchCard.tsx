@@ -1,12 +1,14 @@
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
+import { TeamBadge } from "@/components/domain/TeamBadge"
 import { cn } from "@/lib/utils"
 import { t } from "@/i18n/t"
 import { formatKickoff } from "@/i18n/format"
 import type { SupportedLocale } from "@/i18n/locales"
+import type { TranslationKey } from "@/i18n/keys"
 import { matchElapsedMinutesAt, worldMinutesAt } from "@/lib/sim/schedule/worldclock"
 import type { WorldClockSnapshot } from "@/lib/sim/schedule/worldclock"
-import type { FixtureStatus, Timestamp } from "@/types"
+import type { FixtureStatus, Team, Timestamp } from "@/types"
 import type { CompositeViewState } from "./types"
 
 // Task 015(34일차, 5팀) — 홈/라이브센터 경기 카드(MatchCard), 013B 22종 중 마지막
@@ -47,6 +49,14 @@ export interface MatchCardData {
   readonly kickoffAt: Timestamp
   /** LIVE일 때만 값 존재(위 파일 헤더 H-24 설명 참조). LIVE가 아니면 null. */
   readonly elapsedMinutes: number | null
+  /**
+   * 41일차(Task 016, 5팀) — `density="row"` 재사용처(`/leagues/[leagueId]/fixtures` C2-r)를
+   * 위해 추가한 선택 필드. 엠블럼 배지(`TeamBadge`)를 그리려면 이름만으로는 부족해
+   * `crestSeed` 등이 필요하다. 없으면 기존처럼 이름 텍스트만 그린다 — 홈/라이브 그리드
+   * (34일차 기존 소비처)는 이 필드를 넘기지 않아도 그대로 동작한다.
+   */
+  readonly homeTeam?: Pick<Team, "name" | "shortName" | "crestSeed">
+  readonly awayTeam?: Pick<Team, "name" | "shortName" | "crestSeed">
 }
 
 /**
@@ -85,11 +95,30 @@ export interface MatchCardProps {
   emptyNextKickoffAt?: Timestamp | null
   /** `state.status === "error"`일 때만 쓰인다. 넘기지 않으면 재시도 버튼을 렌더하지 않는다. */
   onRetry?: () => void
+  /**
+   * 41일차 — `density="row"`에서만 적용. 리그 이름 열을 숨긴다. 홈 라이브 그리드(A2)는
+   * 여러 리그가 섞여 리그명이 필요하지만, `/leagues/[leagueId]/fixtures`처럼 이미 단일
+   * 리그 컨텍스트인 화면에서는 매 행 반복이 소음이라(와이어프레임 03번 C2-r 목업에 리그명
+   * 열이 없다) 이 화면이 켠다.
+   */
+  hideLeagueName?: boolean
   className?: string
 }
 
 const CARD_CLASS_NAME = "flex flex-col gap-3 rounded-lg border p-4"
 const ROW_CLASS_NAME = "flex items-center gap-3 rounded-md border px-3 py-2"
+
+/**
+ * 41일차 — row 밀도의 비-LIVE 상태 배지(아이콘+라벨, NFR-A11Y-002). LIVE는 기존
+ * `liveBadge`(점멸 점 + "라이브")를 그대로 쓰고, 나머지 3종만 여기서 다룬다 — 와이어프레임
+ * 03번 §4 "경기 행 상태 분기" 표의 아이콘 문자를 그대로 옮겼다(로케일 불변 기호, D-17과
+ * 동일 축이라 번역 대상이 아니다).
+ */
+const ROW_STATUS_BADGE: Record<Exclude<FixtureStatus, "LIVE">, { icon: string; labelKey: TranslationKey }> = {
+  SCHEDULED: { icon: "⏱", labelKey: "match.card.scheduledLabel" },
+  FINISHED: { icon: "✓", labelKey: "match.card.finishedLabel" },
+  VOID: { icon: "⚠", labelKey: "match.card.voidLabel" },
+}
 
 const SURFACE_CLASS_NAME: Record<NonNullable<MatchCardProps["surface"]>, string> = {
   card: "border-border bg-card",
@@ -108,6 +137,7 @@ export function MatchCard({
   surface = "card",
   emptyNextKickoffAt,
   onRetry,
+  hideLeagueName = false,
   className,
 }: MatchCardProps) {
   const containerClassName = cn(
@@ -226,9 +256,15 @@ export function MatchCard({
   const hasScore = homeScore !== null && awayScore !== null
   const homeIsLeading = hasScore && homeScore > awayScore
   const awayIsLeading = hasScore && awayScore > homeScore
+  // 41일차 수정 — 점수가 아직 없는데(C-23) LIVE/VOID인 경우 종전엔 킥오프 시각을
+  // 보여줬다(진행 중인데 "아직 시작 안 함"처럼 읽히는 오독 유발). 킥오프 시각은
+  // SCHEDULED에서만 의미가 있으므로 그 외엔 대시로 비운다(TeamRow의 `score ?? "–"`와
+  // 동일 원칙).
   const scoreLabel = hasScore
     ? t(locale, "match.card.scoreFormat", { home: homeScore, away: awayScore })
-    : formatKickoff(data.kickoffAt, locale, "time")
+    : data.status === "SCHEDULED"
+      ? formatKickoff(data.kickoffAt, locale, "time")
+      : "–"
 
   // LIVE 표시는 색(빨강) 단독이 아니라 점멸 점 + 라벨 텍스트를 함께 낸다(NFR-A11Y-002).
   const liveBadge = isLive ? (
@@ -242,6 +278,18 @@ export function MatchCard({
       ? t(locale, "match.card.elapsedFormat", { minute: data.elapsedMinutes })
       : null
 
+  // 41일차 — row 밀도용 전 상태 배지. LIVE는 기존 `liveBadge`를 그대로 재사용하고, 나머지
+  // 3종은 `ROW_STATUS_BADGE`(아이콘+라벨, NFR-A11Y-002)에서 뽑는다.
+  const rowStatusBadge =
+    data.status === "LIVE" ? (
+      liveBadge
+    ) : (
+      <span className={cn("inline-flex shrink-0 items-center gap-1", mutedClassName)}>
+        <span aria-hidden>{ROW_STATUS_BADGE[data.status].icon}</span>
+        <span className="eyebrow">{t(locale, ROW_STATUS_BADGE[data.status].labelKey)}</span>
+      </span>
+    )
+
   if (density === "row") {
     return (
       <div
@@ -251,13 +299,25 @@ export function MatchCard({
         data-surface={surface}
         className={cn(containerClassName, className)}
       >
-        <span className={cn("w-20 shrink-0 truncate text-xs", mutedClassName)} title={data.leagueName}>
-          {data.leagueName}
+        {!hideLeagueName && (
+          <span className={cn("w-20 shrink-0 truncate text-xs", mutedClassName)} title={data.leagueName}>
+            {data.leagueName}
+          </span>
+        )}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate text-sm">
+          {data.homeTeam && (
+            <TeamBadge locale={locale} size="sm" state={{ status: "ready", data: data.homeTeam }} />
+          )}
+          <span className="min-w-0 truncate">{data.homeTeamName}</span>
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm">{data.homeTeamName}</span>
         <span className="scoreboard shrink-0 text-sm">{scoreLabel}</span>
-        <span className="min-w-0 flex-1 truncate text-right text-sm">{data.awayTeamName}</span>
-        {liveBadge}
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 truncate text-right text-sm">
+          <span className="min-w-0 truncate">{data.awayTeamName}</span>
+          {data.awayTeam && (
+            <TeamBadge locale={locale} size="sm" state={{ status: "ready", data: data.awayTeam }} />
+          )}
+        </span>
+        {rowStatusBadge}
         {elapsedLabel ? (
           <span className={cn("scoreboard w-10 shrink-0 text-right text-xs", mutedClassName)}>
             {elapsedLabel}

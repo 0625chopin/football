@@ -13,6 +13,11 @@ export const league: LeagueMessages = {
     tierLabel: "Tier {tier}",
     teamCountFormat: "{count} teams",
     seasonLabel: "Season {number}",
+    seasonSelectorLabel: "Select season",
+  },
+  tab: {
+    standingsLabel: "Standings",
+    fixturesLabel: "Fixtures",
   },
   zone: {
     legendTitle: "Zone key",
@@ -49,6 +54,18 @@ export const league: LeagueMessages = {
     stage5Suffix: "total wins",
     stage6Suffix: "fair play score",
     stage7Suffix: "seed draw",
+  },
+  rebuild: {
+    title: "Rebuild sanction",
+    summary: "The bottom 2 teams in League 3 (15th-16th) receive a rebuild sanction instead of relegation.",
+    penaltyTitle: "Penalties",
+    penalty1: "Paid the lowest end-of-season point tier",
+    penalty2: "−5 club reputation adjustment (one-time) on the next preseason sponsor negotiation",
+    penalty3: "−3 club reputation, applied permanently",
+    reliefTitle: "Relief",
+    relief1: "Rebuild grant — 40% of the League 3 champion's points",
+    relief2: "+10pp youth academy graduation chance (next season only)",
+    footnote: "Teams are never eliminated or dissolved.",
   },
   empty: {
     message: "No leagues to display.",

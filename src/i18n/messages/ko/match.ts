@@ -25,6 +25,11 @@
 // 37일차(Task 015, 5팀): `card.emptyNextKickoff` 추가 — A2 Empty 상태 "다음 킥오프 HH:MM"
 // 행(와이어프레임 01번 §5). 재시도 버튼 라벨은 새 키를 만들지 않고 `error.generic.retryLabel`
 // (4팀 `error.ts`)을 재사용한다 — 문구가 "다시 시도"로 동일해 중복 선언할 이유가 없다.
+//
+// 41일차(Task 016, 5팀): `card.scheduledLabel`/`finishedLabel`/`voidLabel` 추가 — `MatchCard`
+// `density="row"`(와이어프레임 03번 C2-r)가 LIVE 외 3개 상태에도 아이콘+라벨 배지를 내도록
+// 확장하면서 필요해졌다(기존엔 LIVE만 배지가 있었다, NFR-A11Y-002). 구조는 4팀 소유지만
+// 콘텐츠 확장은 이 파일 헤더 1행이 이미 5팀 몫으로 열어 뒀다.
 export const match = {
   list: {
     title: "경기 목록",
@@ -76,6 +81,9 @@ export const match = {
     error: "라이브 데이터를 불러오지 못했습니다",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
+    scheduledLabel: "예정",
+    finishedLabel: "종료",
+    voidLabel: "연기",
   },
   upcoming: {
     sectionTitle: "다음 킥오프",

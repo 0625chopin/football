@@ -84,6 +84,7 @@ import type {
   AuditActorType,
   AuditLog,
   Award,
+  AwardId,
   AwardType,
   CommonCode,
   CommonCodeGroup,
@@ -101,11 +102,13 @@ import type {
   LeagueId,
   Loan,
   Manager,
+  ManagerId,
   MatchEvent,
   MatchLineup,
   MatchSeed,
   NewsFeedItem,
   NewsFeedItemType,
+  Player,
   PlayerAttribute,
   PlayerAttributeHistory,
   PlayerCareerStat,
@@ -115,6 +118,7 @@ import type {
   PlayerSeasonStat,
   PlayerState,
   PointTransaction,
+  Position,
   Season,
   SeasonId,
   Sponsor,
@@ -182,6 +186,342 @@ function clampRound(round: number, totalRounds: number): number {
 }
 
 /* ────────────────────────────────────────────────────────────────────────
+ * 수상(Award) Mock 카탈로그 — 41일차(2026-09-15) 추가
+ *
+ * 근거: 4팀이 `/[lang]/awards`(Task 019)를 완성했으나 `getAwards`/`getMultiAwardRanking`이
+ * 항상 `[]`라 시즌별 수상·베스트11 피치 뷰·통산 다관왕 랭킹 세 섹션이 전부 empty로만
+ * 렌더되는 문제(40일차 B4와 동일 함정)를 팀장 지시로 해소한다. `Award`(E-31) 12종
+ * (FR-AW-001~004)을 진행 중 시즌 1건에 최소 1건씩 채운다 — 새 절차적 생성기를 발명하지
+ * 않고, 이미 존재하는 `progress.statLeaders`(시즌 스탯 표본)·`world.players`(스쿼드)를
+ * 재료로 삼아 결정론적으로 "가장 나은 후보"를 뽑는다(순수 함수, PRNG 재소비 없음 — 이미
+ * PRNG로 만들어진 산출물을 정렬·선택만 하므로 재현성이 자동으로 유지된다).
+ *
+ * ## 왜 "과거 시즌"을 만들어 시즌 선택기를 실제로 갈아끼우게 하지 않았나
+ * 이 Mock 월드는 D-15(단일 월드)에 따라 **진행 중 시즌 1건만 존재**한다(`getSeasons()`가
+ * 이미 그렇게 계약돼 있고 `MockDataSource.test.ts`가 이를 고정 — 위 파일 헤더 "다른 시즌
+ * 조회" 각주 참조). 과거 시즌 스냅샷 생성기가 없는데 여기서 즉석으로 만들면 이 파일에만
+ * 갇힌 발명이 되어 `src/lib/mock/**`(4팀 `/sample` 등 다른 소비자)와 불일치한다(위 파일
+ * 헤더 "데이터가 없는 메서드" 원칙과 동일 근거). **판단해 팀장에게 회신** — 시즌 선택기
+ * 자체는 1개 링크만 보이는 게 이 Mock 월드의 정직한 현재 상태다.
+ */
+
+/** 베스트11(`TEAM_OF_SEASON`/`WORLD_XI`) 슬롯 포지션 구성 — 4-3-3(GK1·CB2·LB1·RB1·DM1·CM2·LW1·ST1·RW1=11).
+ * `awards` 페이지가 이 11명을 자체 `POSITION_SORT_ORDER`로 재정렬해 `PitchLineup` 슬롯에
+ * 근사 배치하므로, 여기서는 "포지션 개수 구성"만 맞추면 된다(순서는 그쪽 책임). */
+const BEST_XI_POSITION_PLAN: readonly Position[] = [
+  'GK',
+  'CB',
+  'CB',
+  'LB',
+  'RB',
+  'DM',
+  'CM',
+  'CM',
+  'LW',
+  'ST',
+  'RW',
+];
+
+/** 리그 소속 선수 전원(FA 제외) — 개인상/베스트11 선정 대상 풀. */
+function leagueSquad(
+  leagueId: LeagueId,
+  teamsByLeague: ReadonlyMap<LeagueId, readonly Team[]>,
+  playerStatesByTeam: ReadonlyMap<TeamId, readonly PlayerState[]>,
+  playersById: ReadonlyMap<PlayerId, Player>,
+): Player[] {
+  const teams = teamsByLeague.get(leagueId) ?? [];
+  const squad: Player[] = [];
+  for (const team of teams) {
+    for (const state of playerStatesByTeam.get(team.id) ?? []) {
+      const player = playersById.get(state.playerId);
+      if (player !== undefined) squad.push(player);
+    }
+  }
+  return squad;
+}
+
+function topByReputation(pool: readonly Player[]): Player | undefined {
+  return [...pool].sort((a, b) => b.reputation - a.reputation)[0];
+}
+
+function topByStatMetric(
+  stats: readonly PlayerSeasonStat[],
+  metric: keyof PlayerSeasonStat,
+): PlayerSeasonStat | undefined {
+  return [...stats].sort((a, b) => (b[metric] as number) - (a[metric] as number))[0];
+}
+
+/**
+ * 슬롯별로 지정된 후보 풀(`pool`)에서 포지션에 맞는 최고 점수 선수를 하나씩 뽑는다.
+ * 슬롯마다 다른 풀을 줄 수 있어 "TEAM_OF_SEASON은 리그 1곳, WORLD_XI는 슬롯별로
+ * 서로 다른 리그" 같은 선발 기준 분리에 쓴다(41일차 2차 수정 — 아래 `pickBestXI`/
+ * `pickWorldXI` 헤더 주석 참조). 풀이 모자라면(소규모 리그 등) 슬롯 풀 합집합에서
+ * 미사용 선수로 폴백해 항상 11명을 채운다(4팀 요구 — 베스트11이 빈 자리 없이 그려져야 함).
+ */
+function pickBestXIFromSlots(
+  slots: readonly { readonly position: Position; readonly pool: readonly Player[] }[],
+  scoreOf: (playerId: PlayerId) => number,
+): Player[] {
+  const used = new Set<PlayerId>();
+  const chosen: Player[] = [];
+  for (const slot of slots) {
+    const candidate = slot.pool
+      .filter((p) => p.preferredPosition === slot.position && !used.has(p.id))
+      .sort((a, b) => scoreOf(b.id) - scoreOf(a.id))[0];
+    if (candidate !== undefined) {
+      used.add(candidate.id);
+      chosen.push(candidate);
+    }
+  }
+  if (chosen.length < slots.length) {
+    const unionPool = new Map<PlayerId, Player>();
+    for (const slot of slots) {
+      for (const p of slot.pool) unionPool.set(p.id, p);
+    }
+    const fallback = Array.from(unionPool.values())
+      .filter((p) => !used.has(p.id))
+      .sort((a, b) => scoreOf(b.id) - scoreOf(a.id));
+    for (const p of fallback) {
+      if (chosen.length >= slots.length) break;
+      used.add(p.id);
+      chosen.push(p);
+    }
+  }
+  return chosen;
+}
+
+/** 단일 풀(리그 1곳)에서 `BEST_XI_POSITION_PLAN` 11명을 뽑는다 — `TEAM_OF_SEASON` 전용. */
+function pickBestXI(pool: readonly Player[], scoreOf: (playerId: PlayerId) => number): Player[] {
+  return pickBestXIFromSlots(
+    BEST_XI_POSITION_PLAN.map((position) => ({ position, pool })),
+    scoreOf,
+  );
+}
+
+/**
+ * **41일차 2차 수정(팀장 실렌더 지적)** — `TEAM_OF_SEASON`(최상위 리그 1곳 전용)과
+ * `WORLD_XI`가 항상 11명 전원 동일하게 뽑히는 결함을 고쳤다. 원인: `scoreOf`가 대부분
+ * `Player.reputation` 폴백을 쓰는데(통계 표본 `STAT_LEADER_SAMPLE_SIZE`=60이 전 리그
+ * 통틀어 60명뿐이라 대부분 표본 밖), 이 Mock 월드는 리그 티어가 높을수록 평판도 높게
+ * 생성되므로 "전체 선수 풀에서의 포지션별 1위"가 항상 "최상위 리그에서의 포지션별 1위"와
+ * 정확히 일치했다(구조적 결함 — 우연이 아니라 매 시드에서 100% 재현).
+ *
+ * 값을 지어내는 대신(I-41) **선발 기준을 실제로 분리**했다: `WORLD_XI`는 슬롯마다
+ * 서로 다른 리그의 스쿼드에서 뽑는다(리그 티어 가중 — 최상위 리그가 5슬롯, 2·3티어가
+ * 각 3슬롯). `TEAM_OF_SEASON`은 여전히 최상위 리그 단일 풀만 본다 — 두 축이 같은 리그를
+ * 보는 슬롯(예: GK)은 자연스럽게 겹칠 수 있지만, 2·3티어에서만 채워지는 6슬롯은 구조적으로
+ * 달라 두 베스트11이 절대 완전히 동일할 수 없다(FR-AW-002 "리그 티어 가중" 취지 반영).
+ */
+const WORLD_XI_SLOT_LEAGUE_TIER_RANK: readonly number[] = [0, 0, 1, 2, 0, 1, 0, 2, 1, 0, 2];
+
+function pickWorldXI(
+  leagueSquadsByTierRank: readonly (readonly Player[])[],
+  scoreOf: (playerId: PlayerId) => number,
+): Player[] {
+  const slots = BEST_XI_POSITION_PLAN.map((position, i) => ({
+    position,
+    pool: leagueSquadsByTierRank[WORLD_XI_SLOT_LEAGUE_TIER_RANK[i] % leagueSquadsByTierRank.length] ?? [],
+  }));
+  return pickBestXIFromSlots(slots, scoreOf);
+}
+
+/**
+ * 시즌 1건(D-15)의 `Award` 전량 + 통산 다관왕 랭킹을 만든다. `AwardType` 12종
+ * (FR-AW-001~004)을 리그당(개인상 5종 + `PLAYOFF_MVP` + `PLAYER_OF_THE_ROUND`) ·
+ * 최상위 리그 1곳(`TEAM_OF_SEASON` 11명) · 월드 축(`WORLD_XI` 11명·`BALLON_DOR`·
+ * `BEST_YOUNG_PLAYER`·`CUP_MVP`)으로 전부 최소 1건씩 채운다.
+ *
+ * ## `TEAM` subjectType 랭킹이 항상 빈 배열인 이유
+ * 12종 전부가 선수 또는 감독(`MANAGER_OF_SEASON`) 수상이라 `teamId`가 채워지는
+ * `AwardType`이 도메인상 없다(FR-AW-001~004 원문에 클럽 수상 없음) — 클럽 단위 수상
+ * 이력은 `Trophy`(E-32, FR-AW-006)가 담당하는 별도 축이다. `teamId`를 억지로 채워
+ * 값을 지어내지 않는다(I-41).
+ */
+function buildAwardCatalog(
+  world: MockWorld,
+  teamsByLeague: ReadonlyMap<LeagueId, readonly Team[]>,
+  playerStatesByTeam: ReadonlyMap<TeamId, readonly PlayerState[]>,
+  managersByTeam: ReadonlyMap<TeamId, Manager>,
+  statLeadersByPlayer: ReadonlyMap<PlayerId, readonly PlayerSeasonStat[]>,
+  seasonId: SeasonId,
+): {
+  awards: readonly Award[];
+  ranking: ReadonlyMap<'PLAYER' | 'MANAGER' | 'TEAM', readonly MultiAwardRankingEntry[]>;
+} {
+  const playersById = new Map(world.players.map((p) => [p.id, p] as const));
+  const allStats = Array.from(statLeadersByPlayer.values()).flat();
+  const scoreOf = (playerId: PlayerId): number =>
+    statLeadersByPlayer.get(playerId)?.[0]?.contributionScore ?? playersById.get(playerId)?.reputation ?? 0;
+
+  let seq = 0;
+  const awards: Award[] = [];
+  function add(
+    type: AwardType,
+    scope: 'LEAGUE' | 'WORLD' | 'CUP' | 'PLAYOFF',
+    target: { leagueId?: LeagueId; playerId?: PlayerId; managerId?: ManagerId },
+    criteria: Readonly<Record<string, unknown>> = {},
+  ): void {
+    seq += 1;
+    awards.push({
+      id: `mock-award-${seasonId}-${seq}` as AwardId,
+      seasonId,
+      type,
+      scope,
+      leagueId: target.leagueId ?? null,
+      playerId: target.playerId ?? null,
+      managerId: target.managerId ?? null,
+      teamId: null,
+      criteria,
+    });
+  }
+
+  for (const league of world.leagues) {
+    const squad = leagueSquad(league.id, teamsByLeague, playerStatesByTeam, playersById);
+    const leagueStats = allStats.filter((s) => s.leagueId === league.id);
+
+    const mvpStat = topByStatMetric(leagueStats, 'contributionScore');
+    const mvpPlayer = mvpStat ? playersById.get(mvpStat.playerId) : topByReputation(squad);
+    if (mvpPlayer) {
+      add(
+        'LEAGUE_MVP',
+        'LEAGUE',
+        { leagueId: league.id, playerId: mvpPlayer.id },
+        { contributionScore: mvpStat?.contributionScore ?? mvpPlayer.reputation },
+      );
+    }
+
+    const bootStat = topByStatMetric(leagueStats, 'goals');
+    const bootPlayer = bootStat ? playersById.get(bootStat.playerId) : topByReputation(squad);
+    if (bootPlayer) {
+      add('GOLDEN_BOOT', 'LEAGUE', { leagueId: league.id, playerId: bootPlayer.id }, { goals: bootStat?.goals ?? 0 });
+    }
+
+    const playmakerStat = topByStatMetric(leagueStats, 'assists');
+    const playmakerPlayer = playmakerStat ? playersById.get(playmakerStat.playerId) : topByReputation(squad);
+    if (playmakerPlayer) {
+      add(
+        'GOLDEN_PLAYMAKER',
+        'LEAGUE',
+        { leagueId: league.id, playerId: playmakerPlayer.id },
+        { assists: playmakerStat?.assists ?? 0 },
+      );
+    }
+
+    const gkStats = leagueStats.filter((s) => playersById.get(s.playerId)?.preferredPosition === 'GK');
+    const gloveStat = topByStatMetric(gkStats, 'saves');
+    const glovePlayer = gloveStat
+      ? playersById.get(gloveStat.playerId)
+      : topByReputation(squad.filter((p) => p.preferredPosition === 'GK'));
+    if (glovePlayer) {
+      add(
+        'GOLDEN_GLOVE',
+        'LEAGUE',
+        { leagueId: league.id, playerId: glovePlayer.id },
+        { saves: gloveStat?.saves ?? 0 },
+      );
+    }
+
+    const topTeam = [...(teamsByLeague.get(league.id) ?? [])].sort((a, b) => b.reputation - a.reputation)[0];
+    const manager = topTeam ? managersByTeam.get(topTeam.id) : undefined;
+    if (manager) {
+      add('MANAGER_OF_SEASON', 'LEAGUE', { leagueId: league.id, managerId: manager.id });
+    }
+
+    const playoffStat = topByStatMetric(leagueStats, 'motmAwards');
+    const playoffPlayer = playoffStat ? playersById.get(playoffStat.playerId) : topByReputation(squad);
+    if (playoffPlayer) {
+      add('PLAYOFF_MVP', 'PLAYOFF', { leagueId: league.id, playerId: playoffPlayer.id });
+    }
+
+    const roundStat = topByStatMetric(leagueStats, 'keyPasses');
+    const roundPlayer = roundStat ? playersById.get(roundStat.playerId) : topByReputation(squad);
+    if (roundPlayer) {
+      add('PLAYER_OF_THE_ROUND', 'LEAGUE', { leagueId: league.id, playerId: roundPlayer.id });
+    }
+  }
+
+  // 리그 티어 오름차순(1군 → 3군) — TEAM_OF_SEASON(최상위 리그 1곳)·WORLD_XI(슬롯별 리그
+  // 분산) 양쪽이 같은 정렬을 공유해야 "선발 기준이 실제로 다르다"는 근거가 일관된다
+  // (위 `pickWorldXI` 헤더 주석 — 41일차 2차 수정).
+  const sortedLeagues = [...world.leagues].sort((a, b) => a.tier - b.tier);
+  const leagueSquadsByTierRank = sortedLeagues.map((l) =>
+    leagueSquad(l.id, teamsByLeague, playerStatesByTeam, playersById),
+  );
+
+  // 베스트11(FR-AW-001 TEAM_OF_SEASON) — 최상위 티어 리그 1곳만. 클럽 축구 관례상
+  // "시즌의 베스트11"은 최상위 리그 기준이며, 하위 리그까지 매 시즌 11명씩 뽑아도
+  // 소비처(awards 페이지)가 티어를 구분해 쓰지 않아 생성 비용만 커진다.
+  const topLeague = sortedLeagues[0];
+  if (topLeague) {
+    const squad = leagueSquadsByTierRank[0];
+    for (const player of pickBestXI(squad, scoreOf)) {
+      add('TEAM_OF_SEASON', 'LEAGUE', { leagueId: topLeague.id, playerId: player.id });
+    }
+  }
+
+  // 월드 통합 수상(FR-AW-002) — 슬롯마다 다른 리그에서 뽑아 TEAM_OF_SEASON과 선발 기준을
+  // 분리한다(위 `pickWorldXI` 헤더 주석 — 두 베스트11이 완전히 동일해지는 결함 수정).
+  for (const player of pickWorldXI(leagueSquadsByTierRank, scoreOf)) {
+    add('WORLD_XI', 'WORLD', { playerId: player.id });
+  }
+
+  const ballonDorStat = topByStatMetric(allStats, 'contributionScore');
+  const ballonDorPlayer = ballonDorStat ? playersById.get(ballonDorStat.playerId) : topByReputation(world.players);
+  if (ballonDorPlayer) {
+    add(
+      'BALLON_DOR',
+      'WORLD',
+      { playerId: ballonDorPlayer.id },
+      { contributionScore: ballonDorStat?.contributionScore ?? ballonDorPlayer.reputation },
+    );
+  }
+
+  const youngPool = world.players.filter((p) => p.age <= 21);
+  const bestYoung = topByReputation(youngPool.length > 0 ? youngPool : world.players);
+  if (bestYoung) {
+    add('BEST_YOUNG_PLAYER', 'WORLD', { playerId: bestYoung.id }, { age: bestYoung.age });
+  }
+
+  // 대회 수상(FR-AW-003) — 컵은 리그 축이 없어 leagueId를 두지 않는다(scope='CUP')
+  const cupStat = topByStatMetric(allStats, 'dribblesCompleted');
+  const cupPlayer = cupStat ? playersById.get(cupStat.playerId) : topByReputation(world.players);
+  if (cupPlayer) {
+    add('CUP_MVP', 'CUP', { playerId: cupPlayer.id });
+  }
+
+  return { awards, ranking: buildMultiAwardRanking(awards) };
+}
+
+/** `Award` 전량을 `subjectType` 축(선수/감독/팀)으로 집계해 내림차순 정렬한다(FR-UI-012 통산 다관왕 랭킹). */
+function buildMultiAwardRanking(
+  awards: readonly Award[],
+): ReadonlyMap<'PLAYER' | 'MANAGER' | 'TEAM', readonly MultiAwardRankingEntry[]> {
+  const counts: Record<'PLAYER' | 'MANAGER' | 'TEAM', Map<string, number>> = {
+    PLAYER: new Map(),
+    MANAGER: new Map(),
+    TEAM: new Map(),
+  };
+  function bump(subjectType: 'PLAYER' | 'MANAGER' | 'TEAM', subjectId: string | null): void {
+    if (subjectId === null) return;
+    counts[subjectType].set(subjectId, (counts[subjectType].get(subjectId) ?? 0) + 1);
+  }
+  for (const award of awards) {
+    bump('PLAYER', award.playerId);
+    bump('MANAGER', award.managerId);
+    bump('TEAM', award.teamId);
+  }
+
+  const result = new Map<'PLAYER' | 'MANAGER' | 'TEAM', readonly MultiAwardRankingEntry[]>();
+  for (const subjectType of ['PLAYER', 'MANAGER', 'TEAM'] as const) {
+    const entries = Array.from(counts[subjectType].entries())
+      .map(([subjectId, totalAwards]) => ({ subjectType, subjectId, totalAwards }))
+      .sort((a, b) => b.totalAwards - a.totalAwards);
+    result.set(subjectType, entries);
+  }
+  return result;
+}
+
+/* ────────────────────────────────────────────────────────────────────────
  * MockDataSource
  * ──────────────────────────────────────────────────────────────────────── */
 
@@ -205,6 +545,13 @@ export class MockDataSource implements DataSource {
   private readonly matchEventsByFixture: ReadonlyMap<FixtureId, readonly MatchEvent[]>;
   private readonly statLeadersByPlayer: ReadonlyMap<PlayerId, readonly PlayerSeasonStat[]>;
   private readonly statAppearanceBasis: number;
+
+  /** 진행 중 시즌 1건(D-15)의 수상 전량 + 통산 다관왕 랭킹 — 생성자에서 1회 산출(41일차, Task 043/019 갭 보완). */
+  private readonly awardsForCurrentSeason: readonly Award[];
+  private readonly multiAwardRankingBySubjectType: ReadonlyMap<
+    'PLAYER' | 'MANAGER' | 'TEAM',
+    readonly MultiAwardRankingEntry[]
+  >;
 
   constructor(worldSeed: WorldSeed = MOCK_DATA_SOURCE_WORLD_SEED) {
     installHardcodedFallback();
@@ -342,6 +689,17 @@ export class MockDataSource implements DataSource {
     }
     this.statLeadersByPlayer = statLeadersByPlayer;
     this.statAppearanceBasis = Math.max(1, ...this.progress.statLeaders.map((s) => s.appearances));
+
+    const awardCatalog = buildAwardCatalog(
+      this.world,
+      this.teamsByLeague,
+      this.playerStatesByTeam,
+      this.managersByTeam,
+      this.statLeadersByPlayer,
+      this.progress.season.id,
+    );
+    this.awardsForCurrentSeason = awardCatalog.awards;
+    this.multiAwardRankingBySubjectType = awardCatalog.ranking;
   }
 
   /** 요청한 시즌이 이 Mock 월드가 아는 유일한 진행 중 시즌인지 확인한다(위 파일 헤더 "다른 시즌 조회" 각주). */
@@ -745,19 +1103,31 @@ export class MockDataSource implements DataSource {
     return sorted.slice(0, params.limit ?? DEFAULT_STAT_RANKING_LIMIT);
   }
 
-  async getAwards(_params?: {
+  async getAwards(params?: {
     readonly seasonId?: SeasonId;
     readonly leagueId?: LeagueId;
     readonly type?: AwardType;
   }): Promise<readonly Award[]> {
-    return [];
+    if (!this.isKnownSeason(params?.seasonId)) {
+      // 위 파일 헤더 "다른 시즌 조회" 각주와 동일 원칙 — 과거 시즌 스냅샷이 없어 무시 처리.
+      return [];
+    }
+    let list = this.awardsForCurrentSeason;
+    if (params?.leagueId !== undefined) {
+      list = list.filter((a) => a.leagueId === params.leagueId);
+    }
+    if (params?.type !== undefined) {
+      list = list.filter((a) => a.type === params.type);
+    }
+    return list;
   }
 
-  async getMultiAwardRanking(_params: {
+  async getMultiAwardRanking(params: {
     readonly subjectType: 'PLAYER' | 'MANAGER' | 'TEAM';
     readonly limit?: number;
   }): Promise<readonly MultiAwardRankingEntry[]> {
-    return [];
+    const entries = this.multiAwardRankingBySubjectType.get(params.subjectType) ?? [];
+    return entries.slice(0, params.limit ?? DEFAULT_STAT_RANKING_LIMIT);
   }
 
   /* ============================================================

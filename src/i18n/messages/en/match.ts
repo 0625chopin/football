@@ -50,6 +50,9 @@ export const match: MatchMessages = {
     error: "Unable to load live data",
     scoreFormat: "{home} - {away}",
     elapsedFormat: "{minute}'",
+    scheduledLabel: "Scheduled",
+    finishedLabel: "FT",
+    voidLabel: "Postponed",
   },
   upcoming: {
     sectionTitle: "Next Kickoff",

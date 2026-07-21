@@ -9,8 +9,24 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { LeagueId, PlayerId, SeasonId, TeamId, WorldSeed } from '@/types';
+import type { AwardType, LeagueId, PlayerId, SeasonId, TeamId, WorldSeed } from '@/types';
 import { MockDataSource } from './MockDataSource';
+
+/** `AwardType`(E-31) 12종 전량 — `enums.ts` 선언 순서와 동일하게 유지(FR-AW-001~004). */
+const ALL_AWARD_TYPES: readonly AwardType[] = [
+  'LEAGUE_MVP',
+  'GOLDEN_BOOT',
+  'GOLDEN_PLAYMAKER',
+  'GOLDEN_GLOVE',
+  'BEST_YOUNG_PLAYER',
+  'MANAGER_OF_SEASON',
+  'TEAM_OF_SEASON',
+  'BALLON_DOR',
+  'WORLD_XI',
+  'CUP_MVP',
+  'PLAYOFF_MVP',
+  'PLAYER_OF_THE_ROUND',
+];
 
 const SEED_A = 20260813 as WorldSeed;
 
@@ -148,8 +164,6 @@ describe('MockDataSource', () => {
     expect(await ds.getTeamSponsorContracts(anyTeamId)).toEqual([]);
     expect(await ds.getTeamTrophies(anyTeamId)).toEqual([]);
     expect(await ds.getSponsorContracts()).toEqual([]);
-    expect(await ds.getAwards()).toEqual([]);
-    expect(await ds.getMultiAwardRanking({ subjectType: 'PLAYER' })).toEqual([]);
     expect(await ds.getMatchLineups('x' as never)).toEqual([]);
     expect(await ds.getMatchPlayerRatings('x' as never)).toEqual([]);
     expect(await ds.getMatchTeamStats('x' as never)).toEqual([]);
@@ -162,6 +176,93 @@ describe('MockDataSource', () => {
 
     const metrics = await ds.getCronRunMetrics();
     expect(metrics).toEqual({ successRatePct: 0, avgDurationMs: 0, maxDurationMs: 0, sampleSize: 0 });
+  });
+
+  it('getAwards는 진행 중 시즌 1건에 AwardType 12종을 전부 최소 1건씩 채운다(41일차, 4팀 갭 보완)', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const season = await ds.getCurrentSeason();
+    const awards = await ds.getAwards({ seasonId: season?.id });
+
+    expect(awards.length).toBeGreaterThan(0);
+    expect(awards.every((a) => a.seasonId === season?.id)).toBe(true);
+
+    const presentTypes = new Set(awards.map((a) => a.type));
+    for (const type of ALL_AWARD_TYPES) {
+      expect(presentTypes.has(type)).toBe(true);
+    }
+
+    // 수상 대상 배타(playerId/managerId/teamId 중 정확히 하나만) — Award(E-31) 헤더 원칙.
+    for (const award of awards) {
+      const filled = [award.playerId, award.managerId, award.teamId].filter((v) => v !== null);
+      expect(filled).toHaveLength(1);
+    }
+  });
+
+  it('TEAM_OF_SEASON/WORLD_XI는 각각 정확히 11명이 채워진다(4팀 PitchLineup 4-3-3 소비 전제)', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const [teamOfSeason, worldXi] = await Promise.all([
+      ds.getAwards({ type: 'TEAM_OF_SEASON' as AwardType }),
+      ds.getAwards({ type: 'WORLD_XI' as AwardType }),
+    ]);
+
+    expect(teamOfSeason).toHaveLength(11);
+    expect(worldXi).toHaveLength(11);
+    expect(new Set(teamOfSeason.map((a) => a.playerId)).size).toBe(11);
+    expect(new Set(worldXi.map((a) => a.playerId)).size).toBe(11);
+
+    // 41일차 2차 수정(팀장 실렌더 지적) — TEAM_OF_SEASON(최상위 리그 1곳)과 WORLD_XI(전
+    // 리그 슬롯 분산)가 11명 전원 동일하게 뽑히던 결함의 회귀 방지. 완전 동일만 금지하며
+    // (구조적으로 겹칠 수 있는 슬롯도 있어) 부분 일치는 허용한다.
+    const teamOfSeasonIds = teamOfSeason.map((a) => a.playerId).sort();
+    const worldXiIds = worldXi.map((a) => a.playerId).sort();
+    expect(teamOfSeasonIds).not.toEqual(worldXiIds);
+  });
+
+  it('getAwards는 leagueId로 필터할 수 있다', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const [league] = await ds.getLeagues();
+    const filtered = await ds.getAwards({ leagueId: league.id });
+
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every((a) => a.leagueId === league.id)).toBe(true);
+  });
+
+  it('getMultiAwardRanking은 선수/감독 부문이 채워지고, 팀 부문은 도메인상 항상 빈 배열이다', async () => {
+    const ds = new MockDataSource(SEED_A);
+    const [playerRanking, managerRanking, teamRanking] = await Promise.all([
+      ds.getMultiAwardRanking({ subjectType: 'PLAYER' }),
+      ds.getMultiAwardRanking({ subjectType: 'MANAGER' }),
+      ds.getMultiAwardRanking({ subjectType: 'TEAM' }),
+    ]);
+
+    expect(playerRanking.length).toBeGreaterThan(0);
+    expect(managerRanking.length).toBeGreaterThan(0);
+    // AwardType 12종 전부가 선수/감독 수상이라 teamId가 채워지는 Award가 없다(값을 지어내지
+    // 않음, I-41) — 클럽 단위 이력은 Trophy(E-32)가 담당하는 별도 축.
+    expect(teamRanking).toEqual([]);
+
+    for (let i = 1; i < playerRanking.length; i += 1) {
+      expect(playerRanking[i - 1].totalAwards).toBeGreaterThanOrEqual(playerRanking[i].totalAwards);
+    }
+  });
+
+  it('getAwards/getMultiAwardRanking은 동일 시드에서 결정론적이다', async () => {
+    const a = new MockDataSource(SEED_A);
+    const b = new MockDataSource(SEED_A);
+
+    const [awardsA, awardsB] = await Promise.all([a.getAwards(), b.getAwards()]);
+    expect(JSON.stringify(awardsA)).toBe(JSON.stringify(awardsB));
+
+    const [rankingA, rankingB] = await Promise.all([
+      a.getMultiAwardRanking({ subjectType: 'PLAYER' }),
+      b.getMultiAwardRanking({ subjectType: 'PLAYER' }),
+    ]);
+    expect(JSON.stringify(rankingA)).toBe(JSON.stringify(rankingB));
+  });
+
+  it('getAwards는 알려지지 않은 seasonId에는 빈 배열을 반환한다(D-15 — 진행 중 시즌 1건만 존재)', async () => {
+    const ds = new MockDataSource(SEED_A);
+    expect(await ds.getAwards({ seasonId: 'no-such-season' as SeasonId })).toEqual([]);
   });
 
   it('getPlayerStatRanking은 leagueId로 필터하고 metric 내림차순으로 정렬한다', async () => {

@@ -5,7 +5,11 @@
 -- 14일차 #37 NATIONALITY_WEIGHT·31일차 #38 MANAGER_STYLE_XG 추가분 포함)
 -- ============================================================================
 --
--- ⚠️ 이 파일은 초안이다 — apply_migration으로 실제 DB에 적용하지 않았다(6팀 소관).
+-- ✅ 41일차(2026-09-15) 6팀이 이 파일 내용 그대로 execute_sql로 원격 DB에 적재 완료
+-- (파일 자체는 무수정 — apply_migration이 아니라 execute_sql을 쓴 이유는 이 파일이
+-- DDL이 아니라 순수 DML/초기 데이터라서다). 적재 확인: common_code_group 38행,
+-- common_code 155행(값 미시드 5개 그룹 제외), CRON_PARAM.LOCK_TIMEOUT_MIN=5 /
+-- UI_PARAM.POLL_INTERVAL_MS=5000·POLL_LIVE_MS=3000 반영 확인.
 -- world_id는 전량 NULL(전역 기본값)이다. 월드별 오버라이드는 이 파일의 대상이 아니다.
 --
 -- ## 그룹 수 표기 차이 (36 vs 38)
