@@ -71,9 +71,11 @@
  * ## 범위 밖 — 시즌 타임라인 삽입
  * FR-LG-015의 "정규시즌 병행"(리그1 라운드 6/12/18/24/32/40 직후 컵 슬롯 삽입,
  * `CUP_PARAM.INSERT_ROUNDS`)은 이 파일의 몫이 아니다. 이 파일은 순수 브래킷 생성 계층
- * (`playoff.ts`와 동일 계층)이고, 슬롯 삽입은 시즌 타임라인을 다루는 오케스트레이션
- * 계층(`season/`)의 소관이다 — 팀장 인계 "시즌 페이즈 전환 배선"과 같은 종류의 미배선
- * 상태이므로 임의로 배선하지 않고 이슈 후보로만 남긴다.
+ * (`playoff.ts`와 동일 계층)이고, 슬롯 삽입은 다른 두 계층이 나눠 맡는다 — **이산 페이즈
+ * 전이**(`REGULAR`→`CUP_SLOT`→`REGULAR`)는 `season/phase.ts`의 `ENTER_CUP_SLOT`/
+ * `EXIT_CUP_SLOT` 이벤트가, **슬롯의 실제 시작/끝 시각 산출**(리그별 킥오프를 밀어 슬롯
+ * 구간에 리그 경기가 0건이 되도록 하는 계산)은 `schedule/cup-slot.ts`(44일차 완료)가
+ * 담당한다.
  */
 
 import type { CompetitionType, SeasonId, TeamId } from '@/types';

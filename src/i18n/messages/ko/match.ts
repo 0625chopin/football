@@ -1,3 +1,5 @@
+import type { MatchEventType } from "@/types";
+
 // Task 011(16일차) 골격 — 키 구조는 4팀 소유, 콘텐츠 확장은 5팀 기여 몫
 // (`docs/team-schedule/04-UI기반i18n팀.md` §1 소유 경로 각주).
 //
@@ -36,6 +38,20 @@
 // (문구가 동일해 중복 선언할 이유가 없음, 37일차 `emptyNextKickoff` 판단과 동일 원칙).
 // PSO 표기(`score.psoFormat`)는 R-13 ① 형식("정규+연장 스코어 (승부차기 홈-원정)")을 그대로
 // 옮겼다. `timeline.futureBoundary`도 함께 추가 — D3 R-11 경계 표시(와이어프레임 04번 §3-1).
+//
+// 44일차(Task 017, 5팀): `event` 그룹 추가 — 이벤트 23종 중계 문구 템플릿(와이어프레임
+// 04번 §4 D3 지정 프리픽스 `match.event.*`, "실제 중계 문구는 44일차에 작성한다" 각주 이행).
+// `enums.matchEvent.*`(4팀 소유)는 뱃지에 쓰이는 단어 하나짜리 라벨("골")이고, 이 그룹은
+// 그와 별개로 문장 전체를 담는 중계 캡션이다 — 용도가 달라 기존 키를 재사용하지 않았다.
+// `{playerName}`/`{teamName}`류 고유명사 변수는 R-3/D-17에 따라 번역 대상이 아니므로
+// 템플릿에 이름을 박지 않고 자리표시자로만 남긴다(치환은 소비처 책임, `t()` 계약 그대로).
+// `{reason}`/`{severity}`도 자유 문자열이 아니라 이미 번역된 값이 주입되는 자리표시자다
+// (카드 사유·부상 등급은 E-4에 따라 enum → 번역키 매핑을 거친 결과를 소비처가 넣는다 —
+// 이 파일이 그 매핑 자체를 갖지 않는다). `{score}`도 마찬가지로 `card.scoreFormat` 등으로
+// 이미 서식화된 문자열을 그대로 주입받는다(중복 서식 로직을 이 템플릿에 만들지 않음).
+// `ASSIST`는 D3에서 `GOAL` 행에 병합 표시되어 독립 행으로 그려지지 않지만(E-2), 23종
+// 전량을 카탈로그로 관리한다는 이 Task의 수락 기준(하드코딩 0)에 맞춰 템플릿은 채워 둔다
+// — 소비 여부와 카탈로그 완비는 별개다. 컴포넌트 소비처 배선은 45일차 이후 잔여 스코프.
 export const match = {
   list: {
     title: "경기 목록",
@@ -83,6 +99,10 @@ export const match = {
     error: "대진표를 불러오지 못했습니다.",
     tbd: "미정",
   },
+  playoffs: {
+    // {league}는 League.name 그대로 치환된다(고유명사, 번역 대상 아님, D-17).
+    title: "{league} 플레이오프",
+  },
   card: {
     gridTitle: "실시간 경기",
     empty: "현재 진행 중인 경기가 없습니다",
@@ -114,6 +134,31 @@ export const match = {
       penaltyShootout: "승부차기",
     },
   },
+  event: {
+    KICKOFF: "킥오프!",
+    SHOT_ON: "{playerName}의 유효 슈팅!",
+    SHOT_OFF: "{playerName}의 슈팅, 골대를 벗어났습니다.",
+    SHOT_BLOCKED: "{playerName}의 슈팅을 {blockerName}이(가) 막아냅니다.",
+    GOAL: "GOAL! {playerName}, {teamName}의 골! {score}",
+    ASSIST: "{playerName}의 도움",
+    OWN_GOAL: "{playerName}의 자책골입니다… {teamName} {score}",
+    PENALTY_AWARDED: "{teamName}에 페널티킥! {foulerName}의 파울입니다.",
+    PENALTY_SCORED: "{playerName}, 페널티킥 성공! {score}",
+    PENALTY_MISSED: "{playerName}의 페널티킥을 {keeperName}이(가) 막아냅니다.",
+    YELLOW_CARD: "{playerName} 옐로카드 — {reason}",
+    SECOND_YELLOW: "{playerName} 두 번째 경고, 퇴장입니다!",
+    RED_CARD: "{playerName} 레드카드 — {reason}",
+    FOUL: "{playerName}의 파울 ({victimName})",
+    OFFSIDE: "{playerName} 오프사이드",
+    CORNER: "{teamName} 코너킥",
+    SAVE: "{keeperName}의 선방! {shooterName}의 슈팅을 막아냅니다.",
+    INJURY: "{playerName} 부상 — {severity}",
+    SUBSTITUTION: "{teamName} 선수 교체: {playerOut} → {playerIn}",
+    HALF_TIME: "전반 종료 {score}",
+    FULL_TIME: "경기 종료 {score}",
+    EXTRA_TIME_START: "연장전이 시작됩니다 {score}",
+    PENALTY_SHOOTOUT: "{playerName}의 승부차기 {kickIndex}번째 킥 — {result}",
+  } satisfies Record<MatchEventType, string>,
 };
 
 export type MatchMessages = typeof match;

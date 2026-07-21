@@ -498,7 +498,7 @@
 - **근거**: FR-UI-007, FR-MT-002, FR-MT-016, FR-BT-014, UC-002
 - **구현 사항**
   - [x] 스코어보드(경과분·추가시간·페이즈) + 분 단위 이벤트 타임라인 — 43일차, `/[lang]/matches/[matchId]` 실렌더. `MatchScoreboard`(composite 신규) + 순수 로직 `match-scoreboard.ts`(`foldMatchScore`/`deriveMatchPhase`/`compareEventChronologically`, 테스트 13건). LIVE 배지+페이즈 5종, PSO 분리 표기(R-13), 타임라인 시간역순 + ASSIST→GOAL 병합(E-2) + R-11 경계 문구. **Mock에 FINISHED 경기 이벤트 로그가 없어 E-1 폴딩이 항상 0-0을 반환** → FINISHED만 `Fixture.homeScore`/`awayScore` 직접 사용으로 우회(팀장 승인, **임시 조치** — I-212). `Fixture.roundLabel`이 mock에서 한국어로 구워져 `/en`에 그대로 노출(I-220)
-  - [ ] **이벤트 23종의 중계 문구 템플릿을 번역 카탈로그로 관리** — 선수·팀 이름은 변수로 주입(번역 대상 아님, D-17/D-18)
+  - [x] **이벤트 23종의 중계 문구 템플릿을 번역 카탈로그로 관리** — 선수·팀 이름은 변수로 주입(번역 대상 아님, D-17/D-18) — 44일차, `src/i18n/messages/{ko,en}/match.ts`에 `match.event.*` 23종 신설(와이어프레임 04번 §4 D3 프리픽스 준수). 기존 `enums.matchEvent.*`(4팀, 뱃지용 단어 라벨)와 역할 분리, 기존 키 삭제·변경 0건. `{playerName}`/`{teamName}`은 변수 자리표시자로만 존재(D-17/D-18). `satisfies Record<MatchEventType, string>`로 23종 전량 매핑을 tsc가 강제. **중계 문구 하드코딩 0**. 단 소비처 `EventTimelineItem.tsx:110`은 여전히 `enums.matchEvent.*`만 사용해 **카탈로그 미소비**(I-226 — 배선 일차 미정, 하드코딩 0이라 수락 기준엔 지장 없음)
   - [ ] 라인업 피치 뷰(`PitchLineup`), 팀 스탯 비교바, 선수별 평점 테이블
   - [ ] 날씨·구장 정보, **배당 패널(표시 전용, 베팅 버튼 비활성)** (FR-BT-014)
   - [ ] 라이브 폴링 3초 + 신규 이벤트 `aria-live="polite"` 안내 (NFR-A11Y-004)
@@ -538,7 +538,7 @@
 - **일정**: 44일차 ~ 47일차 (2026-09-18 ~ 2026-09-23) / 추정 3.5인일 / 담당 4팀 UI기반·i18n팀
 - **근거**: FR-UI-009, FR-UI-010, FR-UI-014, FR-LG-011~013, FR-LG-015, FR-EC-011
 - **구현 사항**
-  - [ ] 플레이오프 브래킷 — 리그1 10팀(WC→8강→4강→결승), 리그2 4팀, 리그3 1경기
+  - [x] 플레이오프 브래킷 — 리그1 10팀(WC→8강→4강→결승), 리그2 4팀, 리그3 1경기 — 44일차, `/[lang]/playoffs/[leagueId]` 실렌더. `getLeague`+`getPlayoffBracket`+`getTeamsByIds`로 `Fixture[]`를 라운드별 `BracketTreeData`로 변환해 **기존 `BracketTree`(5팀 013B)에 위임** — 신규 컴포넌트 0종. 신규 i18n 키는 `match.playoffs.title` 1개, 리그명은 고유명사 변수 주입(D-17). ko/en 3리그 전부 렌더 확인. **단 리그1 WC 라운드는 실제로 생성되지 않는다** — mock `progress.ts:1061`의 `floorPow2(playoffTeamCount)`가 10→8로 절삭(8강→4강→결승 3라운드). 기존 문서화된 스코프 축소(bye 슬롯 미지원, I-50 유보)이며 UI는 반환 라운드에 정직 → **I-227로 잔여 추적**
   - [ ] 컵 브래킷 — 60팀 6라운드 59경기 트리, 티어 배지, bye 4팀 표기, 자이언트킬링 하이라이트
   - [ ] 승부차기 스코어 별도 표기(`pk_home`/`pk_away`)
   - [ ] 스폰서 현황 — 목록(잔고·계약 팀 수·부도 위험 배지), 계약 상세
@@ -695,7 +695,7 @@
   - [x] 컵 시딩 — 1라운드 리그1↔리그3 우선 매칭, 잔여 매칭 폴백 규칙 확정 후 I-04 해소 — 41일차, 전역 시드 1~60(리그1 1~24·리그2 25~44·리그3 45~60) 통합 후 D-24 우선순위(1↔3 → 1↔2 → 2↔3 → 동일 티어 교차)로 결정론 생성
   - [x] 홈 결정 규칙(하위 티어 홈 / 동일 티어는 낮은 순위 / 결승 중립지) 및 중립지 홈 어드밴티지 미적용 — 41~42일차, 컵은 **"홈 = 더 큰 시드" 한 규칙**으로 통일했다(전역 시드에서 더 큰 값 = 하위 티어이므로 요구와 자동 일치). **43일차 완료** — `cup.ts`의 지역 함수 `homeAwayOf`를 `seeding.ts`의 `decideCupHomeAway()`로 이관해 중복 제거하고, `NEUTRAL_HOME_ADVANTAGE_COEFFICIENT = 1.0` + `assertNeutralHomeAdvantage()`로 **결승 중립지 홈 계수 1.0 불변식을 값으로 증명**(테스트 6건 추가, `cup.ts` 동작 불변). ⚠️ **오늘 닫힌 것은 불변식이며, 비중립 경기의 홈 계수 _공식_ 은 여전히 `ability/modifiers.ts`의 `homeModifier` TODO 골격(항상 1.0, 미확정) — Task 027 잔여.** 이 2층 구분이 `playoff-tiebreak.ts` stale 주석의 원인이었다(I-219, 당일 해소)
   - [x] **(42일차 추가)** 컵 시딩 모듈 분리 — 41일차 `cup.ts`에 이미 D-24 시딩이 들어 있어 **중복 구현 대신 `knockout/seeding.ts`로 분리·일반화**(`seedCupRound1()` 순수 함수, byeSeeds+pairs 반환)하고 `cup.ts`가 import하도록 축소. 외부 소비자가 없어 breaking change 0. 28쌍 결정론·pools 재실행 동일성을 테스트로 실증. **FR-LG-015 "2라운드 이후 재추첨" 해석은 1팀이 42일차에 판정 완료(I-207 해소)**
-  - [ ] 정규시즌 라운드 6/12/18/24/32/40 직후 컵 슬롯 6회 삽입 — 슬롯 중 리그 킥오프 0건
+  - [x] 정규시즌 라운드 6/12/18/24/32/40 직후 컵 슬롯 6회 삽입 — 슬롯 중 리그 킥오프 0건 — 44일차 `src/lib/sim/schedule/cup-slot.ts`(신규, 테스트 16건). 핵심은 **`shift(t) = t + duration × (마커 중 t 미만인 개수)` 공식이 모든 리그 킥오프가 슬롯 창 내부에 들어갈 수 없음을 수학적으로 보장**한다는 것 — 런타임 충돌 보정이 불필요하며 증명을 파일 헤더에 기재했다(`findCupSlotConflicts()`는 검증용). `CUP_PARAM.INSERT_ROUNDS`/`PHASE_DURATION_MIN.CUP_SLOT`은 주입값이라 리터럴 0건, NFR-DT-001 준수. **3리그 실규모(24/20/16팀) 조정 후 충돌 0건 실증**. ⚠️ **소비처 0건인 순수 계층이다** — `season/phase.ts`의 `ENTER_CUP_SLOT`/`EXIT_CUP_SLOT`(28일차) 발화 시각과 이 모듈의 슬롯 창(`startAt`/`endAt`)이 서로를 모르며, 접점은 오케스트레이션 계층 몫이라 **2팀 소관이 아니다(I-225 — 담당·일차 미배정)**. 계층 경계(브래킷 생성=`knockout/cup.ts` / 페이즈 전이=`season/phase.ts` / 시각 산출=`schedule/cup-slot.ts`)는 44일차에 양쪽 헤더 주석으로 고정
   - [ ] 상금 지급(공통코드 `PLAYOFF_PRIZE`, `CUP_PRIZE`, 자이언트킬링 보너스) → 원장 기록
   - [ ] 플레이오프 우승은 별도 트로피이며 승격 권한 없음 (FR-LG-014)
 - **수락 기준**: 컵 참가 60팀·59경기·우승 1팀. 무승부 발생 시 반드시 승자 확정.
@@ -835,7 +835,7 @@
   - [x] 멱등성 — 동시 호출 10건에도 중복 시뮬 0건, `FINISHED` 재처리 시 스탯 이중 누적 0 — 42일차 `20260721104357_tick_run_idempotent_claim.sql`. 탐지+상태전이를 **조건부 `UPDATE fixture ... WHERE status='SCHEDULED' ... RETURNING`(원자적 클레임)** 하나로 통합해 락과 별개인 **행 단위 게이트**를 만들었다. **판정은 단위 테스트가 아니라 실증** — 동시 curl 10건(다른 PID) 중 `fixtures_processed=1`이 정확히 1건, FINISHED 재호출 2회는 둘 다 0건이며 `simulated_at` 불변
     - ⚠️ **pg_cron 스케줄은 걸지 않았다(I-214).** 주기 1분은 최소 라운드 간격 75분의 약수라 수치상 문제없으나, **스코어가 STUB인 상태로 점등하면 2팀 실엔진이 붙기 전에 매분 가짜 점수로 `FINISHED` 처리**되어 되돌릴 수 없는 오염이 발생한다. 멱등성이 있어도 "잘못된 값으로 일관되게" 오염될 뿐이라 상쇄되지 않는다. **해제 조건: 2팀 실엔진 연동 + 후처리 배선**
   - [x] 1회 실행 처리 상한 ~~50경기~~ **30경기**, 초과분 다음 틱 이월 (Edge Function 시간 제한 대응) — 43일차 `20260721203626_tick_run_batch_cap.sql`. **I-09 반영으로 상한을 50→30으로 낮췄다**(Edge Function CPU 2초 한도 대응). **별도 이월 큐를 두지 않는다** — 초과분은 `SCHEDULED`로 남겨 다음 틱이 자연히 집어간다. PostgreSQL `UPDATE`는 `LIMIT`을 지원하지 않으므로 대상 id를 `SELECT ... ORDER BY kickoff_at, id LIMIT v_cap FOR UPDATE`로 먼저 확정(킥오프 이른 순 = 결정론적)한 뒤 그 집합에만 UPDATE(42일차 멱등성 게이트 유지). 초과 발생 시 `cron_run.status='PARTIAL'`(41일차 스키마에 있었으나 미사용이던 값)로 남겨 이월을 관측 가능하게 했다 — **다만 볼 대시보드가 아직 없다(I-218)**. **판정은 실측** — SCHEDULED 35건 → 1회차 `processed=30, remaining=5, PARTIAL` → 2회차 `processed=5, remaining=0, SUCCESS` → 3회차 `processed=0`(멱등성 미손상). 1팀이 같은 일차에 코드 폴백(`config/fallback.ts`·`catalog.ts`)도 30으로 정합화 — **폴백과 DB가 갈라진 채 양쪽 다 각자 테스트를 통과하고 있었고 소비 지점 테스트 부재로 미검출이었다(I-192 5번째 근거)**
-  - [ ] 지수 백오프 3회 재시도, 밀린 라운드 catch-up(폴백 경로 구분 기록)
+  - [x] 지수 백오프 3회 재시도, 밀린 라운드 catch-up(폴백 경로 구분 기록) — 44일차 `20260721120512_tick_run_retry_catchup.sql`(CREATE OR REPLACE로 42/43일차 함수 대체). 클레임 실패 시 즉시 `FAILED`가 아니라 **재시도 3회(0.1/0.2/0.4s 지수 백오프)** 후 소진 시에만 `FAILED`로 떨어뜨려 **폴백 경로를 구분 기록**한다. `is_catch_up`은 킥오프가 `INTERVAL_MIN`보다 오래 지난 `SCHEDULED` 존재 여부로 판정 — 41일차 스키마에 있었으나 **0/false 상수로 박혀 있던 값을 실측 기록으로 전환**했다. **판정은 실측** — fixture 40건(상한 30 초과 + 킥오프 2시간 전) 삽입 후 `tick_run()` 2회로 전량 `FINISHED` 완주(1회차 `PARTIAL` 30/잔여 10 `is_catch_up=true`, 2회차 `SUCCESS` 10/잔여 0), 백로그 없는 3회차는 `is_catch_up=false`로 정상 구분. 재시도 루프는 격리 DO 블록으로 검증. 테스트 데이터 전량 삭제 원복 확인. **I-214 크론 점등 금지는 유지**(스케줄 미활성 — 해제 조건은 여전히 2팀 실엔진 연동 + 후처리 배선)
   - [ ] 중단 감지 — 주기 3배 초과 시 `cron_gap` 기록 및 경고
   - [ ] `cron_run`에 no-op 포함 전 실행 기록, `/api/health` 엔드포인트(NFR-OB-004)
   - [ ] 서비스 롤 키는 Edge Function 시크릿에서만 로드 — 클라이언트 번들 grep 0건
