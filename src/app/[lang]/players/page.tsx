@@ -89,6 +89,15 @@ export default async function Page(props: PageProps<"/[lang]/players">) {
 
   const squad = selectedTeam ? await dataSource.getTeamSquad(selectedTeam) : [];
 
+  // OVR은 `PublicPlayerProfile`에 없고 `PlayerAttribute.ovrCached`에만 있다(상세 화면과
+  // 같은 소스). 스쿼드 단위 일괄 조회 계약이 없어 선수당 단건 조회를 병렬로 돈다 —
+  // 한 팀 명단(수십 명) 범위라 감당 가능한 비용이고, 새 계약을 임의로 만들지 않는다.
+  const ovrByPlayerId = new Map(
+    (await Promise.all(squad.map((player) => dataSource.getPlayerAttribute(player.id)))).flatMap(
+      (attribute) => (attribute ? [[attribute.playerId, attribute.ovrCached] as const] : []),
+    ),
+  );
+
   return (
     <div className="flex flex-col gap-6 p-4">
       <header className="flex flex-col gap-1">
@@ -166,6 +175,10 @@ export default async function Page(props: PageProps<"/[lang]/players">) {
                   <TableHead scope="col" numeric>
                     {t(locale, "player.list.ageHeader")}
                   </TableHead>
+                  {/* 헤더는 상세 화면과 같은 키를 재사용한다 — 같은 개념에 키를 새로 만들지 않는다. */}
+                  <TableHead scope="col" numeric>
+                    {t(locale, "player.profile.ovrLabel")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,6 +197,9 @@ export default async function Page(props: PageProps<"/[lang]/players">) {
                     </TableCell>
                     <TableCell numeric>
                       {t(locale, "player.profile.ageFormat", { age: player.age })}
+                    </TableCell>
+                    <TableCell numeric className="scoreboard">
+                      {ovrByPlayerId.get(player.id) ?? "—"}
                     </TableCell>
                   </TableRow>
                 ))}
