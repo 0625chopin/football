@@ -6,6 +6,8 @@ import { t } from "@/i18n/t";
 import type { TranslationKey } from "@/i18n/keys";
 import type { SupportedLocale } from "@/i18n/locales";
 import type { CommonCode, CommonCodeApplyPolicy, CommonCodeValueType } from "@/types";
+import type { CommonCodeGroupCode } from "@/lib/config/catalog";
+import { getNumericRange, type NumericRange } from "@/lib/config/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -19,6 +21,9 @@ export interface ConfigEditFormProps {
    * (`docs/wireframe/10-어드민공통코드-폼스펙.md` §2 "발견 1"). */
   readonly groupValueType: CommonCodeValueType;
   readonly applyPolicy: CommonCodeApplyPolicy;
+  /** `applyPolicy==='NEXT_SEASON'` 배지 문구에 실제 다음 시즌 번호를 채우는 데만 쓴다
+   * (`World.currentSeasonNumber`, 57일차 "발효 시점 지정"). 운영자가 바꿀 수 없는 표시값. */
+  readonly currentSeasonNumber: number;
   readonly code: CommonCode;
 }
 
@@ -39,14 +44,34 @@ function isScalarWrappedJson(value: Readonly<Record<string, unknown>>): value is
   return keys.length === 1 && keys[0] === "value" && typeof value.value === "number";
 }
 
+/** `NumericRange`를 `"min ~ max"` 형태로 표기한다. 상/하한 중 하나만 있으면 그쪽만,
+ * 둘 다 없으면(무제한) `null`을 반환해 호출부가 힌트 자체를 숨기게 한다. 부등호·단위 없는
+ * 숫자만이라 로케일 문구가 필요 없다(en dash `~`만 사용, ko/en 공용). */
+function formatRange(range: NumericRange): string | null {
+  if (range.min === null && range.max === null) return null;
+  if (range.min !== null && range.max !== null) return `${range.min} ~ ${range.max}`;
+  if (range.min !== null) return `≥ ${range.min}`;
+  return `≤ ${range.max}`;
+}
+
 /**
- * H3 편집 폼(`docs/wireframe/08-어드민-공통코드-스케줄러.md` H3) — Task 021(56일차) 스코프.
- * **범위 검증 인라인 에러·발효 시점 지정·변경 이력(H4)은 57일차 스코프라 여기 없다** —
- * 서버 액션(`./actions.ts`)이 3팀 `validateCommonCodeValue`로 최종 판정하고, 실패하면
- * 필드별 인라인이 아니라 폼 하단에 그 메시지를 그대로 보여주는 선까지만 오늘 구현한다.
- * 발효 정책(H3-p)은 그룹마다 고정이라 배지로 **표시만** 한다(운영자가 바꿀 수 없음, 08문서).
+ * H3 편집 폼(`docs/wireframe/08-어드민-공통코드-스케줄러.md` H3) — Task 021(56~57일차) 스코프.
+ * **57일차 추가**: ① 3팀 `getNumericRange`(`@/lib/config/schema`)로 숫자 위젯에 실시간
+ * 범위 힌트/인라인 에러(I-4 "타입별 실시간 검증") ② 빈 입력 저장 거부(I-281 — 사유 필수
+ * 검증과 같은 위치, `numberError`가 사유 검증과 동일하게 저장 버튼을 막는다) ③ `NEXT_SEASON`
+ * 정책 배지에 실제 다음 시즌 번호 표기. 서버 액션(`./actions.ts`)이 여전히 3팀
+ * `validateCommonCodeValue`로 최종 판정하며, 이 클라이언트 검증은 그 신뢰 경계를 대체하지
+ * 않는다 — 서버 실패 메시지는 그대로 폼 하단에 노출한다(기존 56일차 동작 유지).
  */
-export function ConfigEditForm({ locale, lang, groupCode, groupValueType, applyPolicy, code }: ConfigEditFormProps) {
+export function ConfigEditForm({
+  locale,
+  lang,
+  groupCode,
+  groupValueType,
+  applyPolicy,
+  currentSeasonNumber,
+  code,
+}: ConfigEditFormProps) {
   const isJsonGroup = groupValueType === "JSON";
   const scalarWrapped = isJsonGroup && code.valueJson !== null && isScalarWrappedJson(code.valueJson);
   const useJsonEditor = isJsonGroup && !scalarWrapped;
@@ -63,7 +88,28 @@ export function ConfigEditForm({ locale, lang, groupCode, groupValueType, applyP
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const canSave = reason.trim().length > 0 && !isPending;
+  // 숫자 위젯(순수 NUMBER 또는 스칼라 래핑 JSON)에만 적용 — 범위 메타데이터는 코드 레벨
+  // (`getNumericRange`)이라 순수 JSON 에디터(객체/배열)는 대상이 아니다(08문서 H3 비고).
+  const range = !useJsonEditor ? getNumericRange(groupCode as CommonCodeGroupCode, code.code) : null;
+  const rangeHint = range ? formatRange(range) : null;
+
+  function computeNumberError(): string | null {
+    const trimmed = numberText.trim();
+    if (trimmed === "") return t(locale, "admin.config.edit.valueRequired");
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) return t(locale, "admin.config.edit.invalidNumber");
+    if (range && ((range.min !== null && parsed < range.min) || (range.max !== null && parsed > range.max))) {
+      return t(locale, "admin.config.edit.rangeOutOfRange", { range: rangeHint ?? "" });
+    }
+    return null;
+  }
+  const numberError = !useJsonEditor ? computeNumberError() : null;
+
+  const canSave = reason.trim().length > 0 && numberError === null && !isPending;
+  const policyLabel =
+    applyPolicy === "NEXT_SEASON"
+      ? t(locale, "admin.config.edit.policyNextSeasonWithSeason", { season: currentSeasonNumber + 1 })
+      : t(locale, POLICY_KEY[applyPolicy]);
 
   function handleSave() {
     const trimmedReason = reason.trim();
@@ -73,8 +119,8 @@ export function ConfigEditForm({ locale, lang, groupCode, groupValueType, applyP
     const value = useJsonEditor
       ? ({ kind: "JSON", raw: jsonText } as const)
       : scalarWrapped
-        ? ({ kind: "JSON", raw: JSON.stringify({ value: Number(numberText) }) } as const)
-        : ({ kind: "NUMBER", raw: Number(numberText) } as const);
+        ? ({ kind: "JSON", raw: JSON.stringify({ value: Number(numberText.trim()) }) } as const)
+        : ({ kind: "NUMBER", raw: Number(numberText.trim()) } as const);
 
     startTransition(async () => {
       const result = await updateCommonCodeValue(lang, {
@@ -95,7 +141,7 @@ export function ConfigEditForm({ locale, lang, groupCode, groupValueType, applyP
     <section className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 md:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "admin.config.edit.title")}</h2>
-        <Badge variant="secondary">{t(locale, POLICY_KEY[applyPolicy])}</Badge>
+        <Badge variant="secondary">{policyLabel}</Badge>
       </div>
 
       <div className="flex flex-col gap-1">
@@ -120,14 +166,29 @@ export function ConfigEditForm({ locale, lang, groupCode, groupValueType, applyP
             className="w-full rounded-md border border-input bg-background p-3 font-mono text-xs"
           />
         ) : (
-          <input
-            id="config-edit-value"
-            type="number"
-            step={groupValueType === "INT" ? 1 : 0.01}
-            value={numberText}
-            onChange={(event) => setNumberText(event.target.value)}
-            className="scoreboard h-9 w-full max-w-[200px] rounded-md border border-input bg-background px-3 text-sm"
-          />
+          <>
+            <input
+              id="config-edit-value"
+              type="number"
+              step={groupValueType === "INT" ? 1 : 0.01}
+              value={numberText}
+              onChange={(event) => setNumberText(event.target.value)}
+              aria-invalid={numberError ? true : undefined}
+              aria-describedby={numberError ? "config-edit-value-error" : rangeHint ? "config-edit-value-hint" : undefined}
+              className="scoreboard h-9 w-full max-w-[200px] rounded-md border border-input bg-background px-3 text-sm"
+            />
+            {numberError ? (
+              <p id="config-edit-value-error" role="alert" className="text-xs text-destructive">
+                {numberError}
+              </p>
+            ) : (
+              rangeHint && (
+                <p id="config-edit-value-hint" className="text-xs text-muted-foreground">
+                  {t(locale, "admin.config.edit.rangeHint", { range: rangeHint })}
+                </p>
+              )
+            )}
+          </>
         )}
       </div>
 

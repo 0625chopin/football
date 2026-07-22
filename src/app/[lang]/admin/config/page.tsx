@@ -9,17 +9,23 @@ import { cn } from "@/lib/utils";
 import { ConfigGroupNav } from "./ConfigGroupNav";
 import { ConfigCodeTable } from "./ConfigCodeTable";
 import { ConfigEditForm } from "./ConfigEditForm";
+import { ConfigHistoryDiff } from "./ConfigHistoryDiff";
 import { applyConfigOverrides } from "./config-override-store";
+import { mergeConfigHistory } from "./config-history-store";
 
 /**
  * `/[lang]/admin/config` — Task 021(56~57일차, 5팀), 와이어프레임
  * `docs/wireframe/08-어드민-공통코드-스케줄러.md` Part A(H1~H5) /
  * `docs/wireframe/10-어드민공통코드-폼스펙.md`(위젯 유형 매핑).
  *
- * ## 스코프 — 56일차: 목록 표시 + 편집 폼
- * H1(그룹 목록)·H2(코드 목록)·H3(편집 폼, 값+사유+저장)까지만 만든다. **H3의 범위 검증
- * 인라인 에러·발효 시점 지정, H4(변경 이력 diff)는 57일차 스코프라 이 파일에 없다**
- * (`ConfigEditForm`/`actions.ts` 파일 헤더 참조).
+ * ## 스코프 — 57일차: 범위 검증 인라인 에러 + 발효 시점 지정 + H4 변경 이력 diff
+ * 56일차가 만든 H1(그룹 목록)·H2(코드 목록)·H3(편집 폼) 골격에 이번 일차가 더한 것 —
+ * ① `ConfigEditForm`이 3팀 `getNumericRange`로 실시간 범위 검증(+ I-281 빈 입력 거부)
+ * ② `./actions.ts`가 저장 시 `effectiveFromSeason`을 계산해 오버레이에 채움
+ * ③ 이 파일이 `DataSource.getCommonCodeHistory()`(1팀 계약, 기저)와
+ * `config-history-store.ts`(이 화면 저장 오버레이)를 합쳐 `ConfigHistoryDiff`(H4, 신규
+ * 화면 로컬 컴포넌트)에 내려준다. 선택된 코드가 있을 때만 조회한다(코드 미선택 시
+ * `commonCodeId`가 없어 조회 자체가 무의미).
  *
  * ## 그룹 수 — 36이 아니라 38
  * 와이어프레임 작성 시점(4~13일차)엔 카탈로그가 36종이었지만, 14일차·31일차에 각 1종씩
@@ -66,6 +72,19 @@ export default async function Page(props: PageProps<"/[lang]/admin/config">) {
   const codes = applyConfigOverrides(rawCodes);
   const selectedCodeEntry = selectedCode ? codes.find((entry) => entry.code === selectedCode) : undefined;
 
+  // H3-p "발효 시점 지정"(57일차) — NEXT_SEASON 배지에 채울 실제 다음 시즌 번호.
+  const world = await dataSource.getWorldStatus();
+
+  // H4 — 선택된 코드가 있을 때만 조회한다(commonCodeId가 없으면 조회 자체가 무의미).
+  const historyEntries =
+    activeGroup && selectedCodeEntry
+      ? mergeConfigHistory(
+          await dataSource.getCommonCodeHistory(selectedCodeEntry.id),
+          activeGroup.groupCode,
+          selectedCodeEntry.code,
+        )
+      : [];
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <div className="flex flex-col gap-1">
@@ -105,15 +124,19 @@ export default async function Page(props: PageProps<"/[lang]/admin/config">) {
                 selectedCode={selectedCodeEntry?.code}
               />
               {selectedCodeEntry ? (
-                <ConfigEditForm
-                  key={selectedCodeEntry.id}
-                  locale={locale}
-                  lang={lang}
-                  groupCode={activeGroup.groupCode}
-                  groupValueType={activeGroup.valueType}
-                  applyPolicy={activeGroup.applyPolicy}
-                  code={selectedCodeEntry}
-                />
+                <>
+                  <ConfigEditForm
+                    key={selectedCodeEntry.id}
+                    locale={locale}
+                    lang={lang}
+                    groupCode={activeGroup.groupCode}
+                    groupValueType={activeGroup.valueType}
+                    applyPolicy={activeGroup.applyPolicy}
+                    currentSeasonNumber={world.currentSeasonNumber}
+                    code={selectedCodeEntry}
+                  />
+                  <ConfigHistoryDiff locale={locale} entries={historyEntries} />
+                </>
               ) : (
                 <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                   {t(locale, "admin.config.edit.selectPrompt")}

@@ -11,13 +11,19 @@ import type { CommonCode } from "@/types";
  * ## 한계
  * `world-override-store.ts`와 동일 — 서버 재시작·다중 인스턴스에도 유지되지 않는다.
  * 실제 영속화(UPDATE + `CommonCodeHistory` append)는 6팀 Supabase 쓰기 경로가 붙어야 한다.
- * 변경 이력(H4, `CommonCodeHistory`)은 57일차 스코프라 이 파일도 기록하지 않는다.
+ * 변경 이력(H4, `CommonCodeHistory`)은 별도 오버레이(`./config-history-store.ts`, 57일차)가
+ * 기록한다 — 이 파일은 여전히 "현재값" 오버레이만 담당한다.
+ *
+ * **57일차 추가**: `effectiveFromSeason`도 패치에 포함한다(H3 "발효 시점 지정" 스코프,
+ * `./actions.ts` 헤더 참조) — `apply_policy=NEXT_SEASON`인 그룹은 저장 시점의
+ * `World.currentSeasonNumber + 1`을 기록하고, 그 외 정책은 `null`을 유지한다.
  */
 
 interface ConfigOverridePatch {
   readonly value: string;
   readonly valueNum: number | null;
   readonly valueJson: Readonly<Record<string, unknown>> | null;
+  readonly effectiveFromSeason: number | null;
   readonly updatedAt: string;
 }
 
@@ -42,6 +48,7 @@ export function applyConfigOverrides(codes: readonly CommonCode[]): readonly Com
       value: patch.value,
       valueNum: patch.valueNum,
       valueJson: patch.valueJson,
+      effectiveFromSeason: patch.effectiveFromSeason,
       updatedAt: patch.updatedAt,
     };
   });
