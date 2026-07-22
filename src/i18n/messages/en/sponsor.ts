@@ -26,6 +26,8 @@ export const sponsor = {
     empty: "No sponsor contracts registered.",
     sponsorHeader: "Sponsor",
     teamHeader: "Team",
+    ownerHeader: "Signing owner",
+    ownerUnknown: "–",
     periodHeader: "Period",
     periodFormat: "S{start}–S{end}",
     incomeHeader: "Income / season",

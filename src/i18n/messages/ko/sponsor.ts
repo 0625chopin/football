@@ -35,6 +35,8 @@ export const sponsor = {
     empty: "등록된 스폰서 계약이 없습니다.",
     sponsorHeader: "스폰서",
     teamHeader: "팀",
+    ownerHeader: "체결 구단주",
+    ownerUnknown: "–",
     periodHeader: "기간",
     periodFormat: "S{start}~S{end}",
     incomeHeader: "시즌당 수익",

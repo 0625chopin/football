@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/state/EmptyState";
 import { TeamBadge } from "@/components/domain/TeamBadge";
-import type { Sponsor, SponsorContract, SponsorContractStatus, Team, TeamId } from "@/types";
+import type { ClubOwner, Sponsor, SponsorContract, SponsorContractStatus, Team, TeamId } from "@/types";
 
 /**
  * `/[lang]/sponsors` 스폰서 현황 — Task 020(46일차, 4팀).
@@ -33,14 +33,22 @@ import type { Sponsor, SponsorContract, SponsorContractStatus, Team, TeamId } fr
  * foreground`(대비 8.2~9.6:1) 조합으로 채우고 "⚠" 아이콘을 라벨과 항상 병기한다 — 색만으로
  * 의미를 전달하지 않는다.
  *
- * ## 지금은 항상 "계약 상세 없음"으로 렌더된다 — 결함이 아니라 데이터 계층 갭
- * `MockDataSource.getSponsorContracts()`가 아직 파라미터를 무시하고 항상 `[]`를 반환하고
- * (`src/lib/data/mock/MockDataSource.ts`), 애초에 `src/lib/mock/world.ts`의 월드 생성기가
- * `SponsorContract` 레코드를 하나도 만들지 않는다(스폰서 40+개는 생성하되 계약은 생성 안
- * 함). 둘 다 이 팀 소유 경로가 아니라(`src/lib/data/**`·`src/lib/mock/**`) 직접 고치지
- * 않았다 — `archive.ts`(42일차, 완료 시즌 0건이라 항상 empty인 것과 동일 판단)와 같은
- * 이유로, 화면은 두 상태(있음/없음) 모두를 정상 처리하도록 짜고 지금 보이는 empty 결과는
- * 그대로 둔다(이슈 후보, 완료 보고 참조).
+ * ## 계약 상세 데이터 갭은 48일차에 해소됐다 — 이 절은 46일차 작성 당시 상태의 기록
+ * 46일차 작성 시점엔 `MockDataSource.getSponsorContracts()`가 파라미터와 무관하게 항상
+ * `[]`를 반환했다(`src/lib/mock/world.ts`가 스폰서만 생성하고 `SponsorContract` 레코드를
+ * 만들지 않았기 때문). **48일차(3팀 H-27, I-231 해소)에 `world.ts`가 `ClubOwner`와 함께
+ * 계약 레코드를 실제로 생성**하도록 바뀌어 이 화면은 이제 실값을 렌더한다(60일차 실측
+ * 확인). 두 상태(있음/없음) 모두 정상 처리하는 분기는 그대로 두되(향후 계약 0건인 스폰서가
+ * 있을 수 있음), "결함이 아니다"라는 이 문단의 원래 취지는 더 이상 근거가 아니다.
+ *
+ * ## 「체결 구단주」 열 (60일차, Task 020 소급 — D-33 경로②, D-35, I-239)
+ * `SponsorContract.signedByOwnerId`는 조회 전용 필드라 그 ID로 되짚는 메서드가 따로 없다.
+ * `DataSource.getClubOwner(teamId)`는 팀의 *현재* 구단주를 반환하는데, `world.ts`의
+ * `generateSponsorContractsForTeam`이 계약 생성 시점에 그 팀의 구단주를 그대로
+ * `signedByOwnerId`로 기록하고(교체 이력 없음) 이후 구단주가 바뀌는 로직도 없으므로
+ * `contract.teamId → getClubOwner` 조인이 곧 체결 당사자와 항상 일치한다. 이름은 고유명사라
+ * 변수로 그대로 주입한다(D-17, 번역 비대상) — `sponsor.contracts.ownerHeader`/`ownerUnknown`만
+ * i18n 키를 경유한다.
  *
  * ## 계약 상태 라벨 — `enums.ts`(3팀)에 없어 이 화면 전용으로 로컬 매핑
  * `SponsorContractStatus`(E-29)는 `enums.ts`의 `betMarketStatus`(동명 `VOIDED`를 가진
@@ -74,6 +82,17 @@ export default async function Page(props: PageProps<"/[lang]/sponsors">) {
   const teamIds = Array.from(new Set(contracts.map((contract) => contract.teamId)));
   const teams = teamIds.length > 0 ? await dataSource.getTeamsByIds(teamIds) : [];
   const teamById = new Map<TeamId, Team>(teams.map((team) => [team.id, team] as const));
+
+  // 「체결 구단주」 열(D-33 경로②, D-35, I-239, 60일차 소급) — `SponsorContract.signedByOwnerId`는
+  // 조회 전용 필드라 역조회 메서드가 없다. `getClubOwner(teamId)`는 팀의 *현재* 구단주를
+  // 반환하지만, 계약 생성기(`world.ts` `generateSponsorContractsForTeam`)가 애초에 그 팀의
+  // 구단주를 `signedByOwnerId`로 그대로 기록하므로(교체 이력 없음) 이 조인이 곧 체결 당사자다.
+  const owners = teamIds.length > 0 ? await Promise.all(teamIds.map((teamId) => dataSource.getClubOwner(teamId))) : [];
+  const ownerByTeamId = new Map<TeamId, ClubOwner>();
+  teamIds.forEach((teamId, index) => {
+    const owner = owners[index];
+    if (owner) ownerByTeamId.set(teamId, owner);
+  });
 
   const sortedSponsors = [...sponsors].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   const sortedContracts = [...contracts].sort((a, b) => {
@@ -158,6 +177,7 @@ export default async function Page(props: PageProps<"/[lang]/sponsors">) {
                 <TableRow>
                   <TableHead scope="col">{t(locale, "sponsor.contracts.sponsorHeader")}</TableHead>
                   <TableHead scope="col">{t(locale, "sponsor.contracts.teamHeader")}</TableHead>
+                  <TableHead scope="col">{t(locale, "sponsor.contracts.ownerHeader")}</TableHead>
                   <TableHead scope="col">{t(locale, "sponsor.contracts.periodHeader")}</TableHead>
                   <TableHead scope="col">{t(locale, "sponsor.contracts.incomeHeader")}</TableHead>
                   <TableHead scope="col">{t(locale, "sponsor.contracts.sharePctHeader")}</TableHead>
@@ -168,6 +188,7 @@ export default async function Page(props: PageProps<"/[lang]/sponsors">) {
                 {sortedContracts.map((contract) => {
                   const sponsorName = sponsors.find((sponsor) => sponsor.id === contract.sponsorId)?.name ?? "–";
                   const team = teamById.get(contract.teamId);
+                  const ownerName = ownerByTeamId.get(contract.teamId)?.name;
 
                   return (
                     <TableRow key={contract.id}>
@@ -180,6 +201,9 @@ export default async function Page(props: PageProps<"/[lang]/sponsors">) {
                         ) : (
                           "–"
                         )}
+                      </TableCell>
+                      <TableCell className="min-w-0 truncate" title={ownerName}>
+                        {ownerName ?? t(locale, "sponsor.contracts.ownerUnknown")}
                       </TableCell>
                       <TableCell>
                         {t(locale, "sponsor.contracts.periodFormat", {

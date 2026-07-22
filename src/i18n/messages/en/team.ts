@@ -3,6 +3,13 @@ import type { TeamMessages } from "../ko/team";
 export const team: TeamMessages = {
   list: {
     title: "Teams",
+    description: "Pick a league to browse its clubs by name, then jump to standings or squad.",
+    leagueLabel: "League",
+    apply: "Apply",
+    tierFormat: "Tier {tier}",
+    squadLinkLabel: "Squad",
+    standingsLinkLabel: "Standings",
+    emptyLeagues: "No leagues to display.",
   },
   detail: {
     title: "Team profile",

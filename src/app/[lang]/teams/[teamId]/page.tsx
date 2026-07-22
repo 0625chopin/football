@@ -209,7 +209,7 @@ export default async function Page(props: PageProps<"/[lang]/teams/[teamId]">) {
       {/* 데스크톱(1024+): 좌 62% F2 스쿼드 / 우 38% F3·F3-o(06 문서 3-2절). sm(375px)은
           이 프로젝트에서 320px과 동일 취급(I-184)이라 전환점으로 쓰지 않는다 — lg 하나만. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr] lg:items-start">
-        <section className="flex flex-col gap-3">
+        <section className="flex min-w-0 flex-col gap-3">
           <h2 className="eyebrow text-muted-foreground">{t(locale, "team.squad.title")}</h2>
           <SquadTable locale={locale} teamName={team.name} rows={squadRows} />
 
@@ -217,7 +217,7 @@ export default async function Page(props: PageProps<"/[lang]/teams/[teamId]">) {
           <SeasonStatPanel locale={locale} stat={teamSeasonStat} />
         </section>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <ManagerSection locale={locale} manager={manager} currentSeasonNumber={currentSeason?.seasonNumber ?? null} />
           <OwnerSection locale={locale} owner={owner} />
 

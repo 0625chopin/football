@@ -14,10 +14,14 @@ import { proxy } from "./proxy";
 
 const ORIGINAL_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const ORIGINAL_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+const ORIGINAL_CONSOLE_FLAG = process.env.ADMIN_CONSOLE_ENABLED;
 
+// I-287(60일차)로 `proxy.ts`가 NFR-SEC-007 1차(환경 플래그)까지 보게 됐다 — 2차(인증) 동작을
+// 검증하는 기존 스펙들은 1차를 켜 둬야 그 아래 인증 분기까지 도달한다.
 function setEnv(): void {
   process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-anon-key";
+  process.env.ADMIN_CONSOLE_ENABLED = "true";
 }
 
 function restoreEnv(): void {
@@ -25,6 +29,8 @@ function restoreEnv(): void {
   else process.env.NEXT_PUBLIC_SUPABASE_URL = ORIGINAL_URL;
   if (ORIGINAL_KEY === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   else process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = ORIGINAL_KEY;
+  if (ORIGINAL_CONSOLE_FLAG === undefined) delete process.env.ADMIN_CONSOLE_ENABLED;
+  else process.env.ADMIN_CONSOLE_ENABLED = ORIGINAL_CONSOLE_FLAG;
 }
 
 function requestFor(pathname: string, cookie?: string): NextRequest {
@@ -118,6 +124,35 @@ describe("proxy — /admin 가드 (NFR-SEC-007, 54일차)", () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
     const response = await proxy(requestFor("/ko/admin", "admin_session_token=any"));
+    expect(response.status).toBe(403);
+  });
+});
+
+describe("proxy — 콘솔 환경 플래그 1차 방어 (NFR-SEC-007, I-287, 60일차)", () => {
+  it("플래그가 꺼져 있으면 미인증 요청도 403이 아니라 404를 받는다(경로 존재 추론 차단)", async () => {
+    delete process.env.ADMIN_CONSOLE_ENABLED;
+    const response = await proxy(requestFor("/ko/admin"));
+    expect(response.status).toBe(404);
+  });
+
+  it("플래그가 꺼져 있으면 유효한 관리자 쿠키가 있어도 404다(1차가 2차보다 먼저 걸린다)", async () => {
+    delete process.env.ADMIN_CONSOLE_ENABLED;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, json: async () => [{ role: "ADMIN" }] }),
+    );
+    const response = await proxy(requestFor("/ko/admin", "admin_session_token=valid-token"));
+    expect(response.status).toBe(404);
+  });
+
+  it("플래그가 'true'가 아닌 값(오타 등)이면 비활성으로 fail-closed 처리해 404다", async () => {
+    process.env.ADMIN_CONSOLE_ENABLED = "1";
+    const response = await proxy(requestFor("/ko/admin"));
+    expect(response.status).toBe(404);
+  });
+
+  it("플래그가 켜져 있으면 기존처럼 인증 계층까지 도달해 미인증 요청은 403이다", async () => {
+    const response = await proxy(requestFor("/ko/admin"));
     expect(response.status).toBe(403);
   });
 });

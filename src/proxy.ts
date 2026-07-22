@@ -2,6 +2,17 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import { ADMIN_SESSION_COOKIE, isAuthorizedAdminToken } from "@/app/api/admin/auth";
+import { isAdminConsoleEnabled } from "@/app/[lang]/admin/console-flag";
+
+// 소유: 4팀 단독(35일차 명시, I-272 60일차 재확인). 54일차에 6팀 Task 037 산출물("미들웨어")이
+// 이 파일에 인가 가드로 들어왔으나(아래 블록), 판정 로직 본체는 6팀 소유 `api/admin/auth.ts`로
+// 뽑아냈고 여기 남은 건 "언제 그 판정을 요구하는가"뿐이다 — 파일 자체를 공동 소유로 바꾸지
+// 않는다. 이유: 이 파일은 앱 전체의 단일 진입점(Next.js Proxy)이라 여러 팀이 동시에 손대면
+// 9~22일차에 005/011을 합쳐 피했던 것과 같은 종류의 충돌이 재발한다(`docs/team-schedule/
+// 04-UI기반i18n팀.md` §1 "005를 이 팀에 이관한 근거" 참조). 다른 팀이 이 파일에 로직을
+// 추가해야 하면(이번처럼) 4팀과 조율해 반영하고, 판정 로직 본체는 각 팀 소유 파일에 두고
+// 여기서는 import해서 쓰는 패턴을 유지한다(이 파일의 `admin/auth.ts`·`admin/console-flag.ts`
+// import 두 건이 그 패턴의 실례).
 
 // 54일차(Task 037, NFR-SEC-007) — `/admin/**` 인증+역할 확인 가드.
 //
@@ -54,6 +65,15 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (isAdminRoute(pathname)) {
+    // I-287(60일차) — NFR-SEC-007 1차(환경 플래그)를 여기서도 봐야 한다. 이전엔 인증(2차)만
+    // 검사해 플래그가 꺼져 있어도 미인증 요청에 403을 돌려줘, 그 자체로 "경로가 존재한다"는
+    // 정보를 공격자에게 흘렸다. `isAdminConsoleEnabled()`(5팀 `console-flag.ts`, 59일차 도입 —
+    // 여기서 재구현하지 않고 그대로 import)로 먼저 걸러 비활성이면 404로 응답한다(페이지/
+    // Server Action의 `notFound()`/`assertAdminConsoleEnabled()`와 동일한 "비공개 경로" 취급).
+    if (!isAdminConsoleEnabled()) {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+
     const token = request.cookies.get(ADMIN_SESSION_COOKIE)?.value;
     if (!(await isAuthorizedAdminToken(token))) {
       return new NextResponse("Forbidden", { status: 403 });

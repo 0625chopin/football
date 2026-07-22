@@ -15,6 +15,19 @@
 export const team = {
   list: {
     title: "팀 목록",
+    // 60일차(Task 046, 5팀) — `/[lang]/teams` 인덱스 화면(I-223 선례, `players/page.tsx`
+    // ·`leagues/page.tsx`와 동일 판단). 리그 선택 GET 폼 + 팀명순 카드 그리드만 채운다 —
+    // 집계 열(성적·재정·스쿼드 규모)은 수락 기준상 스코프 밖이라 넣지 않는다.
+    description: "리그를 골라 소속 구단을 팀명순으로 살펴보고, 순위표나 스쿼드로 이동합니다.",
+    leagueLabel: "리그",
+    apply: "적용",
+    // {tier}는 League.tier(숫자)가 그대로 치환된다. `league.header.tierLabel`과 문구는
+    // 같지만 이 화면 소유 키로 별도 신설했다(화면을 소유한 팀이 자기 키를 소유하는 35일차
+    // 개정 원칙 — 남의 네임스페이스를 이 화면에서 직접 참조하지 않는다).
+    tierFormat: "티어 {tier}",
+    squadLinkLabel: "스쿼드",
+    standingsLinkLabel: "순위표",
+    emptyLeagues: "표시할 리그가 없습니다.",
   },
   detail: {
     title: "팀 프로필",
