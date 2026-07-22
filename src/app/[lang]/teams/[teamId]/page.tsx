@@ -10,9 +10,28 @@ import { TeamBadge } from "@/components/domain/TeamBadge";
 import { StatBar } from "@/components/domain/StatBar";
 import { FormStrip } from "@/components/domain/FormStrip";
 import { Badge } from "@/components/ui/badge";
+import { TrophyCase } from "@/components/composite/TrophyCase";
+import type { TrophyCaseTrophyRow } from "@/components/composite/TrophyCase";
+import { computeElapsedMinutes } from "@/components/composite/MatchCard";
+import type { MatchCardData } from "@/components/composite/MatchCard";
 import { SquadTable } from "./SquadTable";
 import type { SquadTableRow } from "./SquadTable";
-import type { ClubOwner, Manager, Standing, Team, TeamId } from "@/types";
+import { SeasonStatPanel } from "./SeasonStatPanel";
+import { FinancePanel } from "./FinancePanel";
+import { SponsorSlots } from "./SponsorSlots";
+import type { SponsorSlotEntry } from "./SponsorSlots";
+import { RecentUpcomingFixtures } from "./RecentUpcomingFixtures";
+import type {
+  ClubOwner,
+  Fixture,
+  FixtureStatus,
+  Manager,
+  Sponsor,
+  Standing,
+  Team,
+  TeamId,
+  Trophy,
+} from "@/types";
 
 /**
  * 51일차 팀장 판정(사용자 승인) — 창단 시즌(`Team.foundedSeason`)·구단주 재임 시즌
@@ -106,6 +125,83 @@ export default async function Page(props: PageProps<"/[lang]/teams/[teamId]">) {
     .slice()
     .sort((a, b) => (a.state?.squadNumber ?? Infinity) - (b.state?.squadNumber ?? Infinity));
 
+  // F4~F8(52일차, Task 018 2/2) — 병렬 조회. `teamSeasonStat`은 MockDataSource가 클럽
+  // 시즌 지표 생성기 미착수라 항상 null(F4·F5가 empty로 렌더되는 이유, 각 패널 헤더 참조).
+  const [teamSeasonStat, sponsorContracts, trophies, fixtures, seasons] = await Promise.all([
+    currentSeason
+      ? dataSource.getTeamSeasonStat({ teamId, seasonId: currentSeason.id, competitionType: "LEAGUE" })
+      : Promise.resolve(null),
+    dataSource.getTeamSponsorContracts(teamId),
+    dataSource.getTeamTrophies(teamId),
+    dataSource.getTeamFixtures({ teamId, limit: 30 }),
+    dataSource.getSeasons(),
+  ]);
+
+  // F6 — 스폰서 자체 정보(이름·업종·규모·부도 위험)는 계약과 별도 조인(`getSponsorsByIds`).
+  const sponsorIds = Array.from(new Set(sponsorContracts.map((contract) => contract.sponsorId)));
+  const sponsors = sponsorIds.length > 0 ? await dataSource.getSponsorsByIds(sponsorIds) : [];
+  const sponsorById = new Map<Sponsor["id"], Sponsor>(sponsors.map((sponsor) => [sponsor.id, sponsor]));
+  const sponsorEntries: readonly SponsorSlotEntry[] = sponsorContracts
+    .slice()
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    .map((contract) => ({ contract, sponsor: sponsorById.get(contract.sponsorId) ?? null }));
+
+  // F7 — `Trophy.seasonId`는 불투명 브랜드라 표시 라벨로 해석해야 한다(players/page.tsx
+  // `resolveSeasonLabel` 선례와 동일 패턴, `league.header.seasonLabel` 키 재사용).
+  const seasonNumberById = new Map(seasons.map((season) => [season.id, season.seasonNumber]));
+  function resolveSeasonLabel(seasonId: Trophy["seasonId"]): string {
+    const seasonNumber = seasonNumberById.get(seasonId);
+    return seasonNumber !== undefined ? t(locale, "league.header.seasonLabel", { number: seasonNumber }) : "—";
+  }
+  const trophyRows: readonly TrophyCaseTrophyRow[] = trophies.map((trophy) => ({
+    trophy,
+    seasonLabel: resolveSeasonLabel(trophy.seasonId),
+  }));
+
+  // F8 — LIVE(S-9 분리 행) / 최근(FINISHED·VOID) / 예정(SCHEDULED) 3갈래. 경과분은 홈
+  // (`[lang]/page.tsx`)과 동일하게 `getMatchClockContext` + `MatchCard.computeElapsedMinutes`
+  // 조합(H-24 계약)으로 채운다 — 미폴링(I-1, W-36 미승인 기본값)이라 진입 시 1회만 조회한다.
+  const fixtureTeamIds = Array.from(new Set(fixtures.flatMap((fixture) => [fixture.homeTeamId, fixture.awayTeamId])));
+  const [matchClock, fixtureTeams] = await Promise.all([
+    dataSource.getMatchClockContext(fixtures.map((fixture) => fixture.id)),
+    fixtureTeamIds.length > 0 ? dataSource.getTeamsByIds(fixtureTeamIds) : Promise.resolve([]),
+  ]);
+  const teamNameById = new Map<TeamId, string>(fixtureTeams.map((otherTeam) => [otherTeam.id, otherTeam.name]));
+  teamNameById.set(team.id, team.name);
+
+  function buildFixtureCardData(fixture: Fixture): MatchCardData {
+    const status: FixtureStatus = fixture.status;
+    const leagueName =
+      fixture.leagueId === null
+        ? t(locale, "team.match.cupLabel")
+        : fixture.leagueId === league?.id
+          ? (league?.name ?? fixture.leagueId)
+          : fixture.leagueId;
+    return {
+      id: fixture.id,
+      leagueName,
+      homeTeamName: teamNameById.get(fixture.homeTeamId) ?? fixture.homeTeamId,
+      awayTeamName: teamNameById.get(fixture.awayTeamId) ?? fixture.awayTeamId,
+      homeScore: fixture.homeScore,
+      awayScore: fixture.awayScore,
+      status,
+      kickoffAt: fixture.kickoffAt,
+      elapsedMinutes: status === "LIVE" ? computeElapsedMinutes(fixture.kickoffAt, matchClock.clock, matchClock.now) : null,
+    };
+  }
+
+  const liveFixtureCards = fixtures.filter((fixture) => fixture.status === "LIVE").map(buildFixtureCardData);
+  const recentFixtureCards = fixtures
+    .filter((fixture) => fixture.status === "FINISHED" || fixture.status === "VOID")
+    .sort((a, b) => (a.kickoffAt < b.kickoffAt ? 1 : a.kickoffAt > b.kickoffAt ? -1 : 0))
+    .slice(0, 5)
+    .map(buildFixtureCardData);
+  const upcomingFixtureCards = fixtures
+    .filter((fixture) => fixture.status === "SCHEDULED")
+    .sort((a, b) => (a.kickoffAt < b.kickoffAt ? -1 : a.kickoffAt > b.kickoffAt ? 1 : 0))
+    .slice(0, 5)
+    .map(buildFixtureCardData);
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
       <ClubHeaderSection locale={locale} team={team} league={league} standing={standing} />
@@ -116,11 +212,44 @@ export default async function Page(props: PageProps<"/[lang]/teams/[teamId]">) {
         <section className="flex flex-col gap-3">
           <h2 className="eyebrow text-muted-foreground">{t(locale, "team.squad.title")}</h2>
           <SquadTable locale={locale} teamName={team.name} rows={squadRows} />
+
+          <h2 className="eyebrow mt-3 text-muted-foreground">{t(locale, "team.season.title")}</h2>
+          <SeasonStatPanel locale={locale} stat={teamSeasonStat} />
         </section>
 
         <div className="flex flex-col gap-6">
           <ManagerSection locale={locale} manager={manager} currentSeasonNumber={currentSeason?.seasonNumber ?? null} />
           <OwnerSection locale={locale} owner={owner} />
+
+          <section className="flex flex-col gap-3">
+            <h2 className="eyebrow text-muted-foreground">{t(locale, "team.finance.title")}</h2>
+            <FinancePanel locale={locale} stat={teamSeasonStat} />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="eyebrow text-muted-foreground">{t(locale, "team.sponsor.title")}</h2>
+            <SponsorSlots
+              locale={locale}
+              entries={sponsorEntries}
+              owner={owner}
+              currentSeasonNumber={currentSeason?.seasonNumber ?? null}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="eyebrow text-muted-foreground">{t(locale, "team.trophy.title")}</h2>
+            <TrophyCase locale={locale} state={{ status: "ready", data: { trophies: trophyRows } }} />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="eyebrow text-muted-foreground">{t(locale, "team.match.title")}</h2>
+            <RecentUpcomingFixtures
+              locale={locale}
+              live={liveFixtureCards}
+              recent={recentFixtureCards}
+              upcoming={upcomingFixtureCards}
+            />
+          </section>
         </div>
       </div>
     </div>

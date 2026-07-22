@@ -17,10 +17,14 @@
  *   이미 호환).
  *
  * ## 범위 밖 (이 파일이 다루지 않는 것)
- * - **배팅/사용자 도메인**(`betting.ts`: `BetMarket`/`Bet`/`User` 등, E-33~E-40) — 2차
- *   릴리스 선정의 대상이며 대응 테이블 자체가 아직 마이그레이션되지 않았다
- *   (`supabase/migrations/`에 `bet_*`/`users`/`wallet_transaction` 없음). 해당 테이블이
- *   생기는 시점에 이 파일에 이어서 추가한다.
+ * - **배팅 도메인**(`betting.ts`: `BetMarket`/`BetSelection`/`Odds`/`Bet`/`BetLeg`,
+ *   E-33~E-37) — 2차 릴리스 선정의 대상이며 대응 테이블(`bet_*`)이 아직 마이그레이션되지
+ *   않았다. 해당 테이블이 생기는 시점에 이 파일에 이어서 추가한다.
+ * - **`User.role`/`User.displayName` 외 확장 필드** — `profile` 테이블은 52일차
+ *   (2026-09-30)에 `locale`(D-18, 사용자 선호 로케일) 컬럼이 추가됐지만 도메인 `User`
+ *   (`betting.ts`, 8일차 동결)에는 대응 필드가 없다 — `mapProfileRow`가 `world_id` 드롭과
+ *   같은 방식으로 이 컬럼을 매핑에서 드롭한다. `User`에 필드를 추가하려면 타입 단일 소스
+ *   소유팀(1팀)의 반영이 먼저 필요하다(C-5·C-6, 이 파일에서 타입을 손대지 않는다).
  * - **`DataSource.ts`의 합성 DTO**(`PublicPlayerProfile`/`MatchTeamStatComparison`/
  *   `FixtureRoundBounds`/`CronRunMetrics`/`PlayerStatRankingMetric`/`MultiAwardRankingEntry`)
  *   — 여러 테이블을 조합하거나 조회 시점 파생(스카우트 등급 등)이 필요한 조회 계층 로직이라
@@ -34,6 +38,7 @@ import type {
   // 브랜드 ID
   AuditLogId,
   AwardId,
+  BetId,
   ClubOwnerId,
   CommonCodeHistoryId,
   CommonCodeId,
@@ -59,6 +64,7 @@ import type {
   TransferId,
   TrophyId,
   UserId,
+  WalletTransactionId,
   WorldId,
   YouthProspectId,
   // 시드 계층 / 포인트
@@ -94,6 +100,9 @@ import type {
   SponsorContractStatus,
   TransferType,
   TrophyType,
+  UserRole,
+  WalletCurrency,
+  WalletTransactionReason,
   WeatherType,
   // 도메인 엔티티
   AuditLog,
@@ -137,6 +146,9 @@ import type {
   TeamSplitRecord,
   Transfer,
   Trophy,
+  User,
+  Wallet,
+  WalletTransaction,
   Weather,
   World,
   YouthProspect,
@@ -1074,5 +1086,37 @@ export function mapSimConstantSnapshotRow(row: Row<'sim_constant_snapshot'>): Si
     createdAt: row.created_at,
     firstUsedSeason: row.first_used_season,
     refCount: row.ref_count,
+  };
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 9. 사용자 / 지갑 (E-38~E-40, `betting.ts`) — 52일차(2026-09-30) 활성화
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/** `profile.locale`(D-18)은 도메인 `User`에 대응 필드가 없어 드롭한다 — 파일 헤더 주석 참조 */
+export function mapProfileRow(row: Row<'profile'>): User {
+  return {
+    id: row.id as UserId,
+    displayName: row.display_name,
+    role: row.role as UserRole,
+  };
+}
+
+export function mapWalletRow(row: Row<'wallet'>): Wallet {
+  return {
+    userId: row.user_id as UserId,
+    balance: row.balance as Points,
+    currency: row.currency as WalletCurrency,
+  };
+}
+
+export function mapWalletTransactionRow(row: Row<'wallet_transaction'>): WalletTransaction {
+  return {
+    id: row.id as WalletTransactionId,
+    userId: row.user_id as UserId,
+    amount: row.amount as Points,
+    reason: row.reason as WalletTransactionReason,
+    refBetId: row.ref_bet_id as BetId | null,
+    balanceAfter: row.balance_after as Points,
   };
 }

@@ -13,6 +13,9 @@
  * 51일차(2026-09-29) 재생성 — Task 037(+032 소급) auth_profile_wallet_provisioning
  * 마이그레이션 반영: profile/wallet 신규 + 48일차분 avg_rating(player_season_stat/
  * player_career_stat)·sponsor_contract.signed_by_owner_id·club_owner 반영.
+ *
+ * 52일차(2026-09-30) 재생성 — Task 037 User/Wallet/WalletTransaction 테이블 활성화:
+ * profile.locale 컬럼 추가(D-18) + wallet_transaction(E-40) 신규 반영.
  */
 
 export type Json =
@@ -2117,18 +2120,21 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          locale: string
           role: string
         }
         Insert: {
           created_at?: string
           display_name: string
           id: string
+          locale?: string
           role?: string
         }
         Update: {
           created_at?: string
           display_name?: string
           id?: string
+          locale?: string
           role?: string
         }
         Relationships: []
@@ -2988,6 +2994,44 @@ export type Database = {
             foreignKeyName: "wallet_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wallet_transaction: {
+        Row: {
+          amount: number
+          balance_after: number
+          created_at: string
+          id: string
+          reason: string
+          ref_bet_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          balance_after: number
+          created_at?: string
+          id?: string
+          reason: string
+          ref_bet_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          created_at?: string
+          id?: string
+          reason?: string
+          ref_bet_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transaction_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profile"
             referencedColumns: ["id"]
           },

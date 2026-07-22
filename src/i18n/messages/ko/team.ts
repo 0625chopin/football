@@ -111,6 +111,7 @@ export const team = {
     vacantMessage: "구단주 공석",
   },
   trophy: {
+    title: "트로피",
     empty: "트로피 없음",
     error: "트로피 정보를 불러오지 못했습니다.",
     // {count}는 획득 횟수(숫자)가 그대로 치환된다.
@@ -118,6 +119,136 @@ export const team = {
     // {seasons}는 시즌 표시 라벨 목록을 ", "로 이어붙인 문자열(소비처에서 조립)이 그대로 치환된다.
     seasonsFormat: "({seasons})",
     awardsTitle: "개인 수상",
+  },
+  // F4 시즌 지표(52일차, Task 018) — FR-ST-002 전량을 그룹 탭 5종으로 분할(W-30 초안 채택).
+  // `TeamSeasonStat` 파생값(득실·PPG·정확도·xG차 등)은 소비처(page.tsx/패널)가 계산해
+  // 문자열 하나로 조립한 뒤 이 키들에 채워 넣는다(저장 안 함, 파일 헤더 R-03 원칙).
+  season: {
+    title: "시즌 지표",
+    tabResults: "성적",
+    tabAttack: "공격",
+    tabPassDefense: "패스·수비",
+    tabDiscipline: "규율",
+    tabSquad: "스쿼드",
+    // 02 문서(리그 상세) `league.emptySeason`과 동일 문구(06 문서 §5 "02 문서와 문구 일치").
+    empty: "시즌이 아직 시작되지 않았습니다.",
+    error: "시즌 지표를 불러오지 못했습니다.",
+    // {played}/{wins}/{draws}/{losses}는 TeamSeasonStat 원값 그대로 치환.
+    playedFormat: "{played}경기 {wins}승 {draws}무 {losses}패",
+    // {points}는 TeamSeasonStat.points 그대로 치환.
+    pointsFormat: "승점 {points}",
+    // {goalsFor}/{goalsAgainst}는 원값, {goalDifference}는 소비처가 부호(+/-) 포함해 조립한 문자열.
+    goalsFormat: "득 {goalsFor} 실 {goalsAgainst} 득실 {goalDifference}",
+    // {value}는 (points / played) 소비처 계산, 소수 2자리.
+    ppgFormat: "PPG {value}",
+    // {wins}/{draws}/{losses}는 TeamSplitRecord(홈) 그대로 치환.
+    homeRecordFormat: "홈 {wins}-{draws}-{losses}",
+    // {wins}/{draws}/{losses}는 TeamSplitRecord(원정) 그대로 치환.
+    awayRecordFormat: "원정 {wins}-{draws}-{losses}",
+    cleanSheetsLabel: "클린시트",
+    failedToScoreLabel: "무득점",
+    longestWinStreakLabel: "최다연승",
+    longestUnbeatenLabel: "최다무패",
+    shotsLabel: "슈팅",
+    shotsOnTargetLabel: "유효슈팅",
+    // {pct}는 (shotsOnTarget / shots × 100) 소비처 계산, 정수.
+    shotAccuracyFormat: "정확도 {pct}%",
+    xgForLabel: "xG",
+    xgAgainstLabel: "xGA",
+    // {value}는 (xgFor - xgAgainst) 소비처 계산, 소수 1자리 + 부호.
+    xgDiffFormat: "xG차 {value}",
+    // {value}는 (goalsFor / played) 소비처 계산, 소수 2자리.
+    goalsPerGameFormat: "경기당 득점 {value}",
+    // {value}는 (goalsAgainst / played) 소비처 계산, 소수 2자리.
+    goalsConcededPerGameFormat: "경기당 실점 {value}",
+    setPieceGoalsLabel: "세트피스 득점",
+    openPlayGoalsLabel: "오픈플레이 득점",
+    penaltyGoalsLabel: "페널티 득점",
+    scoringByPeriodTitle: "시간대별 득점",
+    concedingByPeriodTitle: "시간대별 실점",
+    // {pct}는 TeamSeasonStat.possessionAvg 그대로 치환(이미 %).
+    possessionAvgFormat: "평균 점유율 {pct}%",
+    foulsLabel: "파울",
+    yellowCardsLabel: "경고",
+    redCardsLabel: "퇴장",
+    fairPlayScoreLabel: "페어플레이 점수",
+    // {count}는 TeamSeasonStat.squadSize 그대로 치환.
+    squadSizeFormat: "스쿼드 {count}명",
+    // {value}는 avgAge 소수 1자리.
+    avgAgeFormat: "평균 나이 {value}세",
+    // {value}는 avgOvr 소수 1자리.
+    avgOvrFormat: "평균 OVR {value}",
+    // {value}는 avgCondition 소수 1자리.
+    avgConditionFormat: "평균 컨디션 {value}",
+    squadMarketValueLabel: "총 몸값",
+    // {count}는 injuriesActive 그대로 치환.
+    injuriesActiveFormat: "부상 {count}명",
+    // {count}는 suspensionsActive 그대로 치환.
+    suspensionsActiveFormat: "정지 {count}명",
+    minutesDistributionTitle: "출전시간 분포",
+    // {period}는 Record 키(구간 라벨) 원문, {count}는 그 구간 값 — 둘 다 소비처가 채운다.
+    periodEntryFormat: "{period} {count}",
+    periodEmpty: "구간별 데이터 없음",
+  },
+  // F5 재정 패널(52일차) — `TeamSeasonStat` 재정 그룹 필드 그대로. 단위 pt(L-03), "원"/₩ 금지.
+  finance: {
+    title: "재정",
+    empty: "재정 정보가 없습니다.",
+    error: "재정 정보를 불러오지 못했습니다.",
+    // {amount}는 formatPoints()로 천단위 구분한 문자열이 그대로 치환된다.
+    pointsFormat: "{amount} pt",
+    balanceLabel: "잔고",
+    seasonIncomeLabel: "시즌 수입",
+    seasonExpenseLabel: "시즌 지출",
+    // {sign}은 "▲"/"▼", {amount}는 formatPoints() 절대값 문자열.
+    netFormat: "순익 {sign} {amount} pt",
+    wageBillLabel: "급여 총액",
+    // {pct}는 (wageBill / seasonIncome × 100) 소비처 계산, 정수. 수입 0이면 "—".
+    wageRatioFormat: "수입 대비 {pct}%",
+    transferSpendLabel: "이적 지출",
+    transferIncomeLabel: "이적 수입",
+    // {sign}/{amount}는 netFormat과 동일 규약 — (transferIncome - transferSpend) 기준.
+    transferBalanceFormat: "이적 수지 {sign} {amount} pt",
+    sponsorIncomeLabel: "스폰서 수입",
+    sponsorPayoutLabel: "스폰서 분배",
+    // 재정 위기 배지 조건은 FR-EC-012 명시 필드가 아직 없어 balance < 0 휴리스틱으로
+    // 판정한다(이슈 후보, 완료 보고 참조).
+    statusNormal: "정상",
+    statusCrisis: "재정 위기",
+  },
+  // F6 스폰서 3슬롯(52일차, D-35 F6 체결 구단주 표기 포함) — 항상 3슬롯을 그린다.
+  sponsor: {
+    title: "스폰서",
+    empty: "스폰서 계약 없음",
+    error: "스폰서 정보를 불러오지 못했습니다.",
+    emptySlotLabel: "빈 슬롯",
+    emptySlotCaption: "계약 없음",
+    // {scale}은 Sponsor.scale(1~5) 그대로 치환.
+    scaleFormat: "규모 {scale}",
+    // {amount}는 formatPoints(incomePerSeason)이 그대로 치환된다.
+    incomeFormat: "시즌 {amount} pt",
+    // {pct}는 SponsorContract.sharePct 그대로 치환.
+    sharePctFormat: "분배 {pct}%",
+    // {count}는 (endSeason - 현재 시즌 번호, 0 미만 clamp) 소비처 계산.
+    remainingSeasonsFormat: "잔여 {count}시즌",
+    // {name}은 ClubOwner.name(고유명사, D-17) 그대로 치환 — D-35 체결 주체 표기.
+    signedByFormat: "체결 {name}",
+    signedByUnknown: "체결 정보 없음",
+    voidedBadge: "계약 무효(부도)",
+    // Sponsor.balance < 0 또는 bankruptAtSeason !== null일 때(스폰서 현황 화면과 동일 조건).
+    bankruptRiskBadge: "부도 위험",
+  },
+  // F8 최근/예정 경기(52일차) — `MatchCard`(composite, density="row") 그대로 재사용.
+  match: {
+    title: "최근 / 예정 경기",
+    tabRecent: "최근",
+    tabUpcoming: "예정",
+    liveTitle: "진행 중",
+    emptyRecent: "최근 경기가 없습니다.",
+    emptyUpcoming: "예정된 경기 없음(시즌 종료)",
+    error: "경기 정보를 불러오지 못했습니다.",
+    // leagueId가 없는 대회(컵 등)의 카드용 대체 리그명 자리.
+    cupLabel: "컵",
   },
 };
 
