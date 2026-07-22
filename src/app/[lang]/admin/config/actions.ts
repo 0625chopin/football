@@ -11,6 +11,7 @@ import { CommonCodeValidationError, validateCommonCodeValue } from "@/lib/config
 import type { CommonCodeHistoryId, UserId } from "@/types";
 import { applyConfigOverrides, setConfigOverride } from "./config-override-store";
 import { recordConfigHistoryEntry } from "./config-history-store";
+import { assertAdminConsoleEnabled } from "../console-flag";
 
 // Task 021(56~57일차) — H3 편집 폼 저장 서버 액션. `../actions.ts`(G2~G6)와 동일하게
 // 인가 재검증을 첫 줄에서 수행한다(Next.js 16 공식 문서 경고, `../actions.ts` 파일 헤더
@@ -56,6 +57,7 @@ export async function updateCommonCodeValue(
   lang: string,
   input: UpdateCommonCodeValueInput,
 ): Promise<UpdateCommonCodeValueResult> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
   const locale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;

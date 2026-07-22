@@ -19,6 +19,9 @@
  * 생긴다. 다만 이 라우트는 라인업·평점 조회는 하지 않는다 — D3가 필요로 하는 이벤트
  * 참가자(팀 2건 + 이벤트에 등장한 선수)만 조회해 페이로드를 가볍게 유지한다(`page.tsx`의
  * 최초 SSR은 라인업·평점 화면도 함께 그리므로 선수 ID 합집합이 더 크다 — 그 차이는 의도적).
+ *
+ * 레이트 리밋(59일차, NFR-SEC-009 "공개 API IP당 분당 300건") — `../../../rate-limiter.ts`
+ * (6팀 배선, `matches/route.ts`와 동일 공유 버킷 — 파일 헤더 참조) 참조.
  */
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
@@ -27,13 +30,17 @@ import { compareEventChronologically } from "@/components/composite/match-scoreb
 import { buildTimelineRows } from "@/app/[lang]/matches/[matchId]/timeline";
 import type { FixtureId, PlayerId, TeamId } from "@/types";
 import type { MatchEventsApiResponse } from "./types";
+import { enforcePublicRateLimit } from "../../../rate-limiter";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ matchId: string }> },
 ): Promise<Response> {
+  const rateLimited = enforcePublicRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   try {
     const { matchId } = await params;
     await bootstrapApp();

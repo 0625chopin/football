@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import { t } from "@/i18n/t";
@@ -13,6 +15,8 @@ import { WorldResetPanel } from "./WorldResetPanel";
 import { AuditLogViewer } from "./AuditLogViewer";
 import { applyWorldOverride } from "./world-override-store";
 import { mergeAuditLogs } from "./audit-log-store";
+import { isAdminConsoleEnabled } from "./console-flag";
+import { fetchAuditLogsForAdminConsole } from "./service-role-audit";
 
 /**
  * `/[lang]/admin` 운영 콘솔 — Task 021(54~55일차, 5팀), 와이어프레임
@@ -30,11 +34,17 @@ import { mergeAuditLogs } from "./audit-log-store";
  * 계약, 6팀 Supabase 쓰기 경로)가 붙기 전까지는 이 프로세스 한정 데모다 — 정확한 한계는
  * `world-override-store.ts` 파일 헤더 참조.
  *
- * ## 접근 제어 — 이 화면 범위 밖
- * NFR-SEC-007(비공개 경로 + 환경 플래그)은 미들웨어 영역이라 이 파일이 다루지 않는다 —
- * 같은 일차에 6팀이 `src/proxy.ts`에 `/admin/**` 인증·역할 확인을 붙인다(팀장 조율).
+ * ## 접근 제어 — NFR-SEC-007 1차(환경 플래그), 59일차 신규
+ * 2차(인증·역할 확인, `src/proxy.ts` + `assertAdminSession()`)는 54일차 6팀이 이미
+ * 붙였다. 1차는 W-45가 미결로 남긴 채 지금까지 없었다 — `./console-flag.ts` 참조.
+ * 플래그가 꺼지면 `notFound()`로 이 라우트가 존재하지 않는 것처럼 응답한다(세그먼트
+ * `not-found.tsx`가 이미 이 팀 소유라 별도 화면을 새로 만들 필요가 없다).
  */
 export default async function Page(props: PageProps<"/[lang]/admin">) {
+  if (!isAdminConsoleEnabled()) {
+    notFound();
+  }
+
   const { lang } = await props.params;
   const locale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
 
@@ -60,7 +70,7 @@ export default async function Page(props: PageProps<"/[lang]/admin">) {
   // 재검증하는데, 그걸 페이지 렌더 경로에 그대로 쓰면 이 서버 컴포넌트 렌더 자체가
   // 인가 실패로 통째로 던진다 — G4 시드 조회와 동일하게 "초기 렌더는 무가드 직접 조회,
   // 이후 상호작용(필터·검색)만 게이트된 액션 경유"로 나눈다(I-274와 같은 함정 회피).
-  const auditLogs = mergeAuditLogs(await dataSource.getAuditLogs());
+  const auditLogs = mergeAuditLogs(await fetchAuditLogsForAdminConsole());
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">

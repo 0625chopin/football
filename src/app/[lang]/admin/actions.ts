@@ -8,6 +8,8 @@ import type { AuditActorType, AuditLog, AuditLogId, FixtureId, MatchSeed } from 
 import { getWorldOverride, setWorldOverride } from "./world-override-store";
 import { mergeAuditLogs, recordLocalAuditLog } from "./audit-log-store";
 import { isWorldResetConfirmValid } from "./reset-validation";
+import { assertAdminConsoleEnabled } from "./console-flag";
+import { fetchAuditLogsForAdminConsole } from "./service-role-audit";
 
 // Task 021(54일차) — G2 배속 제어·G3 정지/재개·G4 시드 조회의 서버 액션.
 // 왜 이 파일이 쓰기 조작을 담당하는지는 `./world-override-store.ts` 파일 헤더 참조
@@ -25,6 +27,12 @@ import { isWorldResetConfirmValid } from "./reset-validation";
 // 통과해야 한다. 이 함수는 6팀 소유(`src/app/api/admin/auth.ts`)이며 비인가 시 throw한다
 // — `src/proxy.ts`와 동일한 "Supabase access token → `public.profile.role==='ADMIN'`"
 // 판정을 재사용한다(계약은 팀장이 양팀에 동일 통보로 고정, 시그니처 변경 없음).
+//
+// ## 환경 플래그 재검증 (NFR-SEC-007 1차, 59일차 신규)
+// 같은 이유로 `assertAdminConsoleEnabled()`(`./console-flag.ts`, 이 팀 소유)도 5함수
+// 전부 첫 줄 — `assertAdminSession()`보다 먼저 — 통과해야 한다. 인증(2차)과 별개의
+// 킬스위치이므로 순서를 바꿔도 안전과는 무관하지만, 더 싼 검사를 먼저 실패시켜 불필요한
+// Supabase 왕복을 피한다.
 
 const MIN_SPEED_MULTIPLIER = 0.25;
 const MAX_SPEED_MULTIPLIER = 20;
@@ -42,6 +50,7 @@ export async function applySpeedMultiplier(
   lang: string,
   requestedMultiplier: number,
 ): Promise<{ readonly speedMultiplier: number }> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
   const dataSource = getDataSource();
@@ -69,6 +78,7 @@ export async function applySpeedMultiplier(
  * (`world-override-store.ts` 파일 헤더 "한계" 절 참조).
  */
 export async function toggleWorldPause(lang: string): Promise<{ readonly isPaused: boolean }> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
   const dataSource = getDataSource();
@@ -99,6 +109,7 @@ export async function toggleWorldPause(lang: string): Promise<{ readonly isPause
 export async function lookupMatchSeed(
   matchId: string,
 ): Promise<{ readonly found: boolean; readonly matchSeed?: MatchSeed }> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
   const trimmed = matchId.trim();
@@ -134,6 +145,7 @@ export async function confirmWorldReset(
     readonly newSeed?: string;
   },
 ): Promise<{ readonly accepted: true }> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
   if (!isWorldResetConfirmValid(input.reason, input.confirmText)) {
@@ -176,8 +188,9 @@ export async function fetchAuditLogs(params?: {
   readonly search?: string;
   readonly limit?: number;
 }): Promise<readonly AuditLog[]> {
+  assertAdminConsoleEnabled();
   await assertAdminSession();
 
-  const base = await getDataSource().getAuditLogs(params);
+  const base = await fetchAuditLogsForAdminConsole(params);
   return mergeAuditLogs(base, params);
 }

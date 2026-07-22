@@ -34,6 +34,11 @@ describe("admin actions (G2/G3/G4)", () => {
     resetDataSourceCache();
     resetWorldOverride(); // 테스트 간 오버레이 격리
     resetAuditLogStore();
+    // 59일차 신규 — NFR-SEC-007 1차(`assertAdminConsoleEnabled()`)가 각 액션 첫 줄에
+    // 추가됐다. 기본값 미설정=비활성(fail-closed, `console-flag.ts` 참조)이라 켜 두지
+    // 않으면 이 스위트가 검증하려는 인가 로직(assertAdminSession 분기)에 도달하기 전에
+    // 전부 거부된다.
+    process.env.ADMIN_CONSOLE_ENABLED = "true";
     assertAdminSessionMock.mockReset();
     assertAdminSessionMock.mockResolvedValue(undefined); // 기본값: 인가된 세션
     await bootstrapApp();
@@ -62,6 +67,19 @@ describe("admin actions (G2/G3/G4)", () => {
     it("각 액션은 assertAdminSession을 정확히 1회 호출한다", async () => {
       await applySpeedMultiplier("ko", 5);
       expect(assertAdminSessionMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("NFR-SEC-007 1차(환경 플래그) — 59일차 신규", () => {
+    it("ADMIN_CONSOLE_ENABLED가 꺼져 있으면 인가된 세션이어도 거부된다(assertAdminSession 호출 전)", async () => {
+      delete process.env.ADMIN_CONSOLE_ENABLED;
+      await expect(applySpeedMultiplier("ko", 5)).rejects.toThrow(/disabled/);
+      expect(assertAdminSessionMock).not.toHaveBeenCalled();
+    });
+
+    it("ADMIN_CONSOLE_ENABLED가 \"true\" 외의 값이면 여전히 비활성으로 판정한다", async () => {
+      process.env.ADMIN_CONSOLE_ENABLED = "1";
+      await expect(toggleWorldPause("ko")).rejects.toThrow(/disabled/);
     });
   });
 
@@ -105,6 +123,7 @@ describe("confirmWorldReset (G5) — I-13: 실제 리셋을 절대 실행하지 
     resetDataSourceCache();
     resetWorldOverride();
     resetAuditLogStore();
+    process.env.ADMIN_CONSOLE_ENABLED = "true"; // 59일차 신규, 위 스위트와 동일 이유
     assertAdminSessionMock.mockReset();
     assertAdminSessionMock.mockResolvedValue(undefined);
     await bootstrapApp();
@@ -192,6 +211,7 @@ describe("fetchAuditLogs (G6)", () => {
     resetDataSourceCache();
     resetWorldOverride();
     resetAuditLogStore();
+    process.env.ADMIN_CONSOLE_ENABLED = "true"; // 59일차 신규, 위 스위트와 동일 이유
     assertAdminSessionMock.mockReset();
     assertAdminSessionMock.mockResolvedValue(undefined);
     await bootstrapApp();

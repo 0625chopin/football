@@ -34,11 +34,25 @@
  * - 이메일 인증(Confirm email) 활성화 여부에 따라 미인증 계정은 GoTrue가 로그인 자체를
  *   거부할 수 있다(51일차 마이그레이션 헤더에 이미 "Dashboard 수동 조치 필요"로 기록됨,
  *   이 라우트가 새로 만든 제약이 아니다).
+ *
+ * ## 레이트 리밋 — 59일차, 어드민 로그인 무차별 대입 방어(IP당)
+ * 이 라우트는 NFR-SEC-009의 "공개 API" 버킷 대상이 아니다(팀장 재수정 지시, 59일차 —
+ * 인증 엔드포인트이지 공개 조회 API가 아님). 실제 NFR-SEC-009 "공개 API IP당 분당
+ * 300건" 버킷은 5팀 소유 `src/app/api/live/**`(`src/app/api/live/rate-limiter.ts`)가
+ * 담당한다. 여기 리미터는 별도 목적(자격증명 무차별 대입 방어)이라 값은 같은
+ * `PUBLIC_RATE_LIMIT` 프리셋(300/분)을 재사용하되 **키 공간은 분리된 인스턴스**로
+ * 완전히 독립돼 있다(`./rate-limiter.ts`, `api/live`의 것과 서로의 카운트에 영향
+ * 없음). `src/lib/data/supabase/rate-limit.ts`(6팀 공용 리미터)를 그대로 쓴다 — 새
+ * 로직을 여기서 재구현하지 않는다. 리미터 싱글턴은 `./rate-limiter.ts`로 분리했다 —
+ * Route Handler 파일은 `GET`/`POST`/`dynamic` 등 정해진 심볼만 export할 수 있어
+ * (`.next/dev/types` 라우트 타입 검사, `TS2344`), 여기서 추가로 export하면 안 된다.
  */
 
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { ADMIN_SESSION_COOKIE, isAuthorizedAdminToken } from "@/app/api/admin/auth";
+import { getClientIp } from "@/lib/data/supabase/rate-limit";
+import { adminSessionRateLimiter } from "./rate-limiter";
 
 interface SupabaseTokenResponse {
   readonly access_token?: string;
@@ -54,6 +68,14 @@ function resolveSupabaseConfig(): { readonly baseUrl: string; readonly apiKey: s
 
 /** 이메일/비밀번호로 로그인하고, `profile.role === 'ADMIN'`일 때만 세션 쿠키를 발급한다. */
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const rateLimit = adminSessionRateLimiter.check(getClientIp(request.headers), Date.now());
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)) } },
+    );
+  }
+
   const config = resolveSupabaseConfig();
   if (!config) {
     return NextResponse.json({ error: "supabase_not_configured" }, { status: 500 });

@@ -1,3 +1,5 @@
+import { notFound } from "next/navigation";
+
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import { t } from "@/i18n/t";
@@ -8,6 +10,7 @@ import { CronMetricCards } from "./CronMetricCards";
 import { CronGapList } from "./CronGapList";
 import { CronRunTable } from "./CronRunTable";
 import { countConsecutiveFailures } from "./scheduler-elapsed";
+import { isAdminConsoleEnabled } from "../console-flag";
 
 const DEFAULT_CRON_INTERVAL_MIN = 1;
 
@@ -33,8 +36,15 @@ const DEFAULT_CRON_INTERVAL_MIN = 1;
  * 와이어프레임이 폴링 주기 자체를 팀장 판정 대기로 남겨 두었다(W-48). 이번 일차는 수동
  * 새로고침(브라우저 새로고침 = 서버 컴포넌트 재조회)만 제공하고, 자동 폴링은 W-48 해소
  * 이후로 미룬다.
+ *
+ * ## 접근 제어 — NFR-SEC-007 1차(환경 플래그), 59일차 신규
+ * `../console-flag.ts` 참조 — 다른 두 콘솔과 동일하게 플래그 비활성 시 `notFound()`.
  */
 export default async function Page(props: PageProps<"/[lang]/admin/scheduler">) {
+  if (!isAdminConsoleEnabled()) {
+    notFound();
+  }
+
   const { lang } = await props.params;
   const locale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
 

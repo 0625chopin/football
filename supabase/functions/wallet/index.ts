@@ -7,11 +7,20 @@
 //
 // 요청 바디: { userId: string, amount: number, reason: 'BET_PLACE'|'BET_WIN'|'BET_VOID'|'TOPUP', refBetId?: string }
 // amount는 차감이면 음수, 증액이면 양수(원장 wallet_transaction.amount와 동일 부호 규약).
+//
+// 레이트 리밋(59일차, NFR-SEC-009) — "배팅 제출 사용자당 분당 30건"은 이 함수 호출
+// 중 `reason === 'BET_PLACE'`(사용자가 직접 트리거하는 유일한 사유)에만 건다.
+// BET_WIN/BET_VOID/TOPUP은 정산기·운영자가 트리거하는 시스템 발신 호출이라 이
+// 버킷의 대상이 아니다(NFR-SEC-009 원문 "배팅 *제출*"). 리미터 본체는
+// `src/lib/data/supabase/rate-limit.ts`(6팀 공용, Deno/Node 양쪽에서 상대 경로로
+// 그대로 재사용 — Deno·Node 전용 API를 쓰지 않는 순수 TS라 가능하다)를 그대로 쓴다.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { BETTING_RATE_LIMIT, createSlidingWindowRateLimiter } from "../../../src/lib/data/supabase/rate-limit.ts";
 
 const REASONS = new Set(["BET_PLACE", "BET_WIN", "BET_VOID", "TOPUP"]);
+const bettingRateLimiter = createSlidingWindowRateLimiter(BETTING_RATE_LIMIT);
 
 Deno.serve(async (req) => {
   try {
@@ -50,6 +59,22 @@ Deno.serve(async (req) => {
         JSON.stringify({ ok: false, error: "invalid_request" }),
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
+    }
+
+    if (reason === "BET_PLACE") {
+      const rateLimit = bettingRateLimiter.check(userId, Date.now());
+      if (!rateLimit.allowed) {
+        return new Response(
+          JSON.stringify({ ok: false, error: "rate_limited" }),
+          {
+            status: 429,
+            headers: {
+              "Content-Type": "application/json",
+              "Retry-After": String(Math.ceil(rateLimit.retryAfterMs / 1000)),
+            },
+          },
+        );
+      }
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);

@@ -20,16 +20,23 @@
  * 절), 이 엔드포인트는 정의상 "지금 진행 중인 경기"라 캐시되면 폴링의 의미가 없다 —
  * 향후 이 프로젝트가 Cache Components를 켜더라도 정적 프리렌더로 새지 않도록
  * `dynamic = "force-dynamic"`을 명시적으로 고정해 둔다.
+ *
+ * 레이트 리밋(59일차, NFR-SEC-009 "공개 API IP당 분당 300건") — `../rate-limiter.ts`
+ * (6팀 배선, 파일 헤더 참조) 참조.
  */
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import type { Fixture, LeagueId } from "@/types";
 import type { LiveMatchesApiResponse } from "./types";
+import { enforcePublicRateLimit } from "../rate-limiter";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
+  const rateLimited = enforcePublicRateLimit(request);
+  if (rateLimited) return rateLimited;
+
   try {
     await bootstrapApp();
     const dataSource = getDataSource();

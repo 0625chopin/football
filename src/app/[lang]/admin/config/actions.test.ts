@@ -20,6 +20,8 @@ describe("updateCommonCodeValue (H3 저장)", () => {
     resetDataSourceCache();
     resetConfigOverrideStore();
     resetConfigHistoryStore();
+    // 59일차 신규 — NFR-SEC-007 1차, `../actions.test.ts`와 동일 이유(fail-closed 기본값).
+    process.env.ADMIN_CONSOLE_ENABLED = "true";
     assertAdminSessionMock.mockReset();
     assertAdminSessionMock.mockResolvedValue(undefined); // 기본값: 인가된 세션
     // 57일차부터 effectiveFromSeason 계산에 getWorldStatus()/getCommonCodeGroups()가
@@ -62,6 +64,19 @@ describe("updateCommonCodeValue (H3 저장)", () => {
       },
     ]);
     expect(value).toBe("75"); // 오버레이가 적용되지 않았다 = 저장이 일어나지 않았다
+  });
+
+  it("ADMIN_CONSOLE_ENABLED가 꺼져 있으면 인가된 세션이어도 거부된다(59일차 NFR-SEC-007 1차)", async () => {
+    delete process.env.ADMIN_CONSOLE_ENABLED;
+    await expect(
+      updateCommonCodeValue("ko", {
+        groupCode: "ROUND_INTERVAL_MIN",
+        code: "LEAGUE_1",
+        reason: "테스트",
+        value: { kind: "NUMBER", raw: 80 },
+      }),
+    ).rejects.toThrow(/disabled/);
+    expect(assertAdminSessionMock).not.toHaveBeenCalled();
   });
 
   it("사유가 비어 있으면 서버측에서 거부한다(V-4)", async () => {

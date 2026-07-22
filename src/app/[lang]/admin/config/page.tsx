@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
@@ -12,6 +13,8 @@ import { ConfigEditForm } from "./ConfigEditForm";
 import { ConfigHistoryDiff } from "./ConfigHistoryDiff";
 import { applyConfigOverrides } from "./config-override-store";
 import { mergeConfigHistory } from "./config-history-store";
+import { isAdminConsoleEnabled } from "../console-flag";
+import { fetchCommonCodeHistoryForAdminConsole } from "../service-role-audit";
 
 /**
  * `/[lang]/admin/config` — Task 021(56~57일차, 5팀), 와이어프레임
@@ -41,8 +44,15 @@ import { mergeConfigHistory } from "./config-history-store";
  * lg:*` 클래스만 토글한다. 데스크톱(1024+)은 둘 다 보이는 master-detail(3A-2). 이 페이지만
  * `lg`(1024px) 브레이크포인트를 쓰는 이유는 와이어프레임이 이 화면 한정으로 그 값을
  * 명시했기 때문이다(I-184는 `sm`/`xs` 오용을 금지할 뿐, `lg` 자체는 Tailwind 표준값).
+ *
+ * ## 접근 제어 — NFR-SEC-007 1차(환경 플래그), 59일차 신규
+ * `../console-flag.ts` 참조 — `/admin`과 동일하게 플래그 비활성 시 `notFound()`.
  */
 export default async function Page(props: PageProps<"/[lang]/admin/config">) {
+  if (!isAdminConsoleEnabled()) {
+    notFound();
+  }
+
   const { lang } = await props.params;
   const locale = isSupportedLocale(lang) ? lang : DEFAULT_LOCALE;
   const searchParams = (await props.searchParams) ?? {};
@@ -79,7 +89,7 @@ export default async function Page(props: PageProps<"/[lang]/admin/config">) {
   const historyEntries =
     activeGroup && selectedCodeEntry
       ? mergeConfigHistory(
-          await dataSource.getCommonCodeHistory(selectedCodeEntry.id),
+          await fetchCommonCodeHistoryForAdminConsole(selectedCodeEntry.id),
           activeGroup.groupCode,
           selectedCodeEntry.code,
         )
