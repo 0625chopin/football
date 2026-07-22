@@ -1,7 +1,7 @@
 // Task 011(16일차) 골격. Task 021(54일차)에서 G1~G4(시뮬 상태·배속·정지/재개·시드 조회)
 // 실기능 키를 채운다 — 와이어프레임 `docs/wireframe/07-어드민-운영콘솔.md` §4 영역 명세
 // 번역키 프리픽스(`admin.status.*`/`admin.speed.*`/`admin.pause.*`/`admin.seed.*`) 대응.
-// G5(월드 리셋)·G6(로그 뷰어)는 55일차 이후 범위라 이 커밋에서 키를 추가하지 않는다.
+// 55일차에 G5(월드 리셋, `admin.reset.*`)·G6(로그 뷰어, `admin.log.*`) 키를 추가한다.
 export const admin = {
   console: {
     title: "운영 콘솔",
@@ -38,6 +38,49 @@ export const admin = {
     lookupButton: "조회",
     lookupResultFormat: "{matchId} → {value}",
     notFound: "해당 경기를 찾을 수 없습니다",
+  },
+  reset: {
+    title: "월드 리셋",
+    warningTitle: "세계를 리셋하지 마십시오",
+    // I-13 원문 인용 — 임의로 요약하지 않는다(와이어프레임 RS-5).
+    warningBody: "누적 시즌 히스토리가 이 게임의 유일한 강한 해자입니다. 리셋하면 이 자산이 사라집니다.",
+    openButton: "월드 리셋…",
+    step1Title: "확인 1/2",
+    step1Question: "정말로 월드를 리셋하시겠습니까?",
+    retentionLegend: "기존 월드 처리",
+    retentionArchive: "아카이브 보존",
+    retentionDelete: "완전 삭제",
+    cancelButton: "취소",
+    continueButton: "계속 →",
+    step2Title: "확인 2/2 — 최종",
+    newSeedLabel: "새 world_seed (선택, 비우면 자동생성)",
+    reasonLabel: "사유 (필수)",
+    reasonPlaceholder: "리셋이 필요한 사유를 입력하세요",
+    confirmWordInstructionFormat: "계속하려면 아래에 {word}을(를) 입력하세요",
+    confirmWordPlaceholder: "확인 문구 입력",
+    confirmButton: "리셋 확정",
+    confirmButtonDisabledHint: "사유를 입력하고 확인 문구를 정확히 입력해야 활성화됩니다",
+    acceptedMessage: "리셋 요청이 감사 로그에 기록되었습니다. 이 환경에서 실제 리셋 실행은 비활성화되어 있습니다(I-13).",
+    errorMessage: "리셋 요청 처리 중 오류가 발생했습니다. 다시 시도해 주세요.",
+  },
+  log: {
+    title: "로그 뷰어",
+    filterAll: "전체",
+    filterHuman: "운영자",
+    filterEngine: "엔진",
+    filterOdds: "배당",
+    filterSettlement: "정산",
+    searchPlaceholder: "action / target 검색",
+    searchButton: "검색",
+    empty: "로그 없음",
+    error: "로그를 불러오지 못했습니다.",
+    retryButton: "다시 시도",
+    columnTime: "시각",
+    columnActor: "행위자",
+    columnAction: "동작",
+    columnTarget: "대상",
+    caption: "관리자·자동화 파이프라인 감사 로그",
+    payloadToggle: "상세 보기",
   },
   error: {
     accessDenied: "접근 권한이 없습니다.",

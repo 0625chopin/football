@@ -9,13 +9,17 @@ import { StatusBadge } from "./StatusBadge";
 import { SpeedControlPanel } from "./SpeedControlPanel";
 import { PauseResumeControl } from "./PauseResumeControl";
 import { SeedInspectorPanel } from "./SeedInspectorPanel";
+import { WorldResetPanel } from "./WorldResetPanel";
+import { AuditLogViewer } from "./AuditLogViewer";
 import { applyWorldOverride } from "./world-override-store";
+import { mergeAuditLogs } from "./audit-log-store";
 
 /**
- * `/[lang]/admin` 운영 콘솔 — Task 021(54일차, 5팀), 와이어프레임
- * `docs/wireframe/07-어드민-운영콘솔.md` G1~G4(시뮬 상태 요약·배속 제어·정지/재개·시드
- * 조회). G5(월드 리셋)·G6(로그 뷰어)는 55일차 이후 범위라 이 커밋에 없다(팀장 배정 행
- * "시뮬 상태(페이즈·다음 킥오프), 배속 슬라이더(0.25×~20×), 정지/재개, 시드 조회" 기준).
+ * `/[lang]/admin` 운영 콘솔 — Task 021(54~55일차, 5팀), 와이어프레임
+ * `docs/wireframe/07-어드민-운영콘솔.md` G1~G6(시뮬 상태 요약·배속 제어·정지/재개·시드
+ * 조회·**월드 리셋**·**로그 뷰어**). G5·G6은 55일차 배정분 — G5는 2단계 확인 없이는
+ * 리셋이 절대 불가하고(I-13), **이 화면 자체가 실제 리셋을 실행하지 않는다**(`WorldResetPanel`
+ * 주석 참조).
  *
  * ## 쓰기 조작 — Server Action + 화면 로컬 오버레이(이슈 후보로 보고, 54일차)
  * `DataSource`(1팀 계약)는 어드민 조회를 읽기 전용으로 못박았고("쓰기 조작은 이 계약
@@ -50,6 +54,13 @@ export default async function Page(props: PageProps<"/[lang]/admin">) {
   // 미룬다 — 서버 컴포넌트 렌더 본문에서 `Date.now()`를 직접 부르면 순수성 규칙
   // (react-hooks/purity, React Compiler)에 걸린다. `CountdownTimer`와 동일한 패턴.
   const elapsedAnchor = world.isPaused ? world.pausedAt : world.speedChangedAt;
+
+  // G6 초기 조회 — G1~G4처럼 `dataSource`를 직접 호출한다(어드민 세션 게이트를 거치지
+  // 않음). `fetchAuditLogs` 서버 액션(`./actions.ts`)은 어드민 전용 노출이라 인가를
+  // 재검증하는데, 그걸 페이지 렌더 경로에 그대로 쓰면 이 서버 컴포넌트 렌더 자체가
+  // 인가 실패로 통째로 던진다 — G4 시드 조회와 동일하게 "초기 렌더는 무가드 직접 조회,
+  // 이후 상호작용(필터·검색)만 게이트된 액션 경유"로 나눈다(I-274와 같은 함정 회피).
+  const auditLogs = mergeAuditLogs(await dataSource.getAuditLogs());
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6 p-4 md:p-6">
@@ -92,12 +103,16 @@ export default async function Page(props: PageProps<"/[lang]/admin">) {
             elapsedAnchor={elapsedAnchor}
           />
         </div>
-        <SeedInspectorPanel
-          locale={locale}
-          worldSeed={world.worldSeed}
-          seasonSeed={currentSeason?.seasonSeed ?? null}
-          seasonNumber={currentSeason?.seasonNumber ?? null}
-        />
+        <div className="flex flex-col gap-6">
+          <SeedInspectorPanel
+            locale={locale}
+            worldSeed={world.worldSeed}
+            seasonSeed={currentSeason?.seasonSeed ?? null}
+            seasonNumber={currentSeason?.seasonNumber ?? null}
+          />
+          <WorldResetPanel locale={locale} lang={lang} />
+          <AuditLogViewer locale={locale} initialLogs={auditLogs} />
+        </div>
       </div>
     </div>
   );

@@ -18,13 +18,22 @@ import { resetDataSourceCache } from "@/lib/data/factory";
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 
-import { applySpeedMultiplier, lookupMatchSeed, toggleWorldPause } from "./actions";
+import {
+  applySpeedMultiplier,
+  confirmWorldReset,
+  fetchAuditLogs,
+  lookupMatchSeed,
+  toggleWorldPause,
+} from "./actions";
 import { getWorldOverride, resetWorldOverride } from "./world-override-store";
+import { resetAuditLogStore } from "./audit-log-store";
+import { WORLD_RESET_CONFIRMATION_WORD } from "./reset-validation";
 
 describe("admin actions (G2/G3/G4)", () => {
   beforeEach(async () => {
     resetDataSourceCache();
     resetWorldOverride(); // 테스트 간 오버레이 격리
+    resetAuditLogStore();
     assertAdminSessionMock.mockReset();
     assertAdminSessionMock.mockResolvedValue(undefined); // 기본값: 인가된 세션
     await bootstrapApp();
@@ -88,5 +97,134 @@ describe("admin actions (G2/G3/G4)", () => {
   it("존재하지 않거나 빈 matchId는 found:false를 반환한다", async () => {
     expect(await lookupMatchSeed("no-such-fixture")).toEqual({ found: false });
     expect(await lookupMatchSeed("   ")).toEqual({ found: false });
+  });
+});
+
+describe("confirmWorldReset (G5) — I-13: 실제 리셋을 절대 실행하지 않는다", () => {
+  beforeEach(async () => {
+    resetDataSourceCache();
+    resetWorldOverride();
+    resetAuditLogStore();
+    assertAdminSessionMock.mockReset();
+    assertAdminSessionMock.mockResolvedValue(undefined);
+    await bootstrapApp();
+  });
+
+  it("비인가 세션이면 거부되고 감사 로그도 남지 않는다", async () => {
+    assertAdminSessionMock.mockRejectedValue(new Error("unauthorized"));
+    await expect(
+      confirmWorldReset("ko", {
+        reason: "테스트",
+        confirmText: WORLD_RESET_CONFIRMATION_WORD,
+        archiveOrDelete: "ARCHIVE",
+      }),
+    ).rejects.toThrow("unauthorized");
+
+    // 감사 로그 조회 자체도 인가가 필요하므로, 여기서는 세션을 복구한 뒤 조회해 로그가
+    // 실제로 남지 않았음(비인가 시도가 기록되지 않음)을 확인한다.
+    assertAdminSessionMock.mockResolvedValue(undefined);
+    expect(await fetchAuditLogs()).toEqual([]);
+  });
+
+  it("사유가 비어 있으면 서버측에서 거부한다(클라이언트 상태를 신뢰하지 않음)", async () => {
+    await expect(
+      confirmWorldReset("ko", {
+        reason: "   ",
+        confirmText: WORLD_RESET_CONFIRMATION_WORD,
+        archiveOrDelete: "ARCHIVE",
+      }),
+    ).rejects.toThrow(/confirmation gate/);
+  });
+
+  it("확인 문구가 정확히 일치하지 않으면 거부한다", async () => {
+    await expect(
+      confirmWorldReset("ko", {
+        reason: "테스트 사유",
+        confirmText: "reset", // 대소문자 불일치
+        archiveOrDelete: "ARCHIVE",
+      }),
+    ).rejects.toThrow(/confirmation gate/);
+
+    await expect(
+      confirmWorldReset("ko", {
+        reason: "테스트 사유",
+        confirmText: WORLD_RESET_CONFIRMATION_WORD + "!",
+        archiveOrDelete: "ARCHIVE",
+      }),
+    ).rejects.toThrow(/confirmation gate/);
+  });
+
+  it("2단계 게이트를 정확히 통과하면 감사 로그에 executed:false로만 기록되고 World는 변경되지 않는다", async () => {
+    const dataSource = getDataSource();
+    const before = await dataSource.getWorldStatus();
+
+    const result = await confirmWorldReset("ko", {
+      reason: "재현 테스트를 위한 리셋 요청",
+      confirmText: WORLD_RESET_CONFIRMATION_WORD,
+      archiveOrDelete: "DELETE",
+      newSeed: "12345",
+    });
+    expect(result).toEqual({ accepted: true });
+
+    // 실제 리셋 미실행 확인 — 기저 World와 오버레이 모두 그대로다.
+    const after = await dataSource.getWorldStatus();
+    expect(after).toEqual(before);
+    expect(getWorldOverride()).toBeNull();
+
+    const logs = await fetchAuditLogs();
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      actorType: "HUMAN",
+      action: "WORLD_RESET_REQUESTED",
+      targetType: "World",
+      payload: {
+        reason: "재현 테스트를 위한 리셋 요청",
+        archiveOrDelete: "DELETE",
+        newSeed: "12345",
+        executed: false,
+      },
+    });
+  });
+});
+
+describe("fetchAuditLogs (G6)", () => {
+  beforeEach(async () => {
+    resetDataSourceCache();
+    resetWorldOverride();
+    resetAuditLogStore();
+    assertAdminSessionMock.mockReset();
+    assertAdminSessionMock.mockResolvedValue(undefined);
+    await bootstrapApp();
+  });
+
+  it("비인가 세션이면 거부된다(어드민 전용 노출)", async () => {
+    assertAdminSessionMock.mockRejectedValue(new Error("unauthorized"));
+    await expect(fetchAuditLogs()).rejects.toThrow("unauthorized");
+  });
+
+  it("로그가 없으면 빈 배열을 반환한다", async () => {
+    expect(await fetchAuditLogs()).toEqual([]);
+  });
+
+  it("actorType 필터가 로컬 오버레이 항목에도 적용된다", async () => {
+    await confirmWorldReset("ko", {
+      reason: "필터 테스트",
+      confirmText: WORLD_RESET_CONFIRMATION_WORD,
+      archiveOrDelete: "ARCHIVE",
+    });
+
+    expect(await fetchAuditLogs({ actorType: "HUMAN" })).toHaveLength(1);
+    expect(await fetchAuditLogs({ actorType: "ENGINE" })).toHaveLength(0);
+  });
+
+  it("search가 action/targetType/targetId에 대해 대소문자 무관하게 매칭된다", async () => {
+    await confirmWorldReset("ko", {
+      reason: "검색 테스트",
+      confirmText: WORLD_RESET_CONFIRMATION_WORD,
+      archiveOrDelete: "ARCHIVE",
+    });
+
+    expect(await fetchAuditLogs({ search: "world_reset" })).toHaveLength(1);
+    expect(await fetchAuditLogs({ search: "no-such-action" })).toHaveLength(0);
   });
 });
