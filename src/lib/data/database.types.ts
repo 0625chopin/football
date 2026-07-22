@@ -16,6 +16,10 @@
  *
  * 52일차(2026-09-30) 재생성 — Task 037 User/Wallet/WalletTransaction 테이블 활성화:
  * profile.locale 컬럼 추가(D-18) + wallet_transaction(E-40) 신규 반영.
+ *
+ * 53일차(2026-10-01) 재생성 — Task 037 지갑 낙관적 잠금: wallet.lock_version(DB 전용
+ * CAS 토큰, 도메인 Wallet 타입 8일차 동결이라 미노출) + wallet_apply_transaction()
+ * RPC 반영.
  */
 
 export type Json =
@@ -2974,18 +2978,21 @@ export type Database = {
         Row: {
           balance: number
           currency: string
+          lock_version: number
           updated_at: string
           user_id: string
         }
         Insert: {
           balance?: number
           currency?: string
+          lock_version?: number
           updated_at?: string
           user_id: string
         }
         Update: {
           balance?: number
           currency?: string
+          lock_version?: number
           updated_at?: string
           user_id?: string
         }
@@ -3219,6 +3226,19 @@ export type Database = {
         Returns: boolean
       }
       tick_run: { Args: never; Returns: Json }
+      wallet_apply_transaction: {
+        Args: {
+          p_amount: number
+          p_reason: string
+          p_ref_bet_id?: string
+          p_user_id: string
+        }
+        Returns: {
+          balance: number
+          lock_version: number
+          transaction_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

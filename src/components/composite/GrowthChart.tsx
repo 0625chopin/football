@@ -143,7 +143,7 @@ export function GrowthChart({ locale, state, className }: GrowthChartProps) {
         data-status="empty"
         className={cn("py-2 text-sm text-muted-foreground", className)}
       >
-        {t(locale, "player.growthChart.empty")}
+        {state.message ?? t(locale, "player.growthChart.empty")}
       </p>
     )
   }

@@ -1,66 +1,84 @@
+import { Suspense } from "react";
+
 import { notFound } from "next/navigation";
 
 import { bootstrapApp } from "@/lib/data/bootstrap";
 import { getDataSource } from "@/lib/data/factory";
 import type { PublicPlayerProfile } from "@/lib/data/DataSource";
-import { formatPoints } from "@/i18n/format";
 import { t } from "@/i18n/t";
 import type { TranslationKey } from "@/i18n/keys";
 import { DEFAULT_LOCALE, isSupportedLocale } from "@/i18n/locales";
 import type { SupportedLocale } from "@/i18n/locales";
 import { AbilityRadar } from "@/components/domain/AbilityRadar";
 import { computeCategoryAverages, RADAR_CATEGORY_ORDER } from "@/components/domain/radar";
-import { ConditionGauge } from "@/components/domain/ConditionGauge";
-import { PositionMap } from "@/components/domain/PositionMap";
 import { PlayerAvatar } from "@/components/domain/PlayerAvatar";
 import { TeamBadge } from "@/components/domain/TeamBadge";
 import { StatBar } from "@/components/domain/StatBar";
-import { GrowthChart } from "@/components/composite/GrowthChart";
-import { InjuryTimeline } from "@/components/composite/InjuryTimeline";
-import { TrophyCase } from "@/components/composite/TrophyCase";
-import type { TrophyCaseAwardRow, TrophyCaseTrophyRow } from "@/components/composite/TrophyCase";
+import { ErrorBoundary } from "@/components/state/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { PlayerStatTable, sortPlayerStatSeasonRows } from "./PlayerStatTable";
+import { sortPlayerStatSeasonRows } from "./PlayerStatTable";
 import type { PlayerStatTableSeasonRow } from "./PlayerStatTable";
-import { TransferHistoryList, buildTransferHistoryRows } from "./TransferHistoryList";
+import {
+  CareerSection,
+  CareerSectionSkeleton,
+  ConditionSection,
+  ConditionSectionSkeleton,
+  GrowthSection,
+  GrowthSectionSkeleton,
+  InjurySection,
+  InjurySectionSkeleton,
+  PositionSection,
+  PositionSectionSkeleton,
+  StatSection,
+  StatSectionSkeleton,
+  ValueSection,
+  ValueSectionSkeleton,
+} from "./sections";
 import type {
-  Injury,
   PlayerAttribute,
   PlayerAttributeValues,
   PlayerId,
-  PlayerPosition,
   PlayerState,
-  Position,
   SeasonId,
   Team,
-  TeamId,
 } from "@/types";
 
 /**
- * `/[lang]/players/[playerId]` 선수 상세 — Task 018(49~50일차, 5팀), 와이어프레임
- * `docs/wireframe/05-선수상세.md`. 49일차에 E1(프로필 헤더)·E1-r(지표 스트립, D-34)·
- * E2(능력치)·E3(컨디션·피로)·E4(포지션 맵)를 구현했고, **50일차(2/2)가 E5(몸값·계약)·
- * E6(스탯 [시즌별]/[통산])·E7(성장 곡선)·E8(부상 타임라인)·E9(커리어 이력 [트로피]/
- * [이적])를 채운다.** ⚠️ **PA(잠재능력) 원값은 이 파일 어디에도 없다** — 모든 선수
- * 표시 데이터는 `PublicPlayerProfile`(`Omit<Player, 'pa'>`)과 `pa` 필드 자체가 없는
- * 타입(`PlayerAttribute`/`PlayerAttributeHistory`)만 거친다. 성장 곡선(E7)에 PA
- * 상한선을 그리지 않는 것도 같은 이유 — `GrowthChart`가 애초에 `ovr`/`seasonNumber`만
- * 읽는다(그 파일 헤더 참조).
+ * `/[lang]/players/[playerId]` 선수 상세 — Task 018(49~53일차, 5팀), 와이어프레임
+ * `docs/wireframe/05-선수상세.md`. 49~50일차에 E1~E9 전 영역을 배선했고(당시엔 단일
+ * `Promise.all`로 페이지 전체를 blocking 조회), **53일차(018 잔여, 52일차 인계 승인
+ * 사항)에 §5 4상태 명세를 "페이지 단위"에서 "섹션 단위"로 전환했다.**
+ *
+ * ## 아키텍처 — E1·E2는 eager, E3~E9는 섹션별 Suspense + ErrorBoundary(`./sections.tsx`)
+ * FR-UI-005는 "섹션별 스켈레톤 / 섹션별 빈 문구 / 섹션 단위 격리 + 재시도"를 요구한다
+ * (§5). E1(헤더)은 라우트 파라미터·프로필이 있어야 페이지 존재 자체가 성립하므로 계속
+ * blocking으로 먼저 조회한다("LCP 확보", §5 Loading 행). E2(능력치)는 E1이 OVR 라벨
+ * 표시에 이미 `attribute`를 조회해 두므로 그 결과를 그대로 재사용한다 — 이미 손에 있는
+ * 데이터를 일부러 스트리밍 대상으로 늦추지 않는다.
+ *
+ * E3~E9는 각자 필요한 데이터를 **독립적으로** 조회하는 async 서버 컴포넌트로 분리했다
+ * (`./sections.tsx`). 각 섹션을 `<Suspense fallback={...}><ErrorBoundary>...
+ * </ErrorBoundary></Suspense>`로 감싸 — 한 섹션의 실패가 다른 섹션·E1 헤더를 무너뜨리지
+ * 않고(`ErrorBoundary`가 Next.js 16.2 `unstable_catchError` 위에서 이미 구현한 격리 +
+ * `[다시 시도]`를 그대로 재사용), 각자의 조회가 끝나는 대로 스트리밍된다. Suspense
+ * `fallback`은 실제 콘텐츠와 같은 높이의 로딩 상태를 그대로 재사용해(`GrowthChart`
+ * `state={{status:"loading"}}` 등) CLS를 0으로 유지한다(NFR-PF-009, 자세한 설계 근거는
+ * `sections.tsx` 파일 헤더).
+ *
+ * ⚠️ **PA(잠재능력) 원값은 이 화면 어디에도 없다** — 모든 선수 표시 데이터는
+ * `PublicPlayerProfile`(`Omit<Player, 'pa'>`)과 `pa` 필드 자체가 없는 타입만 거친다.
  *
  * ## 데스크톱 2컬럼(3-2절) — `lg`(1024px)부터 좌 40%/우 60%
  * 좌 컬럼 = E2·E3·E4·E5, 우 컬럼 = E6·E7·E8·E9(와이어프레임 3-2절 그대로). `sm`(375px)은
  * 이 프로젝트에서 320px과 동일 취급(I-184)이라 레이아웃 전환에 쓰지 않는다 — 전환점은
- * `lg` 하나만 쓴다. 768~1023(`md`, "E6만 전폭") 중간 단계는 오늘 스코프에서 생략했다
- * (좌우 컬럼과 전폭 3종 조합이 필요해 공수 대비 이득이 낮다고 판단, `PositionMap` I-250
- * 선례와 같은 성격의 축소 — 이슈 후보로 보고). `md` 미만(모바일)은 계속 3-1절 단일 컬럼
- * 순서(E1→E9)다.
+ * `lg` 하나만 쓴다.
  *
  * ## E1 헤더 실패 = 페이지 전체 에러 (§5 4상태 명세)
  * `getPlayerProfile`이 `null`이면 선수 존재 자체가 불확실하므로 `notFound()`로 페이지
- * 전체를 처리한다. 그 아래 섹션들은 각자 독립 조회하며, 조회가 `null`/빈 배열이면 해당
- * 섹션만 `DomainViewState`/`CompositeViewState`의 `empty`로 내려보낸다(섹션 단위 격리).
+ * 전체를 처리한다. E1이 곁들여 조회하는 지표 스트립(E1-r)도 같은 blocking 묶음이라
+ * 실패 시 라우트 `error.tsx`로 올라간다 — 이는 49일차부터 유지해 온 판단이고, 오늘
+ * 새로 분리한 건 그 아래 E3~E9뿐이다.
  *
  * ## E1-r 지표 스트립 — 어떤 시즌 행을 "현재/지난 시즌"으로 보는가
  * `getPlayerSeasonStats`는 시즌×대회 전량을 반환한다. LEAGUE 대회 행만 걸러 `getSeasons()`의
@@ -68,34 +86,16 @@ import type {
  * 삼는다(데뷔 시즌이면 지난 시즌 행이 없어 그 항목을 생략). 리그 벤치마크는 현재 시즌 행의
  * `seasonId`/`leagueId`로 `getLeagueAverageRating`을 조회한다(D-34 결정③). ⚠️
  * `getPlayerRecentMatchStats`는 어댑터 레벨에서 `FINISHED` 경기만 반환하는 데이터 계약이라
- * 이 화면은 받은 값을 그대로 쓴다(재필터링 없음, 와이어프레임 05 S-5~S-8).
+ * 이 화면은 받은 값을 그대로 쓴다(재필터링 없음, 와이어프레임 05 S-5~S-8). 같은
+ * `seasonStats`/`seasons`를 E6(시즌별 스탯 표)의 `seasonRows`도 재사용한다(재조회 없음).
  *
- * ## E3 가용성 배지 — 정지 > 부상(KNOCK 제외) > 부상(KNOCK) > 가능 순
- * `PlayerState.suspensionRemainingLeague/Cup`이 있으면 정지가 최우선이다. 그 외
- * `activeInjuryId`가 있으면 `getPlayerInjuries`에서 같은 id를 찾아 `severity`를 본다 —
- * `KNOCK`(경미)은 FR-PL-009 ②에 따라 "출전 가능(경미 부상)"으로 별도 표기하고, 그 외
- * 등급은 "부상"으로 막는다. 셋 다 아니면 "출전 가능"이다(NFR-A11Y-002, 아이콘+라벨+색 3중).
- * **50일차**: `getPlayerInjuries`를 이제 항상 조회한다(E8 부상 타임라인 전체 이력이
- * 필요해져서) — 49일차엔 `activeInjuryId`가 있을 때만 불렀다. 같은 배열을 E3·E8이
- * 공유한다(중복 조회 없음).
- *
- * ## E4 포지션 맵 — `PositionMap`은 단일 포지션 점만 그린다(4팀 소유, 오늘 확장하지 않음)
- * 와이어프레임은 11군 전체를 피치 위에 숙련도와 함께 겹쳐 그리길 원하지만, 기존
- * `PositionMap`(`src/components/domain/PositionMap.tsx`)은 `{ position: Position }` 단건만
- * 받는 계약이라 선호 포지션 하나만 점으로 찍는다. 11군 전체 숙련도는 그 옆에 별도
- * 리스트(범례 겸용)로 보여준다 — 컴포넌트 자체를 다중 포지션 오버레이로 넓히는 건 4팀
- * 소유 파일 변경이라 조율 없이 하지 않는다(I-250, 49일차 이슈 후보).
- *
- * ## E5~E9 — 오늘(50일차) Mock 데이터 공백 (`MockDataSource.ts` 파일 헤더가 이미 명문화)
+ * ## E5~E9 — Mock 데이터 공백 지속 (`MockDataSource.ts` 파일 헤더 참조)
  * `getPlayerContract`·`getPlayerAttributeHistory`·`getPlayerCareerStat`·`getPlayerAwards`·
- * `getPlayerTransferHistory`·`getPlayerLoanHistory`·`getTeamTrophies`는 전부 3팀 Mock
- * 생성기가 아직 없어(economy/성장/수상 파이프라인 이후 예정) `null`/`[]`를 반환한다 —
- * **이 화면의 버그가 아니다.** 그래서 오늘 실렌더하면 E5·E7·E8·E9는 사실상 항상 empty
- * 상태로 보인다. `PS-2`(5시즌 성장 궤적 + 이적 이력 추적) 수락 기준이 53일차로 잡혀 있는
- * 이유가 이것이다 — 오늘은 계약(타입)대로 배선하는 것이 목표이고, 생성기가 붙는 순간
- * UI 변경 없이 채워져야 한다(Mock First 원칙). E6([시즌별] 탭)만은 실데이터다
- * (`statLeadersByPlayer` 기반) — 이 화면 수락 기준 "E6 평점(avgRating) 열 채워짐"이
- * E6를 정조준하는 이유이기도 하다.
+ * `getPlayerTransferHistory`·`getPlayerLoanHistory`는 53일차 시점에도 여전히 `null`/`[]`
+ * 반환이다(3팀 생성기 미착수 — 이 화면의 버그가 아니다). **PS-2(5시즌 성장 궤적 + 이적
+ * 이력 추적) 수락 기준은 오늘 UI 계약상으로는 충족되지만(빈 배열이 오면 섹션별 empty
+ * 문구로 정확히 대체됨), 실측 가능한 5시즌 궤적을 보여주는 것은 그 생성기가 붙어야
+ * 가능하다** — Mock First 원칙대로 데이터가 채워지는 순간 이 파일은 수정할 필요가 없다.
  */
 export default async function Page(props: PageProps<"/[lang]/players/[playerId]">) {
   const { lang, playerId: rawPlayerId } = await props.params;
@@ -110,60 +110,15 @@ export default async function Page(props: PageProps<"/[lang]/players/[playerId]"
     notFound();
   }
 
-  const [
-    attribute,
-    playerState,
-    positions,
-    seasonStats,
-    seasons,
-    recentMatchStats,
-    contract,
-    attributeHistory,
-    careerStat,
-    awards,
-    transfers,
-    loans,
-    currentSeason,
-  ] = await Promise.all([
+  const [attribute, playerState, seasonStats, seasons, recentMatchStats] = await Promise.all([
     dataSource.getPlayerAttribute(playerId),
     dataSource.getPlayerState(playerId),
-    dataSource.getPlayerPositions(playerId),
     dataSource.getPlayerSeasonStats(playerId),
     dataSource.getSeasons(),
     dataSource.getPlayerRecentMatchStats({ playerId, limit: 1 }),
-    dataSource.getPlayerContract(playerId),
-    dataSource.getPlayerAttributeHistory(playerId),
-    dataSource.getPlayerCareerStat(playerId),
-    dataSource.getPlayerAwards(playerId),
-    dataSource.getPlayerTransferHistory(playerId),
-    dataSource.getPlayerLoanHistory(playerId),
-    dataSource.getCurrentSeason(),
   ]);
 
-  // 50일차 — E8 부상 타임라인은 전체 이력이 필요해 항상 조회한다(위 파일 헤더 "E3" 절 참조).
-  const [team, injuries, trophies] = await Promise.all([
-    playerState?.teamId ? dataSource.getTeam(playerState.teamId) : Promise.resolve(null),
-    dataSource.getPlayerInjuries(playerId),
-    playerState?.teamId ? dataSource.getTeamTrophies(playerState.teamId) : Promise.resolve([]),
-  ]);
-
-  // E9 이적/임대 상대 클럽명 해석 — 이미 조회한 소속 클럽(`team`)은 재조회하지 않는다.
-  const otherTeamIds = new Set<TeamId>();
-  for (const transfer of transfers) {
-    if (transfer.fromTeamId) otherTeamIds.add(transfer.fromTeamId);
-    otherTeamIds.add(transfer.toTeamId);
-  }
-  for (const loan of loans) {
-    otherTeamIds.add(loan.ownerTeamId);
-    otherTeamIds.add(loan.loanTeamId);
-  }
-  if (playerState?.teamId) otherTeamIds.delete(playerState.teamId);
-  const otherTeams = await Promise.all([...otherTeamIds].map((teamId) => dataSource.getTeam(teamId)));
-  const teamNameById = new Map<TeamId, string>();
-  if (team && playerState?.teamId) teamNameById.set(playerState.teamId, team.name);
-  for (const otherTeam of otherTeams) {
-    if (otherTeam) teamNameById.set(otherTeam.id, otherTeam.name);
-  }
+  const team = playerState?.teamId ? await dataSource.getTeam(playerState.teamId) : null;
 
   const seasonNumberById = new Map(seasons.map((season) => [season.id, season.seasonNumber]));
   function resolveSeasonLabel(seasonId: SeasonId): string {
@@ -193,50 +148,14 @@ export default async function Page(props: PageProps<"/[lang]/players/[playerId]"
     previousSeasonRating: previousSeasonStat?.avgRating ?? null,
   };
 
-  const availability = playerState ? deriveAvailability(playerState, injuries) : null;
   const categoryAverages = attribute ? computeCategoryAverages(attribute) : null;
 
-  // E6 — 시즌별 탭 행(전 대회: 리그/플레이오프/컵/타이브레이크). 통산 탭은 careerStat 그대로.
+  // E6 — 시즌별 탭 행(전 대회: 리그/플레이오프/컵/타이브레이크). E1-r과 같은 `seasonStats`/
+  // `seasons`를 재사용한다(재조회 없음) — `통산` 탭에만 필요한 `careerStat`만 StatSection이
+  // 독립 조회한다(섹션 격리 대상은 실제로 실패할 수 있는 "그 섹션만의" 데이터다).
   const seasonRows: readonly PlayerStatTableSeasonRow[] = sortPlayerStatSeasonRows(
     seasonStats.map((stat) => ({ stat, seasonLabel: resolveSeasonLabel(stat.seasonId) })),
     (stat) => seasonNumberById.get(stat.seasonId) ?? 0,
-  );
-
-  // E9 [트로피] 탭 — TrophyCase는 팀 트로피 + 개인 수상을 함께 받는다(그 파일 헤더 참조).
-  // 소속 팀이 바뀐 이력까지 조인할 히스토리 데이터가 없어(과거 로스터-트로피 조인 계약
-  // 부재) 현재 소속 팀의 트로피만 보여준다 — 이슈 후보로 보고.
-  const trophyRows: readonly TrophyCaseTrophyRow[] = trophies.map((trophy) => ({
-    trophy,
-    seasonLabel: resolveSeasonLabel(trophy.seasonId),
-  }));
-  const awardRows: readonly TrophyCaseAwardRow[] = awards.map((award) => ({
-    award,
-    seasonLabel: resolveSeasonLabel(award.seasonId),
-  }));
-
-  // E9 [이적] 탭 — Transfer + Loan 병합.
-  const transferHistoryRows = buildTransferHistoryRows(
-    transfers.map((transfer) => ({
-      transfer,
-      seasonLabel: resolveSeasonLabel(transfer.seasonId),
-      seasonNumber: seasonNumberById.get(transfer.seasonId) ?? 0,
-    })),
-    loans.map((loan) => ({
-      loan,
-      seasonLabel: resolveSeasonLabel(loan.seasonId),
-      seasonNumber: seasonNumberById.get(loan.seasonId) ?? 0,
-    })),
-  );
-
-  // E5 — 계약 잔여 시즌. 현재 시즌 정보가 없으면(Mock 공백) 표기하지 않는다(값 날조 금지).
-  const contractRemainingSeasons =
-    contract && currentSeason ? Math.max(contract.endSeason - currentSeason.seasonNumber, 0) : null;
-
-  // E8 — 통산 부상 요약. `returnRound`가 `occurredRound`보다 앞서는 이상 데이터는 0으로 clamp.
-  const totalInjuries = injuries.length;
-  const totalRoundsInjured = injuries.reduce(
-    (sum, injury) => sum + Math.max(injury.returnRound - injury.occurredRound, 0),
-    0,
   );
 
   return (
@@ -292,163 +211,73 @@ export default async function Page(props: PageProps<"/[lang]/players/[playerId]"
 
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.condition.sectionTitle")}</h2>
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:max-w-md">
-          <ConditionGauge
-            locale={locale}
-            state={
-              playerState
-                ? { status: "ready", data: { condition: playerState.condition, fitness: playerState.fitness } }
-                : { status: "empty" }
-            }
-          />
-          {availability && (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">{t(locale, "player.condition.availabilityLabel")}</span>
-              <AvailabilityBadge locale={locale} availability={availability} />
-            </div>
-          )}
-        </div>
+        <Suspense fallback={<ConditionSectionSkeleton locale={locale} />}>
+          <ErrorBoundary locale={locale} name="player.condition">
+            <ConditionSection locale={locale} playerId={playerId} playerState={playerState} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
 
       <section className="flex flex-col gap-4">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.position.title")}</h2>
-        {/* 50일차 — E4는 이제 좌 컬럼(40%, lg 이상) 안에 들어가 뷰포트 기준 md(768px)
-            전환이 이 섹션 자체 폭이 아니라 페이지 전체 폭을 기준으로 발동한다. lg에서
-            좌우 분할과 md 전환이 동시에 켜지면 좌 컬럼이 좁은 채로 flex-row+3열이 겹쳐
-            포지션명이 글자 단위로 줄바꿈되는 회귀가 났다(50일차 실측, Playwright 스크린샷
-            확인). 전환점을 xl(1440px)로 늦춰 좌 컬럼이 실제로 넓어진 뒤에만 2열 배치를
-            적용한다 — 768~1439 구간은 세로 스택(기본값)으로 안전하게 남는다. */}
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
-          <PositionMap
-            locale={locale}
-            className="max-w-[220px]"
-            state={{ status: "ready", data: { position: profile.preferredPosition } }}
-          />
-          <div className="flex flex-1 flex-col gap-1.5">
-            <h3 className="eyebrow text-muted-foreground">
-              {t(locale, "player.position.proficiencySectionTitle")}
-            </h3>
-            <ul className="grid grid-cols-2 gap-1.5 xl:grid-cols-3">
-              {POSITION_ORDER.map((position) => (
-                <PositionProficiencyItem key={position} locale={locale} position={position} positions={positions} />
-              ))}
-            </ul>
-          </div>
-        </div>
+        <Suspense fallback={<PositionSectionSkeleton locale={locale} />}>
+          <ErrorBoundary locale={locale} name="player.position">
+            <PositionSection locale={locale} playerId={playerId} preferredPosition={profile.preferredPosition} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.value.sectionTitle")}</h2>
-        <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{t(locale, "player.value.marketValueLabel")}</span>
-            <span className="scoreboard text-base">
-              {t(locale, "player.value.pointsFormat", { amount: formatPoints(profile.marketValue, locale) })}
-            </span>
-          </div>
-          {contract ? (
-            <>
-              <div className="flex flex-wrap items-center justify-between gap-1 text-sm">
-                <span className="text-muted-foreground">
-                  {t(locale, "player.value.contractSeasonFormat", {
-                    start: contract.startSeason,
-                    end: contract.endSeason,
-                  })}
-                </span>
-                {contractRemainingSeasons !== null && (
-                  <span className="text-xs text-muted-foreground">
-                    {t(locale, "player.value.contractRemainingFormat", { count: contractRemainingSeasons })}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">{t(locale, "player.value.wageLabel")}</span>
-                <span className="scoreboard text-base">
-                  {t(locale, "player.value.pointsFormat", { amount: formatPoints(contract.wagePerSeason, locale) })}
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t(locale, "player.value.contractEmpty")}</p>
-          )}
-        </div>
+        <Suspense fallback={<ValueSectionSkeleton />}>
+          <ErrorBoundary locale={locale} name="player.value">
+            <ValueSection locale={locale} playerId={playerId} marketValue={profile.marketValue} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
       </div>
 
       <div className="flex flex-col gap-6">
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.stat.tableTitle")}</h2>
-        <PlayerStatTable locale={locale} playerName={profile.name} seasonRows={seasonRows} careerStat={careerStat} />
+        <Suspense fallback={<StatSectionSkeleton />}>
+          <ErrorBoundary locale={locale} name="player.stat">
+            <StatSection locale={locale} playerId={playerId} playerName={profile.name} seasonRows={seasonRows} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.growthChart.sectionTitle")}</h2>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <GrowthChart
-            locale={locale}
-            state={attributeHistory.length > 0 ? { status: "ready", data: attributeHistory } : { status: "empty" }}
-          />
-          {attributeHistory.length > 0 && (
-            // NFR-A11Y-005 — 곡선은 시각 정보만으로 끝내지 않는다. 시즌별 OVR을 sr-only
-            // 표로 병기한다(와이어프레임 05번 §7 "차트 대체 텍스트"). PA는 여기 없다 —
-            // `PlayerAttributeHistory`에 애초에 `pa` 필드가 없다(GrowthChart 헤더 참조).
-            <table className="sr-only">
-              <caption>{t(locale, "player.growthChart.srTableCaption", { name: profile.name })}</caption>
-              <thead>
-                <tr>
-                  <th scope="col">{t(locale, "player.growthChart.srSeasonHeader")}</th>
-                  <th scope="col">{t(locale, "player.growthChart.srOvrHeader")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...attributeHistory]
-                  .sort((a, b) => a.seasonNumber - b.seasonNumber)
-                  .map((entry) => (
-                    <tr key={entry.seasonNumber}>
-                      <td>{entry.seasonNumber}</td>
-                      <td>{entry.ovr}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <Suspense fallback={<GrowthSectionSkeleton locale={locale} />}>
+          <ErrorBoundary locale={locale} name="player.growthChart">
+            <GrowthSection locale={locale} playerId={playerId} playerName={profile.name} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.injuryTimeline.sectionTitle")}</h2>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <InjuryTimeline
-            locale={locale}
-            state={injuries.length > 0 ? { status: "ready", data: { injuries } } : { status: "empty" }}
-          />
-          {injuries.length > 0 && (
-            <p className="mt-3 text-xs text-muted-foreground">
-              {t(locale, "player.injuryTimeline.summaryFormat", { count: totalInjuries, rounds: totalRoundsInjured })}
-            </p>
-          )}
-        </div>
+        <Suspense fallback={<InjurySectionSkeleton locale={locale} />}>
+          <ErrorBoundary locale={locale} name="player.injuryTimeline">
+            <InjurySection locale={locale} playerId={playerId} />
+          </ErrorBoundary>
+        </Suspense>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="eyebrow text-muted-foreground">{t(locale, "player.career.sectionTitle")}</h2>
-        <Tabs defaultValue="trophy">
-          <TabsList>
-            <TabsTrigger value="trophy">{t(locale, "player.career.tabTrophy")}</TabsTrigger>
-            <TabsTrigger value="transfer">{t(locale, "player.career.tabTransfer")}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="trophy">
-            <TrophyCase locale={locale} state={{ status: "ready", data: { trophies: trophyRows, awards: awardRows } }} />
-          </TabsContent>
-          <TabsContent value="transfer">
-            <TransferHistoryList
+        <Suspense fallback={<CareerSectionSkeleton locale={locale} />}>
+          <ErrorBoundary locale={locale} name="player.career">
+            <CareerSection
               locale={locale}
-              rows={transferHistoryRows}
-              teamNameById={teamNameById}
-              buildTeamHref={(teamId) => `/${locale}/teams/${teamId}`}
+              playerId={playerId}
+              playerTeamId={playerState?.teamId ?? null}
+              playerTeamName={team?.name ?? null}
+              seasons={seasons}
             />
-          </TabsContent>
-        </Tabs>
+          </ErrorBoundary>
+        </Suspense>
       </section>
       </div>
       </div>
@@ -591,95 +420,6 @@ function StatStripItem({
 /** E1-s 스카우트 등급 — ★1~5 범위 표기. PA를 입력으로 받지 않는다(P-2, 서버 산출값만 표시). */
 function starsFor(rating: 1 | 2 | 3 | 4 | 5): string {
   return "★".repeat(rating) + "☆".repeat(5 - rating);
-}
-
-/* ============================================================
- * E3 가용성 배지
- * ============================================================ */
-
-type Availability =
-  | { readonly kind: "available" }
-  | { readonly kind: "availableInjured" }
-  | { readonly kind: "injured" }
-  | { readonly kind: "suspended" };
-
-function deriveAvailability(state: PlayerState, injuries: readonly Injury[]): Availability {
-  if (state.suspensionRemainingLeague > 0 || state.suspensionRemainingCup > 0) {
-    return { kind: "suspended" };
-  }
-  if (state.activeInjuryId !== null) {
-    const injury = injuries.find((candidate) => candidate.id === state.activeInjuryId);
-    if (injury?.severity === "KNOCK") {
-      return { kind: "availableInjured" };
-    }
-    return { kind: "injured" };
-  }
-  return { kind: "available" };
-}
-
-const AVAILABILITY_PRESENTATION: Record<
-  Availability["kind"],
-  { readonly icon: string; readonly labelKey: TranslationKey; readonly variant: "secondary" | "destructive" }
-> = {
-  available: { icon: "⚑", labelKey: "player.condition.availableBadge", variant: "secondary" },
-  availableInjured: { icon: "✚", labelKey: "player.condition.availableInjuredBadge", variant: "secondary" },
-  injured: { icon: "✚", labelKey: "player.condition.injuredBadge", variant: "destructive" },
-  suspended: { icon: "⛔", labelKey: "player.condition.suspendedBadge", variant: "destructive" },
-};
-
-function AvailabilityBadge({ locale, availability }: { readonly locale: SupportedLocale; readonly availability: Availability }) {
-  const presentation = AVAILABILITY_PRESENTATION[availability.kind];
-  return (
-    <Badge variant={presentation.variant}>
-      <span aria-hidden>{presentation.icon}</span>
-      {t(locale, presentation.labelKey)}
-    </Badge>
-  );
-}
-
-/* ============================================================
- * E4 포지션 숙련도 리스트
- * ============================================================ */
-
-const POSITION_ORDER: readonly Position[] = ["GK", "CB", "LB", "RB", "DM", "CM", "AM", "LW", "RW", "ST", "SS"];
-
-function proficiencyLabelKey(proficiency: number): TranslationKey {
-  switch (proficiency) {
-    case 5:
-      return "player.position.proficiencyNatural";
-    case 4:
-      return "player.position.proficiencyAccomplished";
-    case 3:
-      return "player.position.proficiencyCompetent";
-    case 2:
-      return "player.position.proficiencyUnconvincing";
-    case 1:
-      return "player.position.proficiencyAwkward";
-    default:
-      return "player.position.proficiencyUnfamiliar";
-  }
-}
-
-function PositionProficiencyItem({
-  locale,
-  position,
-  positions,
-}: {
-  readonly locale: SupportedLocale;
-  readonly position: Position;
-  readonly positions: readonly PlayerPosition[];
-}) {
-  const found = positions.find((candidate) => candidate.position === position);
-  const proficiency = found?.proficiency ?? 0;
-
-  return (
-    <li className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2 py-1 text-sm">
-      <span>{t(locale, `enums.position.${position}`)}</span>
-      <span className="text-xs text-muted-foreground">
-        {proficiency > 0 ? proficiency : "—"} · {t(locale, proficiencyLabelKey(proficiency))}
-      </span>
-    </li>
-  );
 }
 
 /* ============================================================

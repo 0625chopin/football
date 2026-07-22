@@ -7,6 +7,9 @@
 // 015 시점에 판정한다.
 export type CompositeViewState<T> =
   | { readonly status: "loading" }
-  | { readonly status: "empty" }
+  // 53일차(5팀) — `message`는 옵션. 값이 없으면 기존처럼 소비 컴포넌트가 자기 네임스페이스의
+  // 기본 empty 키를 쓴다(하위 호환). 호출부가 같은 "데이터 없음"이라도 사유가 갈리는 경우
+  // (예: GrowthChart — 이력 0건 vs 1건뿐이라 추세를 그릴 수 없음)에만 override한다.
+  | { readonly status: "empty"; readonly message?: string }
   | { readonly status: "error"; readonly message?: string }
   | { readonly status: "ready"; readonly data: T }

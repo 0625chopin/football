@@ -160,6 +160,7 @@ export const player: PlayerMessages = {
   },
   growthChart: {
     empty: "No growth history to display.",
+    insufficientData: "Not enough growth data yet.",
     error: "Failed to load growth curve.",
     ariaLabel: "Player OVR growth curve ({min}–{max})",
     sectionTitle: "Growth curve",
@@ -168,7 +169,7 @@ export const player: PlayerMessages = {
     srOvrHeader: "OVR",
   },
   injuryTimeline: {
-    empty: "No injury records to display.",
+    empty: "No injury history",
     error: "Failed to load injury timeline.",
     roundLabel: "R{round}",
     roundRangeFormat: "R{start}–R{end}",

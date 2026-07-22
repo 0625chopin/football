@@ -195,6 +195,9 @@ export const player = {
   },
   growthChart: {
     empty: "표시할 성장 기록이 없습니다.",
+    // 53일차 — 이력이 1건뿐이면(추세를 그릴 수 없음) 위 기본 empty 대신 이 문구를
+    // `CompositeViewState` "empty".message로 override한다(와이어프레임 05 §5).
+    insufficientData: "성장 데이터가 부족합니다.",
     error: "성장 곡선을 불러오지 못했습니다.",
     // {min}/{max}는 시즌별 OVR 이력의 최솟값/최댓값(숫자)이 그대로 치환된다.
     ariaLabel: "선수 OVR 성장 곡선 ({min}~{max})",
@@ -207,7 +210,8 @@ export const player = {
     srOvrHeader: "OVR",
   },
   injuryTimeline: {
-    empty: "표시할 부상 기록이 없습니다.",
+    // 53일차 — 와이어프레임 05 §5 문구("부상 이력 없음")로 정정.
+    empty: "부상 이력 없음",
     error: "부상 타임라인을 불러오지 못했습니다.",
     // {round}는 라운드 번호(숫자)가 그대로 치환된다.
     roundLabel: "R{round}",
