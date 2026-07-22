@@ -3,6 +3,14 @@ import type { MatchMessages } from "../ko/match";
 export const match: MatchMessages = {
   list: {
     title: "Matches",
+    roundForm: {
+      sectionTitle: "League round schedule",
+      leagueLabel: "League",
+      roundLabel: "Round",
+      submitLabel: "View",
+      empty: "No matches for the selected round.",
+      error: "Failed to load the schedule.",
+    },
   },
   detail: {
     title: "Match detail",

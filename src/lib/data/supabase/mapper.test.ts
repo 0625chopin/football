@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import {
   mapAuditLogRow,
   mapAwardRow,
+  mapClubOwnerRow,
   mapCommonCodeGroupRow,
   mapCommonCodeHistoryRow,
   mapCommonCodeRow,
@@ -924,6 +925,7 @@ describe('mapPlayerSeasonStatRow', () => {
     const result = mapPlayerSeasonStatRow({
       ...statCoreRowFields,
       avg_condition: 88,
+      avg_rating: 7.3,
       competition_type: 'league',
       contribution_score: 75,
       injuries_count: 1,
@@ -944,6 +946,7 @@ describe('mapPlayerSeasonStatRow', () => {
       leagueId: 'league-1',
       contributionScore: 75,
       avgCondition: 88,
+      avgRating: 7.3,
       motmAwards: 2,
       injuriesCount: 1,
       roundsInjured: 2,
@@ -956,6 +959,7 @@ describe('mapPlayerCareerStatRow', () => {
   it('56 공유필드 + 커리어 누계 필드를 PlayerCareerStat으로 매핑한다', () => {
     const result = mapPlayerCareerStatRow({
       ...statCoreRowFields,
+      avg_rating: 6.9,
       player_id: 'player-1',
       total_awards: 3,
       total_injuries: 2,
@@ -964,6 +968,7 @@ describe('mapPlayerCareerStatRow', () => {
     expect(result).toEqual({
       ...statCoreExpectedFields,
       playerId: 'player-1',
+      avgRating: 6.9,
       totalSeasons: 5,
       totalAwards: 3,
       totalInjuries: 2,
@@ -1324,6 +1329,7 @@ describe('mapSponsorContractRow', () => {
       id: 'sc-1',
       income_per_season: 200000,
       share_pct: 10,
+      signed_by_owner_id: 'owner-1',
       sponsor_id: 'sponsor-1',
       start_season: 1,
       status: 'active',
@@ -1333,12 +1339,57 @@ describe('mapSponsorContractRow', () => {
       id: 'sc-1',
       sponsorId: 'sponsor-1',
       teamId: 'team-1',
+      signedByOwnerId: 'owner-1',
       startSeason: 1,
       endSeason: 5,
       incomePerSeason: 200000,
       sharePct: 10,
       status: 'active',
     });
+  });
+});
+
+describe('mapClubOwnerRow', () => {
+  it('DB row를 ClubOwner로 매핑한다(world_id는 드롭)', () => {
+    const result = mapClubOwnerRow({
+      age: 52,
+      id: 'owner-1',
+      name: 'Owner One',
+      nationality: 'KR',
+      negotiation: 18,
+      reputation: 70,
+      since_season: 3,
+      team_id: 'team-1',
+      wealth: 22,
+      world_id: 'world-1',
+    });
+    expect(result).toEqual({
+      id: 'owner-1',
+      teamId: 'team-1',
+      name: 'Owner One',
+      age: 52,
+      nationality: 'KR',
+      wealth: 22,
+      negotiation: 18,
+      reputation: 70,
+      sinceSeason: 3,
+    });
+  });
+
+  it('team_id가 null이면 공석으로 매핑한다(Manager 패턴 승계)', () => {
+    const result = mapClubOwnerRow({
+      age: 40,
+      id: 'owner-2',
+      name: 'Owner Two',
+      nationality: 'US',
+      negotiation: 10,
+      reputation: 50,
+      since_season: 1,
+      team_id: null,
+      wealth: 15,
+      world_id: 'world-1',
+    });
+    expect(result.teamId).toBeNull();
   });
 });
 

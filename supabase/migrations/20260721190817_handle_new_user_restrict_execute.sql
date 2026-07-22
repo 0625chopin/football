@@ -1,0 +1,11 @@
+-- 51일차 — public.handle_new_user() get_advisors(security) 경고 해소
+-- tick_run_restrict_execute.sql(41일차)과 동일 패턴: SECURITY DEFINER 트리거 함수는
+-- 기본적으로 PUBLIC(anon·authenticated 포함)에 EXECUTE가 열려 있어 PostgREST RPC로
+-- 직접 호출 가능하다는 경고가 뜬다. 이 함수는 auth.users INSERT 트리거 전용이며
+-- 트리거 발화는 이 EXECUTE 권한과 무관하게 동작하므로, 전 역할에서 회수해도
+-- 회원가입 자동 생성 흐름에는 영향이 없다.
+--
+-- 검증: 적용 후 get_advisors(security) 재조회 — handle_new_user 관련 두 경고
+-- (anon/authenticated) 모두 해소 확인. auth.users에 테스트 행 INSERT 후
+-- public.profile/public.wallet 자동 생성 + DELETE 시 CASCADE 정리까지 실측.
+REVOKE EXECUTE ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;

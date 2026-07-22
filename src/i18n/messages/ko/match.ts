@@ -68,6 +68,20 @@ import type { MatchEventType, WeatherType } from "@/types";
 export const match = {
   list: {
     title: "경기 목록",
+    // 51일차(Task 048, 4팀) — 5팀 047(`/matches` 인덱스, 61일차 예정)용 키 골격 선제 생성.
+    // 구조만 만들고 값은 5팀이 채운다. 스코프는 축소 확정(I-255) — 전역·날짜 범위 경기
+    // 조회 계약이 `DataSource`에 없어 라이브 + 다음 킥오프 + 리그×라운드 폼까지만이며,
+    // 날짜 필터·통합 타임라인 키는 만들지 않는다. 라이브 섹션은 `card.gridTitle` 등
+    // 기존 키를, 다음 킥오프 섹션은 `upcoming.*`를 재사용한다(중복 선언 금지) — 이
+    // `roundForm` 그룹은 리그×라운드 폼 전용 키만 담는다.
+    roundForm: {
+      sectionTitle: "리그별 라운드 일정",
+      leagueLabel: "리그",
+      roundLabel: "라운드",
+      submitLabel: "조회",
+      empty: "선택한 라운드에 경기가 없습니다.",
+      error: "일정을 불러오지 못했습니다.",
+    },
   },
   detail: {
     title: "경기 상세",

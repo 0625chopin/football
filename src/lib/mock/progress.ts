@@ -139,8 +139,12 @@ const FILLER_EVENT_POOL: readonly MatchEventType[] = [
 /** 득점으로 집계되는 이벤트 타입(스코어보드 fold 규칙, I-43과 동일 취지) */
 const GOAL_EVENT_TYPES: ReadonlySet<MatchEventType> = new Set(['GOAL', 'PENALTY_SCORED', 'OWN_GOAL']);
 
-/** 포지션별 공격 관여도(0=순수 수비, 1=순수 공격) — 스탯 리더보드 생성 편향에만 쓰는 표본값 */
-const POSITION_ATTACK_BIAS: Readonly<Record<Position, number>> = {
+/**
+ * 포지션별 공격 관여도(0=순수 수비, 1=순수 공격) — 스탯 리더보드 생성 편향에 쓰는 표본값.
+ * **51일차(I-229) export 추가**: `MockDataSource.getMatchPlayerRatings`가 임의 `fixtureId`
+ * 단위 평점 생성에 `generatePlayerStatCore`와 함께 그대로 재사용한다(새 편향표를 만들지 않음).
+ */
+export const POSITION_ATTACK_BIAS: Readonly<Record<Position, number>> = {
   GK: 0, CB: 0.08, LB: 0.25, RB: 0.25, DM: 0.2, CM: 0.35,
   AM: 0.65, LW: 0.75, RW: 0.75, ST: 0.9, SS: 0.85,
 };
@@ -343,7 +347,18 @@ function generateStandings(
  * 스탯 리더보드
  * ──────────────────────────────────────────────────────────────────────── */
 
-function generatePlayerStatCore(
+/**
+ * 56필드(`PlayerStatCoreValues`) 전량을 그럴듯한 시드 결정론 값으로 채우는 절차적
+ * 생성기 — Tier A/Tier B 구분 없이 전부 생성한다(이 파일의 "진행 중 스냅샷" 표본이
+ * 이벤트 로그 파생이 아니라 자체 정합만 보장하는 독립 표본이라는 파일 헤더 원칙과 동일).
+ *
+ * **51일차(I-229) export 추가**: `MockDataSource.getMatchPlayerRatings`가 임의
+ * `fixtureId`의 라인업 선수별 평점을 만들 때 이 함수로 56필드를 전부 채운 뒤, 실제
+ * `matchEventsByFixture`에서 `accumulatePlayerMatchStats`(2팀 `sim/match/stats.ts`)로
+ * 계산되는 Tier A 16필드만 그 결과로 덮어써 실제 이벤트와 어긋나지 않게 한다 — 여기서
+ * 새 생성 로직을 다시 만들지 않고 기존 산출물을 그대로 재사용한다.
+ */
+export function generatePlayerStatCore(
   state: PrngState,
   isGoalkeeper: boolean,
   appearances: number,

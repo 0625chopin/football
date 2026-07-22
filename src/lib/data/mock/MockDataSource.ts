@@ -31,14 +31,33 @@
  * - **계약(`Contract`)·부상(`Injury`)·수상(`Award`)·이적(`Transfer`)·임대(`Loan`)·통산
  *   집계(`PlayerCareerStat`)·능력치 히스토리(`PlayerAttributeHistory`)**: `economy/`
  *   (21일차)·성장·수상 파이프라인(28일차) 이후 생성기가 생긴다 → `null`/`[]`.
- * - **라인업(`MatchLineup`)·경기 선수 평점(`PlayerMatchStat`)·팀 스탯 비교
- *   (`MatchTeamStatComparison`)·날씨(`Weather`)**: ⚠️ **48일차 정정(I-229)** — 아래 각 메서드에
- *   그동안 "라인업 생성기 없음(2팀 H-14, 27일차 이후)"라고 적혀 있었으나 **사실이 아니다**.
- *   2팀이 21일차에 `src/lib/sim/lineup/select.ts`의 `selectLineup()`을 이미 완성했다. 이 파일이
- *   비워 둔 진짜 이유는 **경기별(임의의 `fixtureId`) 로스터 가용성 조회 + I-34(LIVE 중 Tier
- *   A/B 컷오프 재계산) 배선이 아직 없어서**다 — 오늘(48일차)은 `getPlayerRecentMatchStats`가
- *   필요로 하는 최근경기평점만 `progress.ts`가 선수 표본별로 직접 생성해 해소했고(별도 데이터
- *   경로), 임의 경기 단위 라인업·팀 스탯 연결은 범위 밖으로 남겨 이슈 후보로 보고한다.
+ * - **날씨(`Weather`)**: 날씨 생성기가 없다 → `null`(아래 `getMatchWeather` 참조).
+ *
+ * ## 51일차(2026-09-29) 해소 — `MatchLineup`/`PlayerMatchStat`/`MatchTeamStatComparison`(I-229)
+ * ⚠️ 위 목록에 이 셋이 "48일차 정정" 절로 남아 있었으나 **오늘 배선을 완료했다** —
+ * `deriveMatchDetail()`(아래 3. 경기 절) 참조. 요지만 남긴다(판단 근거 전문은 그 메서드
+ * 주석):
+ * - **라인업**: `selectLineup()`(2팀 21일차)을 로스터 가용성에 그대로 적용 — LIVE/FINISHED
+ *   구분 없이 항상 채운다. 포메이션은 7종 중 `4-4-2` 하나로 전 경기 고정한다(포메이션→
+ *   포지션 슬롯 매핑의 단일 소스가 `PitchLineup.tsx`(5팀) 로컬 상수뿐이라 다양화하면
+ *   슬롯 불일치 위험, 이슈 후보로 보고).
+ * - **평점 Tier A(16필드)**: `matchEventsByFixture`가 있는 경기만 실값(2팀
+ *   `accumulatePlayerMatchStats`), 없으면(FINISHED 전량 — `schedule.ts`가 이벤트를 만들지
+ *   않음) 0이 아니라 아래 Tier B와 동일하게 절차 생성값으로 채운다.
+ * - **평점 Tier B(40필드)**: `generatePlayerStatCore`(3팀 `progress.ts`, `recentMatchStats`와
+ *   동일 생성기 재사용)로 채운다. I-34가 기각한 "0 자리표시자"는 **엔진(`sim/match/stats.ts`)
+ *   이 이벤트 로그 SSOT를 스스로 어기는 것**을 금지한 것이라, 애초에 이벤트를 SSOT로
+ *   주장하지 않는 이 Mock 절차 생성값(기존 `recentMatchStats`와 동일 관례)에는 적용되지
+ *   않는다고 판단했다(3팀 판정, 팀장 보고 대상).
+ * - **`matchRating`**: `status='LIVE'`는 계약이 명시한 중립 고정값(`RATING_WEIGHT_DEFAULT.
+ *   base`), `FINISHED`는 `computeMatchRating()`(2팀 37일차)으로 실채점한다.
+ * - **팀 스탯**: `shots`/`shotsOnTarget`/`fouls`/카드류/`xg`는 위 선수별 병합 스탯의 팀
+ *   합산. `possessionAvg`/`corners`는 대응 원시 소스가 없어(전자는 원래 Tier B, 후자는
+ *   팀 단위 `CORNER` 이벤트 카운트인데 그 소스 자체가 없음) 결정론 시드로 직접 생성한다 —
+ *   플레이스홀더임을 명시(이슈 후보).
+ * - **잔여(이슈 후보)**: 이 메서드가 가용성 기준으로 다시 뽑는 라인업과, `progress.ts`가
+ *   이벤트 생성 시 독립적으로 뽑아 둔 득점자·카드 수령자가 **같은 선수 집합이라는 보장이
+ *   없다**(두 경로가 서로 다른 시점에 독립 표본). 오늘은 이 어긋남을 감수한다.
  * - **클럽 시즌 지표(`TeamSeasonStat`)·원장(`PointTransaction`)·트로피(`Trophy`)**:
  *   `economy/`(21일차) → `[]`. **스폰서 계약(`SponsorContract`)은 48일차에 해소했다**(I-231) —
  *   `world.ts`가 `economy/sponsor.ts`의 `proposeSponsorContract`로 팀당 ACTIVE ≤ 3건을 실제
@@ -85,8 +104,14 @@ import { generateMockProgress, MOCK_NOW } from '@/lib/mock/progress';
 import type { MockProgress } from '@/lib/mock/progress';
 import { generateMockWorld } from '@/lib/mock/world';
 import type { MockWorld } from '@/lib/mock/world';
-import { createState, nextIntBelow } from '@/lib/sim/rng/prng';
+import { generatePlayerStatCore, POSITION_ATTACK_BIAS } from '@/lib/mock/progress';
+import { createState, nextIntBelow, nextIntBetween } from '@/lib/sim/rng/prng';
 import { deriveMatchSeed, deriveSeasonSeed, hashKey, stateForSeed } from '@/lib/sim/rng/derive';
+import { selectLineup } from '@/lib/sim/lineup/select';
+import type { LineupCandidate, SuspensionCompetition } from '@/lib/sim/lineup/select';
+import { positionModifier } from '@/lib/sim/ability/position';
+import { accumulatePlayerMatchStats } from '@/lib/sim/match/stats';
+import { computeMatchRating, resolveRatingWeights } from '@/lib/sim/standing/rating';
 import type {
   AuditActorType,
   AuditLog,
@@ -105,6 +130,7 @@ import type {
   CronRunStatus,
   Fixture,
   FixtureId,
+  Formation,
   Injury,
   League,
   LeagueId,
@@ -125,6 +151,7 @@ import type {
   PlayerPosition,
   PlayerSeasonStat,
   PlayerState,
+  PlayerStatCoreValues,
   PointTransaction,
   Position,
   Season,
@@ -164,6 +191,12 @@ const SCHEDULE_MATCH_KEY_BASE = 1_000_000;
 const SCHEDULE_MATCH_KEY_STRIDE = 100_000;
 /** `getStandings` 임의 라운드 재계산 전용 스트림 키 베이스 — 위 스케줄 생성 키 공간과도 분리한다. */
 const STANDINGS_QUERY_STREAM_KEY_BASE = 600_000;
+/**
+ * 51일차(I-229) — `getMatchLineups`/`getMatchPlayerRatings`/`getMatchTeamStats`가 임의
+ * `fixtureId` 조회 시점에 라인업·평점·팀스탯을 재구성할 때 쓰는 쿼리 전용 스트림 키
+ * 베이스(`getStandings`와 동일 관례 — 위 스케줄 생성 키 공간과 분리).
+ */
+const MATCH_DETAIL_QUERY_STREAM_KEY_BASE = 700_000;
 
 const DEFAULT_TEAM_FIXTURES_LIMIT = 20;
 const DEFAULT_STAT_RANKING_LIMIT = 50;
@@ -212,6 +245,27 @@ function clampRound(round: number, totalRounds: number): number {
  * 헤더 "데이터가 없는 메서드" 원칙과 동일 근거). **판단해 팀장에게 회신** — 시즌 선택기
  * 자체는 1개 링크만 보이는 게 이 Mock 월드의 정직한 현재 상태다.
  */
+
+/**
+ * 51일차(I-229) — 경기 상세(D4/D5) 라인업·평점·팀스탯 생성 전용 상수.
+ *
+ * ## 왜 포메이션을 팀마다 다르게 뽑지 않고 4-4-2 고정인가(단순화 지점, 이슈 후보)
+ * `Formation`(`@/types/enums.ts`)은 "값 목록 추후 확정" 상태의 `string`이라 도메인에
+ * 포메이션→포지션 슬롯 매핑의 단일 소스가 없다 — 유일하게 존재하는 매핑표는
+ * `src/components/composite/PitchLineup.tsx`(5팀 소유)의 로컬 UI 상수 `FORMATION_LAYOUTS`
+ * 뿐이다. `selectLineup()`의 `startingSlots`는 정확히 11개 `Position`이 필요한데, 그 값이
+ * `PitchLineup`이 인식하는 7종 포메이션 코드 중 하나와 슬롯 구성이 어긋나면
+ * `orderStartersByFormation`이 일부 슬롯을 못 채워 피치 뷰가 부분적으로만 렌더된다. 오늘은
+ * 7종 중 1개(`4-4-2`, `PitchLineup`의 좌표표와 동일한 포지션 구성)만 전 경기 공통으로
+ * 고정해 이 위험을 없앤다 — 팀별/감독 성향별 포메이션 다양화는 범위 밖(이슈 후보로 보고).
+ */
+const LINEUP_FORMATION: Formation = '4-4-2';
+/** `PitchLineup.tsx`의 `FORMATION_LAYOUTS['4-4-2']` 포지션 구성과 동일(좌표는 그쪽 소유, 여기선 구성만 필요). */
+const LINEUP_STARTING_SLOTS: readonly Position[] = [
+  'GK', 'LB', 'CB', 'CB', 'RB', 'LW', 'CM', 'CM', 'RW', 'ST', 'ST',
+];
+/** 경기 길이(분) — `progress.ts`의 `generateLiveMatch`도 경과분 상한을 90으로 가정한다(동일 전제). */
+const MATCH_LENGTH_MINUTES = 90;
 
 /** 베스트11(`TEAM_OF_SEASON`/`WORLD_XI`) 슬롯 포지션 구성 — 4-3-3(GK1·CB2·LB1·RB1·DM1·CM2·LW1·ST1·RW1=11).
  * `awards` 페이지가 이 11명을 자체 `POSITION_SORT_ORDER`로 재정렬해 `PitchLineup` 슬롯에
@@ -919,22 +973,165 @@ export class MockDataSource implements DataSource {
     return this.matchEventsByFixture.get(fixtureId) ?? [];
   }
 
-  async getMatchLineups(_fixtureId: FixtureId): Promise<readonly MatchLineup[]> {
-    // 48일차 정정(I-229): selectLineup()은 2팀이 21일차에 이미 완성했다 — 없는 건 임의
-    // fixtureId별 로스터 가용성 조회 배선이다. 위 파일 헤더 "48일차 정정" 절 참조.
-    return [];
+  /**
+   * 51일차(I-229 해소) — D4(라인업 피치 뷰·선수별 평점)·D5(팀 스탯 비교바)를 한 번에
+   * 파생한다. 세 `DataSource` 메서드가 전부 같은 라인업 선정 결과를 전제하므로(평점·팀스탯
+   * 모두 "누가 뛰었는가"가 선행 조건) 한 곳에서 계산해 세 메서드에 나눠준다.
+   *
+   * 판단 근거·스코프 축소 3종(포메이션 고정/Tier B 절차 생성/possessionAvg·corners
+   * 플레이스홀더)과 잔여 이슈는 이 파일 헤더 "51일차 해소" 절 참조 — 여기서 반복하지 않는다.
+   */
+  private deriveMatchDetail(fixture: Fixture): {
+    readonly lineups: readonly MatchLineup[];
+    readonly ratings: readonly PlayerMatchStat[];
+    readonly teamStats: readonly MatchTeamStatComparison[];
+  } {
+    const suspensionCompetition: SuspensionCompetition =
+      fixture.competitionType === 'CUP' ? 'CUP' : 'LEAGUE';
+    const tierAByPlayer = accumulatePlayerMatchStats(this.matchEventsByFixture.get(fixture.id) ?? []);
+    const ratingWeights = resolveRatingWeights(loadConstants('RATING_WEIGHT'));
+
+    let cursor = stateForSeed(
+      deriveMatchSeed(this.seasonSeedValue, MATCH_DETAIL_QUERY_STREAM_KEY_BASE + hashKey(fixture.id)),
+    );
+
+    const lineups: MatchLineup[] = [];
+    const ratings: PlayerMatchStat[] = [];
+    const teamStats: MatchTeamStatComparison[] = [];
+
+    for (const teamId of [fixture.homeTeamId, fixture.awayTeamId]) {
+      const roster: LineupCandidate[] = (this.playerStatesByTeam.get(teamId) ?? []).map((state) => ({
+        playerId: state.playerId,
+        condition: state.condition,
+        fitness: state.fitness,
+        activeInjuryId: state.activeInjuryId,
+        suspensionRemainingLeague: state.suspensionRemainingLeague,
+        suspensionRemainingCup: state.suspensionRemainingCup,
+        positions: this.playerPositionsByPlayer.get(state.playerId) ?? [],
+      }));
+      const candidateByPlayerId = new Map(roster.map((c) => [c.playerId, c] as const));
+
+      const selection = selectLineup({
+        suspensionCompetition,
+        startingSlots: LINEUP_STARTING_SLOTS,
+        roster,
+      });
+      const assignments = [
+        ...selection.starters.map((a) => ({ ...a, isStarter: true })),
+        ...selection.bench.map((a) => ({ ...a, isStarter: false })),
+      ];
+
+      for (const assignment of assignments) {
+        const candidate = candidateByPlayerId.get(assignment.playerId);
+        /* v8 ignore start -- roster는 바로 위에서 candidateByPlayerId와 같은 목록으로부터
+         * 만들어지고, selectLineup()의 배정 결과는 항상 그 roster 안의 playerId만
+         * 반환하므로(select.ts 계약) 구조적으로 미스가 날 수 없다. */
+        if (candidate === undefined) continue;
+        /* v8 ignore stop */
+        lineups.push({
+          matchId: fixture.id,
+          teamId,
+          playerId: assignment.playerId,
+          formation: LINEUP_FORMATION,
+          positionSlot: assignment.position,
+          isStarter: assignment.isStarter,
+          minuteOn: null,
+          minuteOff: null,
+          positionMultiplier: positionModifier({
+            assignedPosition: assignment.position,
+            playerPositions: candidate.positions,
+          }),
+        });
+      }
+
+      let teamShots = 0;
+      let teamShotsOnTarget = 0;
+      let teamFouls = 0;
+      let teamYellowCards = 0;
+      let teamRedCards = 0;
+      let teamXg = 0;
+
+      for (const assignment of selection.starters) {
+        const isGoalkeeper = assignment.position === 'GK';
+        const attackBias = POSITION_ATTACK_BIAS[assignment.position];
+        const coreStep = generatePlayerStatCore(cursor, isGoalkeeper, 1, attackBias);
+        cursor = coreStep.state;
+        const tierA = tierAByPlayer.get(assignment.playerId);
+
+        const merged: PlayerStatCoreValues = {
+          ...coreStep.value,
+          ...tierA,
+          appearances: 1,
+          starts: 1,
+          subAppearances: 0,
+          minutesPlayed: MATCH_LENGTH_MINUTES,
+        };
+
+        const matchRating =
+          fixture.status === 'LIVE'
+            ? ratingWeights.base
+            : computeMatchRating(merged, isGoalkeeper, ratingWeights);
+
+        ratings.push({
+          ...merged,
+          matchId: fixture.id,
+          playerId: assignment.playerId,
+          teamId,
+          matchRating,
+          isMotm: false,
+        });
+
+        teamShots += merged.shots;
+        teamShotsOnTarget += merged.shotsOnTarget;
+        teamFouls += merged.foulsCommitted;
+        teamYellowCards += merged.yellowCards;
+        teamRedCards += merged.redCards;
+        teamXg += merged.xg;
+      }
+
+      const cornersStep = nextIntBetween(cursor, 2, 10);
+      cursor = cornersStep.state;
+
+      teamStats.push({
+        matchId: fixture.id,
+        teamId,
+        possessionAvg: 0,
+        shots: teamShots,
+        shotsOnTarget: teamShotsOnTarget,
+        corners: cornersStep.value,
+        fouls: teamFouls,
+        yellowCards: teamYellowCards,
+        redCards: teamRedCards,
+        xg: Math.round(teamXg * 100) / 100,
+      });
+    }
+
+    const possessionStep = nextIntBetween(cursor, 35, 65);
+    /* v8 ignore start -- 위 for문이 fixture.homeTeamId/awayTeamId 정확히 2건을 순회하므로
+     * teamStats는 항상 길이 2다(구조적으로 도달 불가능한 방어 코드, 이 파일의 다른
+     * v8 ignore 주석과 동일 관례). */
+    if (teamStats.length === 2) {
+      teamStats[0] = { ...teamStats[0], possessionAvg: possessionStep.value };
+      teamStats[1] = { ...teamStats[1], possessionAvg: 100 - possessionStep.value };
+    }
+    /* v8 ignore stop */
+
+    return { lineups, ratings, teamStats };
   }
 
-  async getMatchPlayerRatings(_fixtureId: FixtureId): Promise<readonly PlayerMatchStat[]> {
-    // 48일차 정정(I-229): 최근경기평점(`getPlayerRecentMatchStats`)은 해소했으나, 임의
-    // fixtureId 단위 평점은 I-34(LIVE Tier A/B 컷오프) 배선이 아직 없다 — 위 파일 헤더 참조.
-    return [];
+  async getMatchLineups(fixtureId: FixtureId): Promise<readonly MatchLineup[]> {
+    const fixture = this.fixturesById.get(fixtureId);
+    return fixture === undefined ? [] : this.deriveMatchDetail(fixture).lineups;
   }
 
-  async getMatchTeamStats(_fixtureId: FixtureId): Promise<readonly MatchTeamStatComparison[]> {
-    // 48일차 정정(I-229): 원천 이벤트는 있으나(`matchEventsByFixture`) 이 DTO로의 파생 집계
-    // 배선이 아직 없다 — "원천 자체가 없다"는 이전 서술은 부정확했다. 위 파일 헤더 참조.
-    return [];
+  async getMatchPlayerRatings(fixtureId: FixtureId): Promise<readonly PlayerMatchStat[]> {
+    const fixture = this.fixturesById.get(fixtureId);
+    return fixture === undefined ? [] : this.deriveMatchDetail(fixture).ratings;
+  }
+
+  async getMatchTeamStats(fixtureId: FixtureId): Promise<readonly MatchTeamStatComparison[]> {
+    const fixture = this.fixturesById.get(fixtureId);
+    return fixture === undefined ? [] : this.deriveMatchDetail(fixture).teamStats;
   }
 
   async getMatchWeather(_fixtureId: FixtureId): Promise<Weather | null> {

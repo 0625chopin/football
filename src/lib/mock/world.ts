@@ -432,6 +432,18 @@ function generateTeamsForLeague(
     const crestSeed = crestSeedStep.value as Seed;
     const emblem = generateTeamEmblem(crestSeed);
 
+    /**
+     * 51일차(I-229 인접, 팀장 재수정 요청) — "창단 시즌"은 `World.currentSeasonNumber`와
+     * 같은 축(1부터 무한 누적, `world.ts` 도메인 타입 주석)이라 0 이하가 나오면 안 된다.
+     * 이 시즌은 `currentSeasonNumber === 1`(D-15, 단일 진행 시즌)이라 `1 - offset`(원래
+     * 식)은 `offset ≥ 2`인 모든 팀에서 0 이하가 된다 — 실제로 `offset` 범위(5~90)가 전부
+     * 2 이상이라 100% 발생했다(I-checked). `Math.max(1, ...)` 하한 클램프는 이 범위에서
+     * 전 팀이 예외 없이 1로 수렴해(같은 이유로 100% 충돌) 다양성이 사라지므로 채택하지
+     * 않는다 — 대신 원래 식과 부호만 바꿔 재앵커한다(`91 - offset`): `offset`이 클수록(오래된
+     * 클럽일수록) `foundedSeason`이 작다는 원래의 상대 순서는 그대로 유지하면서 범위만
+     * [1, 86]으로 옮긴다. PRNG 호출(`nextIntBetween(cursor, 5, 90)`) 자체는 바꾸지 않는다 —
+     * 결정론 스트림에 영향 없음.
+     */
     const foundedOffsetStep = nextIntBetween(cursor, 5, 90);
     cursor = foundedOffsetStep.state;
 
@@ -457,7 +469,7 @@ function generateTeamsForLeague(
       id: idStep.value as TeamId,
       name,
       shortName,
-      foundedSeason: 1 - foundedOffsetStep.value,
+      foundedSeason: 91 - foundedOffsetStep.value,
       stadiumName: `${cityName} Stadium`,
       stadiumCapacity: capacityStep.value,
       colorPrimary: emblem.colorPrimary,
@@ -561,7 +573,15 @@ function generateClubOwnerForTeam(state: PrngState, team: Team): PrngResult<Club
   const reputationStep = nextIntBetween(cursor, 0, 100);
   cursor = reputationStep.state;
 
-  // Manager.tenureSeasons(0~10)과 동일한 "취임 경과" 관례 — currentSeasonNumber(1)에서 역산한다.
+  // Manager.tenureSeasons(0~10)과 동일한 "취임 경과" 관례.
+  /**
+   * 51일차(I-229 인접, 팀장 재수정 요청) — 원래 `1 - tenureStep.value`("currentSeasonNumber
+   * (1)에서 역산")는 `World.currentSeasonNumber`와 같은 축(1부터 무한 누적)인
+   * `sinceSeason`을 `tenureStep ≥ 1`인 전 구단주에서 0 이하로 만든다(범위가 0~9라 사실상
+   * 전부). `foundedSeason`과 동일한 이유로 하한 클램프 대신 재앵커(`10 - tenureStep`)로
+   * 부호만 바꾼다 — "재임 경과가 길수록(=`tenureStep`이 클수록) `sinceSeason`이 이르다"는
+   * 원래의 상대 순서는 유지하면서 범위만 [1, 10]으로 옮긴다.
+   */
   const tenureStep = nextIntBetween(cursor, 0, 9);
   cursor = tenureStep.state;
 
@@ -574,7 +594,7 @@ function generateClubOwnerForTeam(state: PrngState, team: Team): PrngResult<Club
     wealth: wealthStep.value,
     negotiation: negotiationStep.value,
     reputation: reputationStep.value,
-    sinceSeason: 1 - tenureStep.value,
+    sinceSeason: 10 - tenureStep.value,
   };
 
   return { state: cursor, value: owner };

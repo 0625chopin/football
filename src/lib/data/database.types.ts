@@ -6,9 +6,13 @@
  * 이 도구를 다시 실행해 덮어쓴다.
  *
  * **이 파일의 타입을 컴포넌트·화면 코드에서 직접 참조하지 않는다** — 물리 컬럼명이
- * snake_case이고 브랜드/enum이 없는 원시 `string`이라 도메인 타입(`src/types/**`,
+ * snake_case이고 브랜드/enum이 없는 원시 `string`이라 도메인 타입(`@/types`,
  * 8일차 동결)과 구조가 다르다. 소비 경계는 `src/lib/data/supabase/mapper.ts`
  * (같은 팀 소유)이며, 그 외 계층은 `@/types` 도메인 타입만 본다(DC-01).
+ *
+ * 51일차(2026-09-29) 재생성 — Task 037(+032 소급) auth_profile_wallet_provisioning
+ * 마이그레이션 반영: profile/wallet 신규 + 48일차분 avg_rating(player_season_stat/
+ * player_career_stat)·sponsor_contract.signed_by_owner_id·club_owner 반영.
  */
 
 export type Json =
@@ -128,6 +132,60 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      club_owner: {
+        Row: {
+          age: number
+          id: string
+          name: string
+          nationality: string
+          negotiation: number
+          reputation: number
+          since_season: number
+          team_id: string | null
+          wealth: number
+          world_id: string
+        }
+        Insert: {
+          age: number
+          id?: string
+          name: string
+          nationality: string
+          negotiation: number
+          reputation: number
+          since_season: number
+          team_id?: string | null
+          wealth: number
+          world_id: string
+        }
+        Update: {
+          age?: number
+          id?: string
+          name?: string
+          nationality?: string
+          negotiation?: number
+          reputation?: number
+          since_season?: number
+          team_id?: string | null
+          wealth?: number
+          world_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "club_owner_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "club_owner_world_id_fkey"
+            columns: ["world_id"]
+            isOneToOne: false
+            referencedRelation: "world"
             referencedColumns: ["id"]
           },
         ]
@@ -1257,6 +1315,7 @@ export type Database = {
           aerial_duels_won: number
           appearances: number
           assists: number
+          avg_rating: number
           big_chances_created: number
           big_chances_missed: number
           blocks: number
@@ -1319,6 +1378,7 @@ export type Database = {
           aerial_duels_won: number
           appearances: number
           assists: number
+          avg_rating: number
           big_chances_created: number
           big_chances_missed: number
           blocks: number
@@ -1381,6 +1441,7 @@ export type Database = {
           aerial_duels_won?: number
           appearances?: number
           assists?: number
+          avg_rating?: number
           big_chances_created?: number
           big_chances_missed?: number
           blocks?: number
@@ -1695,6 +1756,7 @@ export type Database = {
           appearances: number
           assists: number
           avg_condition: number
+          avg_rating: number
           big_chances_created: number
           big_chances_missed: number
           blocks: number
@@ -1764,6 +1826,7 @@ export type Database = {
           appearances: number
           assists: number
           avg_condition: number
+          avg_rating: number
           big_chances_created: number
           big_chances_missed: number
           blocks: number
@@ -1833,6 +1896,7 @@ export type Database = {
           appearances?: number
           assists?: number
           avg_condition?: number
+          avg_rating?: number
           big_chances_created?: number
           big_chances_missed?: number
           blocks?: number
@@ -2048,6 +2112,27 @@ export type Database = {
           },
         ]
       }
+      profile: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id: string
+          role?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          role?: string
+        }
+        Relationships: []
+      }
       sanction: {
         Row: {
           effects: Json
@@ -2229,6 +2314,7 @@ export type Database = {
           id: string
           income_per_season: number
           share_pct: number
+          signed_by_owner_id: string
           sponsor_id: string
           start_season: number
           status: string
@@ -2239,6 +2325,7 @@ export type Database = {
           id?: string
           income_per_season: number
           share_pct: number
+          signed_by_owner_id: string
           sponsor_id: string
           start_season: number
           status: string
@@ -2249,12 +2336,20 @@ export type Database = {
           id?: string
           income_per_season?: number
           share_pct?: number
+          signed_by_owner_id?: string
           sponsor_id?: string
           start_season?: number
           status?: string
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sponsor_contract_signed_by_owner_id_fkey"
+            columns: ["signed_by_owner_id"]
+            isOneToOne: false
+            referencedRelation: "club_owner"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sponsor_contract_sponsor_id_fkey"
             columns: ["sponsor_id"]
@@ -2869,6 +2964,35 @@ export type Database = {
           },
         ]
       }
+      wallet: {
+        Row: {
+          balance: number
+          currency: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          currency?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          currency?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       weather: {
         Row: {
           effect_modifiers: Json
@@ -3050,6 +3174,7 @@ export type Database = {
         Args: { p_added_time: number; p_match_id: string; p_minute: number }
         Returns: boolean
       }
+      tick_run: { Args: never; Returns: Json }
     }
     Enums: {
       [_ in never]: never
