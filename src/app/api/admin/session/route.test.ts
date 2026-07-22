@@ -46,6 +46,16 @@ describe("POST /api/admin/session", () => {
     expect(response.status).toBe(400);
   });
 
+  it("body가 JSON null이면 400 (58일차 — destructure 크래시로 500 되던 것 수정)", async () => {
+    const response = await POST(loginRequest(null));
+    expect(response.status).toBe(400);
+  });
+
+  it("body가 JSON 배열이면 400", async () => {
+    const response = await POST(loginRequest([]));
+    expect(response.status).toBe(400);
+  });
+
   it("Supabase 환경변수가 없으면 500", async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     const response = await POST(loginRequest({ email: "a@example.com", password: "pw" }));

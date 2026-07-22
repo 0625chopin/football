@@ -59,13 +59,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "supabase_not_configured" }, { status: 500 });
   }
 
-  let credentials: { readonly email?: unknown; readonly password?: unknown };
+  let parsed: unknown;
   try {
-    credentials = await request.json();
+    parsed = await request.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const { email, password } = credentials;
+  if (typeof parsed !== "object" || parsed === null) {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+  const { email, password } = parsed as { readonly email?: unknown; readonly password?: unknown };
   if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
     return NextResponse.json({ error: "missing_credentials" }, { status: 400 });
   }
